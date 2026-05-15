@@ -1,0 +1,261 @@
+// GEO AI Operating System — Database Schema
+//
+// Uses SQLite in dev for zero-config local boot. To switch to PostgreSQL for
+// production, change `provider = "postgresql"` and update DATABASE_URL.
+// All Json columns are written via Prisma's Json type (works on both
+// SQLite and Postgres via the JSON serialization layer).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------
+// JOBS — generic async work tracking (audits, simulations, etc.)
+// ---------------------------------------------------------------
+model Job {
+  id        String   @id @default(cuid())
+  type      String
+  status    String   @default("pending") // pending | running | completed | failed | cancelled
+  progress  Int      @default(0)
+  payload   String   // JSON-encoded
+  result    String?  // JSON-encoded
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  startedAt DateTime?
+  finishedAt DateTime?
+
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------
+// SITES — the target websites being optimized for AI visibility
+// ---------------------------------------------------------------
+model Site {
+  id          String   @id @default(cuid())
+  url         String   @unique
+  name        String?
+  ownerId     String   @default("local")
+  monitored   Boolean  @default(false)
+  /** Optional HTTPS URL for POST JSON monitoring alerts after each run */
+  webhookUrl  String?
+  createdAt   DateTime @default(now())
+
+  audits           GeoAudit[]
+  competitorReports CompetitorReport[]
+  monitoringRuns   MonitoringRun[]
+}
+
+// ---------------------------------------------------------------
+// GEO AUDITS — primary Phase 1 output
+// ---------------------------------------------------------------
+model GeoAudit {
+  id            String   @id @default(cuid())
+  siteId        String?
+  url           String
+  overallScore  Int      @default(0)
+  dimensions    String   // JSON: dimension -> {score, reasons[]}
+  narrative     String?  // LLM-generated human summary
+  topIssues     String   // JSON: Issue[]
+  topFixes      String   // JSON: Fix[]
+  screenshotUrl String?
+  /** Discovered + audited page URLs for the report UI */
+  pageInventory String   @default("[]")
+  status        String   @default("completed")
+  createdAt     DateTime @default(now())
+
+  site               Site?                   @relation(fields: [siteId], references: [id])
+  crawlResults       CrawlResult[]
+  extractionResults  ExtractionResult[]
+  optimizations      OptimizationSuggestion[]
+  monitoringRuns     MonitoringRun[]
+  chunkEmbeddings    ChunkEmbedding[]
+
+  @@index([siteId])
+  @@index([url])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------
+// CHUNK EMBEDDINGS — Phase 3 moat (vector JSON; pgvector-ready in prod)
+// ---------------------------------------------------------------
+model ChunkEmbedding {
+  id           String   @id @default(cuid())
+  auditId      String
+  chunkIndex   Int
+  textPreview  String
+  dimensions   Int      @default(256)
+  vector       String   // JSON number[] — store pgvector later via raw SQL if needed
+  model        String
+  createdAt    DateTime @default(now())
+
+  audit GeoAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([auditId])
+}
+
+// ---------------------------------------------------------------
+// CRAWL RESULTS — raw + rendered HTML per page
+// ---------------------------------------------------------------
+model CrawlResult {
+  id             String   @id @default(cuid())
+  auditId        String
+  url            String
+  statusCode     Int      @default(0)
+  html           String?
+  renderedHtml   String?
+  screenshotPath String?
+  contentType    String?
+  fetchedAt      DateTime @default(now())
+  durationMs     Int      @default(0)
+  error          String?
+
+  audit GeoAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([auditId])
+}
+
+// ---------------------------------------------------------------
+// EXTRACTION RESULTS — structured representation of a page
+// ---------------------------------------------------------------
+model ExtractionResult {
+  id        String   @id @default(cuid())
+  auditId   String
+  url       String
+  metadata  String   // JSON
+  headings  String   // JSON
+  schemas   String   // JSON (JSON-LD found)
+  faqs      String   // JSON
+  entities  String   // JSON
+  chunks    String   // JSON
+  links     String   // JSON
+  tables    String   // JSON (comparison tables)
+  authors   String   // JSON (author signals)
+  createdAt DateTime @default(now())
+
+  audit GeoAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([auditId])
+}
+
+// ---------------------------------------------------------------
+// AI SIMULATIONS — Phase 2 output
+// ---------------------------------------------------------------
+model AiSimulation {
+  id            String   @id @default(cuid())
+  prompt        String
+  platform      String   // "chatgpt" | "gemini" | "claude" | "perplexity"
+  runId         String?
+  targetBrand   String?  // optional visibility target; duplicated per row for a run
+  responseText  String
+  citations     String   // JSON: {url, brand, position}[]
+  brandMentions String   // JSON: {brand, count}[]
+  createdAt     DateTime @default(now())
+
+  @@index([runId])
+  @@index([prompt])
+}
+
+// ---------------------------------------------------------------
+// COMPETITOR REPORTS — Phase 2 cross-site diffs
+// ---------------------------------------------------------------
+model CompetitorReport {
+  id            String   @id @default(cuid())
+  siteId        String?
+  targetUrl     String
+  competitorUrl String
+  diff          String   // JSON
+  createdAt     DateTime @default(now())
+
+  site Site? @relation(fields: [siteId], references: [id])
+
+  @@index([siteId])
+  @@index([targetUrl])
+}
+
+// Full comparison payload for UI (one row per queued compare job)
+model ComparisonRun {
+  id        String   @id
+  targetUrl String
+  payload   String // JSON: CompetitorComparison
+  createdAt DateTime @default(now())
+
+  @@index([targetUrl])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------
+// OPTIMIZATION SUGGESTIONS — Phase 3 generated artifacts
+// ---------------------------------------------------------------
+model OptimizationSuggestion {
+  id               String   @id @default(cuid())
+  auditId          String
+  type             String   // "faq-schema" | "llms-txt" | "ai-summary" | "answer-first" | ...
+  targetUrl        String?
+  generatedContent String
+  rationale        String?
+  applied          Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  audit GeoAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([auditId])
+}
+
+// ---------------------------------------------------------------
+// MONITORING RUNS — Phase 4 scheduled re-audits
+// ---------------------------------------------------------------
+model MonitoringRun {
+  id        String   @id @default(cuid())
+  siteId    String
+  auditId   String?
+  diff      String?  // JSON
+  alerts    String   // JSON: Alert[]
+  runAt     DateTime @default(now())
+
+  site  Site      @relation(fields: [siteId], references: [id])
+  audit GeoAudit? @relation(fields: [auditId], references: [id])
+
+  @@index([siteId])
+  @@index([runAt])
+}
+
+// ---------------------------------------------------------------
+// API KEYS — BYOK storage
+// ---------------------------------------------------------------
+model ApiKey {
+  id           String   @id @default(cuid())
+  ownerId      String   @default("local")
+  provider     String   // "openai" | "anthropic" | "gemini"
+  encryptedKey String
+  label        String?
+  createdAt    DateTime @default(now())
+
+  @@index([ownerId])
+}
+
+// ---------------------------------------------------------------
+// AGENT PLANS — Phase 5
+// ---------------------------------------------------------------
+model AgentPlan {
+  id             String   @id @default(cuid())
+  goal           String
+  plan           String   // JSON: {steps: PlanStep[]}
+  status         String   @default("planned") // planned | running | completed | failed
+  result         String?  // JSON
+  /** User requested stop; executor checks between steps. */
+  stopRequested  Boolean  @default(false)
+  /** Latest queued `agent.run` job id (for cancel while pending). */
+  activeJobId    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+}

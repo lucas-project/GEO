@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "GEO AI OS",
+  "version": "0.1.0",
+  "description": "Analyze any webpage for AI search visibility (ChatGPT / Gemini / Claude / Perplexity citation readiness).",
+  "permissions": ["activeTab", "sidePanel", "storage"],
+  "host_permissions": ["http://localhost/*", "https://*/*"],
+  "action": {
+    "default_title": "Open GEO AI OS"
+  },
+  "side_panel": {
+    "default_path": "panel/index.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_page": "options/index.html"
+}

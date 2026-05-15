@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>GEO AI OS — Options</title>
+    <link rel="stylesheet" href="../panel/panel.css" />
+  </head>
+  <body>
+    <header>
+      <div class="logo">GEO AI OS — Options</div>
+    </header>
+    <main style="max-width:480px">
+      <div>
+        <div class="label">API URL</div>
+        <input id="api-url" type="text" placeholder="http://localhost:3000"
+               style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-muted);color:var(--fg);font-family:inherit;font-size:13px" />
+      </div>
+      <button id="save" class="primary">Save</button>
+      <div id="status" class="status hidden"></div>
+    </main>
+    <script src="options.js" type="module"></script>
+  </body>
+</html>

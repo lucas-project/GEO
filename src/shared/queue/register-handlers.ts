@@ -1,0 +1,20 @@
+/**
+ * Single entry point for registering all queue job handlers.
+ * Add one line here when introducing a new async module.
+ */
+
+import { registerGeoAuditHandlers } from '@modules/geo-audit';
+import { registerSimulationHandlers } from '@modules/ai-simulation';
+import { registerCompetitorHandlers } from '@modules/competitor-analysis';
+import { registerMonitoringHandlers } from '@modules/monitoring';
+import { registerAgentHandlers } from '@modules/geo-agent';
+import { registerCrawlHandlers } from '@modules/crawling';
+
+export function registerAllQueueHandlers(): void {
+  registerGeoAuditHandlers();
+  registerSimulationHandlers();
+  registerCompetitorHandlers();
+  registerMonitoringHandlers();
+  registerAgentHandlers();
+  registerCrawlHandlers();
+}

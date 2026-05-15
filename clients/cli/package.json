@@ -1,0 +1,20 @@
+{
+  "name": "@geo-ai-os/cli",
+  "version": "0.1.0",
+  "description": "Command-line client for the GEO AI Operating System",
+  "type": "module",
+  "bin": {
+    "geo-audit": "./bin/geo-audit.mjs",
+    "geo": "./bin/geo.mjs"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["geo", "seo", "ai-search", "llm", "generative-engine-optimization"],
+  "license": "MIT"
+}

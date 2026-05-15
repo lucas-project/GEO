@@ -1,0 +1,79 @@
+/**
+ * Use a lightweight model to merge keyword candidates — keep phrases like "split system" intact.
+ */
+
+import { z } from 'zod';
+import { ai } from '@shared/ai';
+import { resolveGeoContentModel } from './model';
+import {
+  isValidKeywordTerm,
+  pruneSubsumedKeywords,
+  trimToKeyword,
+  type GeoContentKeyword,
+} from './keywords';
+
+const RefineKeywordsSchema = z.object({
+  keywords: z.array(z.string()).min(3).max(12),
+});
+
+const REFINE_SYSTEM = `You refine SEO/GEO keyword candidates extracted from a website page.
+
+Rules:
+- Return 5–12 keywords, each 1–3 words only.
+- KEEP meaningful multi-word phrases intact (e.g. "split system", "air conditioning", "climate control").
+- DROP meaningless fragments split from a phrase (e.g. if "split system" exists, do NOT also return "split" and "system" alone).
+- DROP brand names, page titles, taglines, and generic words (home, page, contact).
+- Prefer industry/product terms a customer would search for.
+- Only return terms that fit the site's topic.`;
+
+export async function refineKeywordsWithModel(input: {
+  candidates: GeoContentKeyword[];
+  title: string;
+  description: string;
+  headings: string[];
+}): Promise<GeoContentKeyword[]> {
+  const pruned = pruneSubsumedKeywords(input.candidates);
+  if (pruned.length <= 3) return pruned;
+
+  const prompt = `Page title (context): ${input.title || '(none)'}
+Meta description: ${input.description || '(none)'}
+Headings: ${input.headings.slice(0, 10).join(' | ') || '(none)'}
+
+Candidate keywords from the page (may include bad splits — fix these):
+${pruned.map((k) => `- ${k.term}`).join('\n')}
+
+Return JSON: { "keywords": ["...", ...] }`;
+
+  try {
+    const contentModel = resolveGeoContentModel(ai.name);
+    const { data } = await ai.generateStructuredOutput({
+      schema: RefineKeywordsSchema,
+      schemaName: 'RefineKeywords',
+      system: REFINE_SYSTEM,
+      prompt,
+      temperature: 0.2,
+      ...(contentModel ? { model: contentModel } : {}),
+    });
+
+    const parsed = RefineKeywordsSchema.parse(data);
+    const sourceByTerm = new Map(pruned.map((k) => [k.term.toLowerCase(), k.source]));
+    const out: GeoContentKeyword[] = [];
+
+    for (const raw of parsed.keywords) {
+      const term = trimToKeyword(raw);
+      if (!term || !isValidKeywordTerm(term)) continue;
+      const key = term.toLowerCase();
+      if (out.some((k) => k.term.toLowerCase() === key)) continue;
+      out.push({
+        term,
+        relevance: Math.max(0.5, 1 - out.length * 0.06),
+        source: sourceByTerm.get(key) ?? 'body',
+      });
+    }
+
+    const refined = pruneSubsumedKeywords(out);
+    return refined.length >= 3 ? refined.slice(0, 12) : pruned.slice(0, 12);
+  } catch {
+    return pruned.slice(0, 12);
+  }
+}

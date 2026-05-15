@@ -1,0 +1,225 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  color-scheme: dark;
+  --bg: #0a0a0b;
+  --bg-elevated: #101012;
+  --bg-muted: #1c1c22;
+  --border: #26262e;
+  --fg: #e8e8ec;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #71717a;
+  --accent: #7c5cff;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.link {
+  color: var(--fg-muted);
+  text-decoration: none;
+  font-size: 11px;
+}
+.link:hover {
+  color: var(--fg);
+}
+
+main {
+  padding: 14px 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+  margin-bottom: 4px;
+}
+
+.url {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--fg-muted);
+  word-break: break-all;
+  background: var(--bg-muted);
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+button.primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 13px;
+  width: 100%;
+  transition: filter 0.15s;
+}
+button.primary:hover {
+  filter: brightness(1.1);
+}
+button.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.status {
+  background: var(--bg-muted);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  color: var(--fg-muted);
+}
+.status.error {
+  color: var(--danger);
+}
+.hidden {
+  display: none !important;
+}
+
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.score-gauge {
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+.score-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.caption {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+  margin-bottom: 6px;
+}
+.label-large {
+  font-size: 14px;
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.dimensions, .issues, .fixes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dim {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.dim-label {
+  flex: 1;
+  color: var(--fg);
+}
+.dim-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.dim-bar {
+  flex: 1.4;
+  height: 4px;
+  background: var(--bg-muted);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.dim-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.7s ease-out;
+}
+
+.issue, .fix {
+  padding: 8px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.issue-title, .fix-title {
+  font-weight: 500;
+  color: var(--fg);
+  margin-bottom: 2px;
+}
+.issue-desc, .fix-desc {
+  color: var(--fg-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+.badge-critical { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+.badge-high     { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+.badge-medium   { background: rgba(245, 158, 11, 0.1);  color: var(--warning); }
+.badge-low      { background: var(--bg-muted); color: var(--fg-muted); }
+
+.link-button {
+  display: block;
+  text-align: center;
+  padding: 8px;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 12px;
+}
+.link-button:hover {
+  background: var(--bg-muted);
+}
