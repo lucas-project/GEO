@@ -1,12 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ExternalLink } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { IssueCard, type IssueSeverity } from '@/components/geo/issue-card';
 import { cn } from '@/lib/utils';
-import type { Issue } from '@modules/geo-audit';
+import type { Issue } from '@modules/geo-audit/schemas';
+import { expandReason } from '@modules/geo-audit/plain-language';
+import { IssuePageEvidence } from './issue-page-evidence';
 
 interface IssueListProps {
+  auditId: string;
   issues: Issue[];
   auditUrl: string;
   dimensionLabels: Record<string, string>;
@@ -26,10 +29,17 @@ function resolveDetails(issue: Issue, auditUrl: string, sitePageUrls: string[]) 
     reasons: reasons.length > 0 ? reasons : [issue.title],
     recommendation: undefined,
     locations: undefined,
+    impactedPages: undefined,
   };
 }
 
-export function IssueList({ issues, auditUrl, dimensionLabels, sitePageUrls = [] }: IssueListProps) {
+export function IssueList({
+  auditId,
+  issues,
+  auditUrl,
+  dimensionLabels,
+  sitePageUrls = [],
+}: IssueListProps) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   if (issues.length === 0) {
@@ -42,6 +52,7 @@ export function IssueList({ issues, auditUrl, dimensionLabels, sitePageUrls = []
         const isOpen = openId === issue.id;
         const details = resolveDetails(issue, auditUrl, sitePageUrls);
         const dimensionLabel = dimensionLabels[issue.dimension] ?? issue.dimension;
+        const impactedPages = details.impactedPages ?? [];
 
         return (
           <div key={issue.id} className="rounded-lg border border-border overflow-hidden">
@@ -74,45 +85,56 @@ export function IssueList({ issues, auditUrl, dimensionLabels, sitePageUrls = []
 
             {isOpen && (
               <div className="border-t border-border bg-bg px-4 py-4 space-y-4 text-xs">
-                {issue.impact && (
-                  <p className="text-fg-muted">
-                    <span className="font-medium text-fg">Impact:</span> {issue.impact}
-                  </p>
+                {issue.summaryPlain && (
+                  <div>
+                    <h5 className="text-[12px] uppercase tracking-wider text-fg-subtle mb-2">What we found</h5>
+                    <p className="text-fg-muted leading-relaxed">{issue.summaryPlain}</p>
+                  </div>
                 )}
 
-                <div>
-                  <h5 className="text-[10px] uppercase tracking-wider text-fg-subtle mb-2">Why this matters</h5>
-                  <ul className="space-y-1.5 text-fg-muted leading-relaxed list-disc pl-4">
-                    {details.reasons.map((reason) => (
-                      <li key={reason}>{reason}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                {details.affectedUrls.length > 0 && (
+                {issue.impact && (
                   <div>
-                    <h5 className="text-[10px] uppercase tracking-wider text-fg-subtle mb-2">Affected URLs</h5>
-                    <ul className="space-y-1.5">
-                      {details.affectedUrls.map((url) => (
-                        <li key={url}>
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-start gap-1.5 text-accent hover:underline break-all"
-                          >
-                            {url}
-                            <ExternalLink className="h-3 w-3 shrink-0 mt-0.5" />
-                          </a>
-                        </li>
+                    <h5 className="text-[12px] uppercase tracking-wider text-fg-subtle mb-2">Why this matters</h5>
+                    <p className="text-fg-muted leading-relaxed">{issue.impact}</p>
+                  </div>
+                )}
+
+                {details.reasons.length > 0 && (
+                  <div>
+                    <h5 className="text-[12px] uppercase tracking-wider text-fg-subtle mb-2">
+                      {issue.summaryPlain ? 'More detail' : 'Why this matters'}
+                    </h5>
+                    <ul className="space-y-1.5 text-fg-muted leading-relaxed list-disc pl-4">
+                      {details.reasons.map((reason) => (
+                        <li key={reason}>{expandReason(reason)}</li>
                       ))}
                     </ul>
                   </div>
                 )}
 
-                {details.locations && details.locations.length > 0 && (
+                {impactedPages.length > 0 ? (
+                  <IssuePageEvidence
+                    auditId={auditId}
+                    impactedPages={impactedPages}
+                    issueFixHint={details.recommendation}
+                    issueDimension={issue.dimension}
+                  />
+                ) : (
+                  details.affectedUrls.length > 0 && (
+                    <div>
+                      <h5 className="text-[12px] uppercase tracking-wider text-fg-subtle mb-2">Affected URLs</h5>
+                      <ul className="space-y-1.5 text-fg-muted">
+                        {details.affectedUrls.map((url) => (
+                          <li key={url} className="break-all">{url}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                )}
+
+                {details.locations && details.locations.length > 0 && impactedPages.length === 0 && (
                   <div>
-                    <h5 className="text-[10px] uppercase tracking-wider text-fg-subtle mb-2">On-page locations</h5>
+                    <h5 className="text-[12px] uppercase tracking-wider text-fg-subtle mb-2">On-page locations</h5>
                     <ul className="space-y-1 text-fg-muted list-disc pl-4">
                       {details.locations.map((loc) => (
                         <li key={loc}>{loc}</li>
@@ -123,7 +145,7 @@ export function IssueList({ issues, auditUrl, dimensionLabels, sitePageUrls = []
 
                 {details.recommendation && (
                   <div className="rounded-md border border-border-subtle bg-bg-elevated p-3">
-                    <h5 className="text-[10px] uppercase tracking-wider text-fg-subtle mb-1">Recommended fix</h5>
+                    <h5 className="text-[12px] uppercase tracking-wider text-fg-subtle mb-1">What to do</h5>
                     <p className="text-fg-muted leading-relaxed">{details.recommendation}</p>
                   </div>
                 )}

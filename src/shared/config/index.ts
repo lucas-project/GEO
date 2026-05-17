@@ -56,6 +56,37 @@ export const config = {
   monitoring: {
     /** Fallback webhook if Site.webhookUrl is empty */
     defaultWebhookUrl: process.env.MONITORING_WEBHOOK_URL ?? '',
+    /** Default re-audit interval when adding a site (hours) */
+    defaultIntervalHours: int(process.env.MONITOR_INTERVAL_HOURS, 24),
+    /** Cron secret for POST /api/cron/monitor */
+    cronSecret: process.env.CRON_SECRET ?? '',
+    /** Inline scheduler interval for in-memory queue (ms); 0 = disabled */
+    inlineSchedulerMs: int(process.env.MONITOR_SCHEDULER_MS, 0),
+    /** BullMQ repeatable cron pattern for monitoring.sweep */
+    sweepCronPattern: process.env.MONITOR_SWEEP_CRON ?? '0 6 * * *',
+    overallRegressionThreshold: int(process.env.MONITOR_REGRESSION_THRESHOLD, 8),
+    improvementThreshold: int(process.env.MONITOR_IMPROVEMENT_THRESHOLD, 8),
+    dimensionDeltaThreshold: int(process.env.MONITOR_DIMENSION_DELTA_THRESHOLD, 10),
+    /** Treat monitor lock as stale after this many minutes */
+    runningLockTimeoutMinutes: int(process.env.MONITOR_LOCK_TIMEOUT_MINUTES, 45),
+    /** Hours to wait after failure before next attempt (scaled by failure count) */
+    failureBackoffBaseHours: int(process.env.MONITOR_FAILURE_BACKOFF_HOURS, 6),
+    maxFailureBackoffHours: int(process.env.MONITOR_MAX_BACKOFF_HOURS, 72),
+    /** Min change in citation visibility (0–1) to alert */
+    citationDeltaThreshold: parseFloat(process.env.MONITOR_CITATION_DELTA_THRESHOLD ?? '0.15'),
+    entityDeltaThreshold: int(process.env.MONITOR_ENTITY_DELTA_THRESHOLD, 3),
+    readabilityDeltaThreshold: int(process.env.MONITOR_READABILITY_DELTA_THRESHOLD, 12),
+    /** Pages to crawl during health-check recovery runs */
+    healthCheckMaxPages: int(process.env.MONITOR_HEALTH_CHECK_MAX_PAGES, 2),
+  },
+
+  intelligence: {
+    minCohortSamples: int(process.env.INTELLIGENCE_MIN_COHORT_SAMPLES, 20),
+    highScoreEmbeddingThreshold: int(process.env.INTELLIGENCE_EMBED_SCORE_THRESHOLD, 80),
+    citationEmbedVisibilityThreshold: parseFloat(
+      process.env.INTELLIGENCE_CITATION_EMBED_THRESHOLD ?? '0.4',
+    ),
+    readabilityHighThreshold: int(process.env.INTELLIGENCE_READABILITY_HIGH, 75),
   },
 
   ai: {

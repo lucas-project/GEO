@@ -98,6 +98,25 @@ export function resolveWebsiteUrl(stepUrl: string | undefined, goal: string): st
   return normalizeWebsiteUrl(raw);
 }
 
+/** Canonical site key for grouping audits (hostname without www, lowercased). */
+export function getSiteRootKey(url: string): string {
+  try {
+    const host = new URL(normalizeWebsiteUrl(url)).hostname;
+    return host.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    return url.trim().toLowerCase();
+  }
+}
+
+/** Human-readable host label for UI (preserves www when present in URL). */
+export function getSiteDisplayHost(url: string): string {
+  try {
+    return new URL(normalizeWebsiteUrl(url)).hostname.replace(/^www\./i, '');
+  } catch {
+    return url;
+  }
+}
+
 /** True when two URLs refer to the same site (hostname, ignoring www). */
 export function sameTargetSite(a: string, b: string): boolean {
   try {

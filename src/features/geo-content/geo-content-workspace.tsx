@@ -134,12 +134,12 @@ export function GeoContentWorkspace() {
           <Card className="p-5 space-y-4">
             <AuditHelpBlurb />
             <div className="rounded-lg border border-border-subtle bg-bg-muted/30 px-3 py-2.5 text-sm">
-              <span className="text-[10px] uppercase tracking-wider text-fg-subtle block mb-1">Site for this run</span>
+              <span className="text-[12px] uppercase tracking-wider text-fg-subtle block mb-1">Site for this run</span>
               <span className="font-mono text-fg">{targetUrl.trim() || '— set your URL in the bar above —'}</span>
             </div>
             <LatestAuditReportLink auditId={lastAuditId} />
             {!lastAuditId && targetUrl.trim() && (
-              <p className="text-[11px] text-amber-600/90 dark:text-amber-400/90 leading-relaxed">
+              <p className="text-[13px] text-amber-600/90 dark:text-amber-400/90 leading-relaxed">
                 No audit report yet for this URL. Run a{' '}
                 <Link href="/audit" className="underline font-medium">
                   GEO Audit
@@ -147,7 +147,7 @@ export function GeoContentWorkspace() {
                 first, then return here to generate content ideas.
               </p>
             )}
-            <p className="text-[11px] text-fg-subtle leading-relaxed">
+            <p className="text-[13px] text-fg-subtle leading-relaxed">
               Uses the latest completed audit for that site. Finds short keywords, then one prompt list per content
               type. Prompts only — no answers.
             </p>
@@ -198,7 +198,7 @@ export function GeoContentWorkspace() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base">Relevant keywords</CardTitle>
-                    <p className="text-[11px] text-fg-subtle mt-1">
+                    <p className="text-[13px] text-fg-subtle mt-1">
                       Short phrases from your site (max 3 words). Used together for all sections below — not split
                       into meaningless fragments.
                     </p>
@@ -212,7 +212,7 @@ export function GeoContentWorkspace() {
                           title={`Relevance ${Math.round(k.relevance * 100)}% · ${SOURCE_LABEL[k.source]}`}
                         >
                           <span className="font-medium text-fg">{k.term}</span>
-                          <span className="text-[10px] text-fg-subtle">{SOURCE_LABEL[k.source]}</span>
+                          <span className="text-[12px] text-fg-subtle">{SOURCE_LABEL[k.source]}</span>
                         </span>
                       ))}
                     </div>
@@ -226,15 +226,15 @@ export function GeoContentWorkspace() {
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div>
-                    <span className="text-fg-subtle text-[10px] uppercase tracking-wider">Inferred topic</span>
+                    <span className="text-fg-subtle text-[12px] uppercase tracking-wider">Inferred topic</span>
                     <p className="text-fg font-medium mt-0.5">{pack.inferredTopic}</p>
                   </div>
                   <div>
-                    <span className="text-fg-subtle text-[10px] uppercase tracking-wider">Audience</span>
+                    <span className="text-fg-subtle text-[12px] uppercase tracking-wider">Audience</span>
                     <p className="text-fg-muted mt-0.5">{pack.audience}</p>
                   </div>
                   <div>
-                    <span className="text-fg-subtle text-[10px] uppercase tracking-wider">Positioning</span>
+                    <span className="text-fg-subtle text-[12px] uppercase tracking-wider">Positioning</span>
                     <p className="text-fg-muted mt-0.5 leading-relaxed">{pack.positioning}</p>
                   </div>
                 </CardContent>
@@ -242,7 +242,7 @@ export function GeoContentWorkspace() {
 
               <div className="space-y-4">
                 <h2 className="text-sm font-semibold text-fg">Content prompts</h2>
-                <p className="text-[11px] text-fg-subtle -mt-2">
+                <p className="text-[13px] text-fg-subtle -mt-2">
                   One section per type — varied questions and angles across all keywords above.
                 </p>
                 {contentSections.map((section) => (
@@ -252,11 +252,11 @@ export function GeoContentWorkspace() {
                         <CardTitle className="text-sm font-medium">
                           {FORMAT_LABEL[section.format] ?? section.format}
                         </CardTitle>
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-[12px]">
                           {section.prompts.length} prompts
                         </Badge>
                       </div>
-                      <p className="text-[11px] text-fg-subtle mt-1 leading-relaxed">
+                      <p className="text-[13px] text-fg-subtle mt-1 leading-relaxed">
                         {FORMAT_PROMPT_GUIDE[section.format]}
                       </p>
                     </CardHeader>
@@ -287,7 +287,7 @@ export function GeoContentWorkspace() {
               <button
                 type="button"
                 onClick={clearHistory}
-                className="text-[10px] text-fg-subtle hover:text-danger transition-colors"
+                className="text-[12px] text-fg-subtle hover:text-danger transition-colors"
               >
                 Clear all
               </button>
@@ -317,8 +317,8 @@ export function GeoContentWorkspace() {
                       }`}
                     >
                       <p className="text-xs font-medium text-fg truncate">{entry.pack.inferredTopic}</p>
-                      <p className="text-[10px] text-fg-subtle font-mono truncate mt-0.5">{entry.url}</p>
-                      <p className="text-[10px] text-fg-subtle mt-1">
+                      <p className="text-[12px] text-fg-subtle font-mono truncate mt-0.5">{entry.url}</p>
+                      <p className="text-[12px] text-fg-subtle mt-1">
                         {formatWhen(entry.createdAt)} · {entry.keywords.length} keywords · {sectionCount} sections
                       </p>
                     </button>
@@ -330,7 +330,7 @@ export function GeoContentWorkspace() {
                         removeEntry(entry.id);
                         if (isActive) setView(null);
                       }}
-                      className="mt-0.5 ml-auto flex items-center gap-1 text-[10px] text-fg-subtle hover:text-danger px-3"
+                      className="mt-0.5 ml-auto flex items-center gap-1 text-[12px] text-fg-subtle hover:text-danger px-3"
                     >
                       <X className="w-3 h-3" />
                       Remove

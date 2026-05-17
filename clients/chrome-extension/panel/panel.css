@@ -11,7 +11,7 @@
   --fg: #e8e8ec;
   --fg-muted: #a1a1aa;
   --fg-subtle: #71717a;
-  --accent: #7c5cff;
+  --accent: #38bdf8;
   --success: #22c55e;
   --warning: #f59e0b;
   --danger: #ef4444;
@@ -20,7 +20,7 @@
 body {
   margin: 0;
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--fg);
   background: var(--bg);
 }
@@ -45,7 +45,7 @@ header {
 .link {
   color: var(--fg-muted);
   text-decoration: none;
-  font-size: 11px;
+  font-size: 12px;
 }
 .link:hover {
   color: var(--fg);
@@ -59,7 +59,7 @@ main {
 }
 
 .label {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--fg-subtle);
@@ -68,7 +68,7 @@ main {
 
 .url {
   font-family: ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg-muted);
   word-break: break-all;
   background: var(--bg-muted);
@@ -85,7 +85,7 @@ button.primary {
   border-radius: 8px;
   font-weight: 500;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   width: 100%;
   transition: filter 0.15s;
 }
@@ -101,7 +101,7 @@ button.primary:disabled {
   background: var(--bg-muted);
   border-radius: 6px;
   padding: 10px 12px;
-  font-size: 11px;
+  font-size: 12px;
   font-family: ui-monospace, monospace;
   color: var(--fg-muted);
 }
@@ -128,19 +128,19 @@ button.primary:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 600;
   color: var(--accent);
 }
 .caption {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--fg-subtle);
   margin-bottom: 6px;
 }
 .label-large {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--fg);
   font-weight: 500;
 }
@@ -155,7 +155,7 @@ button.primary:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
 }
 .dim-label {
   flex: 1;
@@ -183,7 +183,7 @@ button.primary:disabled {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 13px;
 }
 .issue-title, .fix-title {
   font-weight: 500;
@@ -192,13 +192,13 @@ button.primary:disabled {
 }
 .issue-desc, .fix-desc {
   color: var(--fg-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
 }
 
 .badge {
   display: inline-block;
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   padding: 1px 6px;
@@ -218,7 +218,7 @@ button.primary:disabled {
   border: 1px solid var(--border);
   border-radius: 6px;
   text-decoration: none;
-  font-size: 12px;
+  font-size: 13px;
 }
 .link-button:hover {
   background: var(--bg-muted);

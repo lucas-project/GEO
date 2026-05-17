@@ -8,6 +8,7 @@
 
 import { randomId } from '@shared/util/id';
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
+import { config } from '@shared/config';
 import { queueLogger } from '@shared/logger';
 import type { JobContext, JobHandler, Queue, QueueJob } from '../types';
 
@@ -17,6 +18,7 @@ export class InMemoryQueue implements Queue {
   private handlers = new Map<string, JobHandler>();
   private running = false;
   private pollTimer: NodeJS.Timeout | null = null;
+  private monitorSchedulerTimer: NodeJS.Timeout | null = null;
 
   process<TPayload, TResult>(jobType: string, handler: JobHandler<TPayload, TResult>): void {
     this.handlers.set(jobType, handler as JobHandler);
@@ -66,13 +68,27 @@ export class InMemoryQueue implements Queue {
     this.running = true;
     queueLogger.info('queue worker starting (in-memory driver)');
     this.scheduleNext();
+    this.startMonitorScheduler();
   }
 
   async stop(): Promise<void> {
     this.running = false;
     if (this.pollTimer) clearTimeout(this.pollTimer);
     this.pollTimer = null;
+    if (this.monitorSchedulerTimer) clearInterval(this.monitorSchedulerTimer);
+    this.monitorSchedulerTimer = null;
     queueLogger.info('queue worker stopped');
+  }
+
+  private startMonitorScheduler() {
+    const ms = config.monitoring.inlineSchedulerMs;
+    if (ms <= 0 || !this.handlers.has('monitoring.sweep')) return;
+    queueLogger.info({ intervalMs: ms }, 'inline monitor scheduler started');
+    this.monitorSchedulerTimer = setInterval(() => {
+      void this.enqueue('monitoring.sweep', {}).catch((err) => {
+        queueLogger.warn({ err }, 'failed to enqueue monitoring.sweep');
+      });
+    }, ms);
   }
 
   private scheduleNext() {

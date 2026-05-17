@@ -5,7 +5,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getAudit } from '@modules/geo-audit';
+import { getAudit } from '@modules/geo-audit/server';
 import { getSimulation } from '@modules/ai-simulation';
 import { getLatestCompetitorGapsForTarget } from '@modules/competitor-analysis';
 import { reportingService } from '@modules/reporting';

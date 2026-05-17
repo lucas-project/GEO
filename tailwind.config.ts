@@ -25,9 +25,9 @@ const config: Config = {
           subtle: '#71717a',
         },
         accent: {
-          DEFAULT: '#7c5cff',
-          hover: '#8b6dff',
-          subtle: '#2a1f5c',
+          DEFAULT: '#38bdf8',
+          hover: '#7dd3fc',
+          subtle: '#0f1729',
         },
         success: '#22c55e',
         warning: '#f59e0b',
@@ -36,6 +36,18 @@ const config: Config = {
       fontFamily: {
         sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+      },
+      fontSize: {
+        xs: ['0.875rem', { lineHeight: '1.25rem' }],
+        sm: ['1rem', { lineHeight: '1.5rem' }],
+        base: ['1.125rem', { lineHeight: '1.75rem' }],
+        lg: ['1.25rem', { lineHeight: '1.75rem' }],
+        xl: ['1.5rem', { lineHeight: '2rem' }],
+        '2xl': ['1.875rem', { lineHeight: '2.25rem' }],
+        '3xl': ['2.25rem', { lineHeight: '2.5rem' }],
+        '4xl': ['3rem', { lineHeight: '1.1' }],
+        '5xl': ['3.75rem', { lineHeight: '1.1' }],
+        '6xl': ['4.5rem', { lineHeight: '1' }],
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',

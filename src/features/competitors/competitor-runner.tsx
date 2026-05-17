@@ -232,7 +232,7 @@ function RecentComparisons({
               </Badge>
             ))}
           </div>
-          <div className="mt-2 text-[11px] text-fg-subtle">
+          <div className="mt-2 text-[13px] text-fg-subtle">
             {new Date(c.createdAt).toLocaleString()}
             <span className="text-accent ml-2">View results</span>
           </div>

@@ -46,7 +46,7 @@ export function CompetitorComparisonResults({ data }: { data: CompetitorComparis
               Open audit <ExternalLink className="w-3 h-3" />
             </Link>
           </div>
-          <p className="text-[11px] text-fg-muted">
+          <p className="text-[13px] text-fg-muted">
             Compared against {gaps.length} competitor{gaps.length === 1 ? '' : 's'}. Positive overall gap means you lead on combined GEO dimensions.
           </p>
         </CardContent>
@@ -125,7 +125,7 @@ export function CompetitorComparisonResults({ data }: { data: CompetitorComparis
 function DiffList({ title, items, empty }: { title: string; items: string[]; empty: string }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wider text-fg-subtle mb-1.5">{title}</div>
+      <div className="text-[12px] uppercase tracking-wider text-fg-subtle mb-1.5">{title}</div>
       {items.length === 0 ? (
         <p className="text-xs text-fg-muted">{empty}</p>
       ) : (

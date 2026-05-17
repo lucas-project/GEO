@@ -54,6 +54,35 @@ export const DimensionScoreSchema = z.object({
 });
 export type DimensionScore = z.infer<typeof DimensionScoreSchema>;
 
+export const SourceRangeSchema = z.object({
+  start: z.number().int().nonnegative(),
+  end: z.number().int().positive(),
+});
+export type SourceRange = z.infer<typeof SourceRangeSchema>;
+
+export const PageCodeHighlightSchema = z.object({
+  label: z.string(),
+  kind: z.enum(['chunk', 'html']),
+  content: z.string(),
+  /** Why this region is flagged (shown in source viewer). */
+  problem: z.string().optional(),
+  /** Concrete fix guidance for this region. */
+  fixHint: z.string().optional(),
+  /** Copy-ready sample rewrite (template or AI-refined). */
+  suggestedExample: z.string().optional(),
+  /** Byte offsets in Playwright renderedHtml for reliable highlighting. */
+  sourceRanges: z.array(SourceRangeSchema).optional(),
+});
+export type PageCodeHighlight = z.infer<typeof PageCodeHighlightSchema>;
+
+export const PageIssueImpactSchema = z.object({
+  url: z.string(),
+  pathHint: z.string().optional(),
+  pageReasons: z.array(z.string()),
+  highlights: z.array(PageCodeHighlightSchema),
+});
+export type PageIssueImpact = z.infer<typeof PageIssueImpactSchema>;
+
 export const IssueDetailsSchema = z.object({
   /** Pages or endpoints where this issue applies (audit URL, robots.txt, sitemap, crawled pages). */
   affectedUrls: z.array(z.string()),
@@ -63,16 +92,22 @@ export const IssueDetailsSchema = z.object({
   recommendation: z.string().optional(),
   /** Optional on-page locations (section headings, chunks) when URLs alone are not enough. */
   locations: z.array(z.string()).optional(),
+  /** Per-page evidence with focused snippets from Playwright / extraction. */
+  impactedPages: z.array(PageIssueImpactSchema).optional(),
 });
 export type IssueDetails = z.infer<typeof IssueDetailsSchema>;
 
 export const IssueSchema = z.object({
   id: z.string(),
+  /** Stable key for cross-audit aggregation, e.g. citationFriendliness:missing-faq-schema */
+  issueKey: z.string().optional(),
   severity: z.enum(['critical', 'high', 'medium', 'low', 'info']),
   title: z.string(),
   description: z.string(),
   dimension: z.enum(DIMENSIONS),
   impact: z.string().nullable().optional(),
+  /** Plain-language overview for the audit report (2–3 sentences). */
+  summaryPlain: z.string().optional(),
   details: IssueDetailsSchema.optional(),
 });
 export type Issue = z.infer<typeof IssueSchema>;
@@ -106,6 +141,7 @@ export type PageInventory = z.infer<typeof PageInventorySchema>;
 
 export const GeoAuditResultSchema = z.object({
   id: z.string(),
+  siteId: z.string().nullable().optional(),
   url: z.string(),
   overallScore: z.number().int().min(0).max(100),
   dimensions: z.record(z.enum(DIMENSIONS), DimensionScoreSchema),

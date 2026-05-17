@@ -3,18 +3,19 @@ node_modules/
 .pnp
 .pnp.js
 
-# next
+# next.js
 .next/
 out/
 build/
 dist/
 
-# env
+# env & secrets
 .env
 .env.local
 .env*.local
+!.env.example
 
-# prisma
+# prisma (local dev db)
 prisma/dev.db
 prisma/dev.db-journal
 prisma/migrations/dev/
@@ -32,16 +33,31 @@ next-env.d.ts
 # os
 .DS_Store
 Thumbs.db
+Desktop.ini
 
-# editor
+# editors
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# playwright
+# playwright / test artifacts
 test-results/
 playwright-report/
 playwright/.cache/
+blob-report/
 
-# runtime
+# crawl screenshots (Playwright → public/screenshots/, served at /screenshots/*)
 /screenshots/
+public/screenshots/*
+!public/screenshots/.gitkeep
+
+# temp & local runtime
 /tmp/
+.cache/
+
+# coverage
+coverage/
+
+# vercel
+.vercel

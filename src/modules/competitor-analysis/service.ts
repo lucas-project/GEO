@@ -9,7 +9,7 @@ import { randomId } from '@shared/util/id';
 import { prisma, stringifyJson, parseJson } from '@shared/database/client';
 import { logger } from '@shared/logger';
 import { normalizeWebsiteUrl } from '@/lib/website-url';
-import { runAudit } from '@modules/geo-audit';
+import { runAudit } from '@modules/geo-audit/server';
 import { type DimensionScore, DIMENSIONS } from '@modules/geo-audit';
 import type { SiteSummary, CompetitorComparison, DimensionGap } from './schemas';
 

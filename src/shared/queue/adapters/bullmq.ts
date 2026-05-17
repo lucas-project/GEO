@@ -10,6 +10,7 @@ import { Queue as BullQueue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { randomId } from '@shared/util/id';
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
+import { config } from '@shared/config';
 import { queueLogger } from '@shared/logger';
 import type { JobContext, JobHandler, Queue, QueueJob } from '../types';
 
@@ -94,8 +95,21 @@ export class BullmqQueue implements Queue {
     this.worker = new Worker(
       QUEUE_NAME,
       async (job) => {
-        const prismaJobId = (job.data as { prismaJobId: string }).prismaJobId;
-        const row = await prisma.job.findUnique({ where: { id: prismaJobId } });
+        let prismaJobId = (job.data as { prismaJobId?: string }).prismaJobId;
+        let row = prismaJobId
+          ? await prisma.job.findUnique({ where: { id: prismaJobId } })
+          : null;
+        if ((!row || row.status === 'cancelled') && job.name === 'monitoring.sweep') {
+          prismaJobId = randomId();
+          row = await prisma.job.create({
+            data: {
+              id: prismaJobId,
+              type: 'monitoring.sweep',
+              status: 'pending',
+              payload: stringifyJson({}),
+            },
+          });
+        }
         if (!row || row.status === 'cancelled') return;
         const handler = this.handlers.get(row.type);
         if (!handler) {
@@ -158,6 +172,23 @@ export class BullmqQueue implements Queue {
       { connection: this.workerConnection!, concurrency: 2 },
     );
     queueLogger.info('BullMQ worker started');
+
+    if (this.handlers.has('monitoring.sweep')) {
+      await this.bullQueue.add(
+        'monitoring.sweep',
+        { prismaJobId: 'repeat-monitor-sweep', payload: {} },
+        {
+          jobId: 'repeat-monitoring-sweep',
+          repeat: { pattern: config.monitoring.sweepCronPattern },
+          removeOnComplete: { count: 20 },
+          removeOnFail: { count: 10 },
+        },
+      );
+      queueLogger.info(
+        { pattern: config.monitoring.sweepCronPattern },
+        'BullMQ repeatable monitoring.sweep registered',
+      );
+    }
   }
 
   async stop(): Promise<void> {

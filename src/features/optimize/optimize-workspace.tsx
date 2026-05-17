@@ -89,7 +89,7 @@ export function OptimizeWorkspace() {
   return (
     <div className="space-y-6">
       <Card className="p-5 space-y-4">
-        <p className="text-[11px] text-fg-subtle leading-relaxed">
+        <p className="text-[13px] text-fg-subtle leading-relaxed">
           This does <strong className="font-medium text-fg-muted">not</strong> edit your website automatically.
           It generates files and HTML you can copy into your CMS or theme. Optional WordPress draft apply exists
           only when CMS credentials are configured.
@@ -133,7 +133,7 @@ export function OptimizeWorkspace() {
                       <div className={`text-sm font-medium ${active ? 'text-accent' : 'text-fg'}`}>
                         {t.label}
                       </div>
-                      <div className="text-[11px] text-fg-muted mt-0.5 leading-snug">{t.desc}</div>
+                      <div className="text-[13px] text-fg-muted mt-0.5 leading-snug">{t.desc}</div>
                     </div>
                   </div>
                 </button>
@@ -144,7 +144,7 @@ export function OptimizeWorkspace() {
 
         <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
           {generate.isSuccess && !generate.isPending && (
-            <span className="text-[11px] text-fg-subtle mr-auto">
+            <span className="text-[13px] text-fg-subtle mr-auto">
               Last generated: <span className="text-fg-muted">{typeLabel}</span>
             </span>
           )}
@@ -227,11 +227,11 @@ function ArtifactCard({
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="accent">{typeLabel}</Badge>
           {highlighted && (
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-[12px]">
               Just generated
             </Badge>
           )}
-          <span className="text-[11px] text-fg-subtle">
+          <span className="text-[13px] text-fg-subtle">
             {new Date(artifact.createdAt).toLocaleString()}
           </span>
         </div>
@@ -241,11 +241,11 @@ function ArtifactCard({
         </Button>
       </div>
       {artifact.rationale && (
-        <div className="px-4 py-2 text-[11px] text-fg-muted bg-bg-subtle/40 border-b border-border-subtle">
+        <div className="px-4 py-2 text-[13px] text-fg-muted bg-bg-subtle/40 border-b border-border-subtle">
           {artifact.rationale}
         </div>
       )}
-      <pre className="p-4 text-[12px] leading-relaxed font-mono text-fg whitespace-pre-wrap break-all max-h-96 overflow-y-auto">
+      <pre className="p-4 text-[13px] leading-relaxed font-mono text-fg whitespace-pre-wrap break-all max-h-96 overflow-y-auto">
         {artifact.content}
       </pre>
     </div>

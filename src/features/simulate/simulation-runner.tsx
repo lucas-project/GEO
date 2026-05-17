@@ -89,7 +89,7 @@ export function SimulationRunner() {
   return (
     <div className="space-y-6">
       <Card className="p-5">
-        <p className="text-[11px] text-fg-subtle leading-relaxed mb-4">
+        <p className="text-[13px] text-fg-subtle leading-relaxed mb-4">
           Simulates how ChatGPT, Gemini, Claude, and Perplexity might answer your prompt — which brands and
           domains they cite. Set your site in the workspace bar. For Midea / mdhome.com.au, track brand{' '}
           <strong className="font-medium text-fg-muted">Midea</strong> (mdhome is resolved automatically).
@@ -112,7 +112,7 @@ export function SimulationRunner() {
                 key={p}
                 onClick={() => setPrompt(p)}
                 disabled={isRunning}
-                className="text-[11px] px-2 py-0.5 rounded-full border border-border-subtle text-fg-muted hover:text-fg hover:border-border-strong transition-colors"
+                className="text-[13px] px-2 py-0.5 rounded-full border border-border-subtle text-fg-muted hover:text-fg hover:border-border-strong transition-colors"
               >
                 {p}
               </button>
@@ -129,7 +129,7 @@ export function SimulationRunner() {
             disabled={isRunning}
           />
           {targetUrl.trim() && (
-            <p className="text-[10px] text-fg-subtle">
+            <p className="text-[12px] text-fg-subtle">
               Workspace site: <span className="font-mono">{targetUrl.trim()}</span>
             </p>
           )}
@@ -179,7 +179,7 @@ function SimulationResultView({
 }) {
   return (
     <>
-      {runId && <p className="text-[10px] text-fg-subtle font-mono mb-1">Run {runId}</p>}
+      {runId && <p className="text-[12px] text-fg-subtle font-mono mb-1">Run {runId}</p>}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader>
@@ -236,14 +236,14 @@ function SimulationResultView({
             <Stat label="Platforms queried" value={String(result.runs.length)} />
             {result.aggregate.targetVisibility && (
               <div className="pt-3 border-t border-border-subtle">
-                <div className="text-fg-subtle uppercase tracking-wider text-[10px] mb-1">
+                <div className="text-fg-subtle uppercase tracking-wider text-[12px] mb-1">
                   Target visibility — {result.aggregate.targetVisibility.brand}
                 </div>
                 <div className="text-3xl font-semibold tabular-nums">
                   {result.aggregate.targetVisibility.visibilityScore}
                   <span className="text-base text-fg-muted">/100</span>
                 </div>
-                <div className="text-[11px] text-fg-muted mt-1">
+                <div className="text-[13px] text-fg-muted mt-1">
                   Cited on {result.aggregate.targetVisibility.mentionedOnPlatforms.length} of 4 platforms
                 </div>
               </div>
@@ -284,7 +284,7 @@ function PlatformResponseRow({ run }: { run: SimulationRunData }) {
           <p className="text-sm text-fg whitespace-pre-wrap leading-relaxed">{run.responseText}</p>
           {run.brandMentions.length > 0 && (
             <div>
-              <div className="text-[10px] uppercase tracking-wider text-fg-subtle mb-1.5">Mentions</div>
+              <div className="text-[12px] uppercase tracking-wider text-fg-subtle mb-1.5">Mentions</div>
               <div className="flex flex-wrap gap-1.5">
                 {run.brandMentions.map((m) => (
                   <Badge key={m.brand}>
@@ -304,7 +304,7 @@ function PlatformResponseRow({ run }: { run: SimulationRunData }) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-fg-subtle uppercase tracking-wider text-[10px]">{label}</span>
+      <span className="text-fg-subtle uppercase tracking-wider text-[12px]">{label}</span>
       <span className="font-medium tabular-nums">{value}</span>
     </div>
   );

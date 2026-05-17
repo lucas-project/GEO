@@ -1,12 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ExternalLink } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { ChevronDown, ExternalLink, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { api } from '@/lib/api-client';
+import { useAsyncJob } from '@/hooks/use-async-job';
+import { JobProgress, resolveJobProgressLabel } from '@/components/geo/job-progress';
 import type { PageInventory } from '@modules/geo-audit';
 
 interface AuditPagesPanelProps {
+  auditId: string;
   inventory: PageInventory;
 }
 
@@ -16,8 +22,53 @@ const SOURCE_LABELS = {
   internal: 'Internal link',
 } as const;
 
-export function AuditPagesPanel({ inventory }: AuditPagesPanelProps) {
+export function AuditPagesPanel({ auditId, inventory }: AuditPagesPanelProps) {
   const [open, setOpen] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const queryClient = useQueryClient();
+
+  const unaudited = inventory.pages.filter((p) => !p.audited);
+  const unauditedUrls = unaudited.map((p) => p.url);
+
+  const { enqueue, jobId, job, isRunning, progress } = useAsyncJob<string[], { auditId?: string }>({
+    queryKeyPrefix: 'audit-extend',
+    mutationFn: async (pageUrls) =>
+      api.post<{ jobId: string }>(`/api/geo-audit/${auditId}/extend`, { pageUrls }),
+    onCompleted: () => {
+      setSelected(new Set());
+      void queryClient.invalidateQueries({ queryKey: ['audit', auditId] });
+    },
+  });
+
+  const toggle = (url: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
+      return next;
+    });
+  };
+
+  const selectAllUnaudited = () => {
+    setSelected(new Set(unauditedUrls));
+  };
+
+  const clearSelection = () => {
+    setSelected(new Set());
+  };
+
+  const extendLabel = resolveJobProgressLabel({
+    jobId,
+    status: job?.status,
+    progress,
+    labels: {
+      pending: 'Queued…',
+      running: (pct) => (pct < 50 ? 'Crawling selected pages…' : 'Re-scoring audit…'),
+      completed: 'Done — refreshing report',
+      failed: 'Extend failed',
+      cancelled: 'Cancelled',
+    },
+  });
 
   return (
     <div className="mb-6 rounded-lg border border-border bg-bg-elevated overflow-hidden">
@@ -30,7 +81,8 @@ export function AuditPagesPanel({ inventory }: AuditPagesPanelProps) {
         <div>
           <p className="text-sm font-medium text-fg">Pages on this site</p>
           <p className="text-xs text-fg-muted mt-0.5">
-            {inventory.discoveredCount} discovered · {inventory.auditedCount} audited with Playwright
+            {inventory.discoveredCount} discovered · {inventory.auditedCount} audited with Playwright.
+            Discovered URLs appear in issues only after you audit them.
           </p>
         </div>
         <ChevronDown className={cn('h-4 w-4 text-fg-muted shrink-0 transition-transform', open && 'rotate-180')} />
@@ -41,6 +93,16 @@ export function AuditPagesPanel({ inventory }: AuditPagesPanelProps) {
           <ul className="divide-y divide-border-subtle">
             {inventory.pages.map((page) => (
               <li key={page.url} className="px-4 py-2.5 flex items-start gap-3 text-xs">
+                {!page.audited && (
+                  <input
+                    type="checkbox"
+                    className="mt-1 shrink-0"
+                    checked={selected.has(page.url)}
+                    onChange={() => toggle(page.url)}
+                    disabled={isRunning}
+                    aria-label={`Select ${page.url}`}
+                  />
+                )}
                 <div className="flex-1 min-w-0">
                   <a
                     href={page.url}
@@ -65,6 +127,55 @@ export function AuditPagesPanel({ inventory }: AuditPagesPanelProps) {
               </li>
             ))}
           </ul>
+          {unaudited.length > 0 && (
+            <div className="px-4 py-3 border-t border-border bg-bg-subtle space-y-2">
+              <p className="text-[13px] text-fg-muted">
+                Select discovered pages to crawl with Playwright and include in scoring.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isRunning || unaudited.length === 0}
+                  onClick={selectAllUnaudited}
+                >
+                  Select all ({unaudited.length})
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={isRunning || selected.size === 0}
+                  onClick={clearSelection}
+                >
+                  Clear
+                </Button>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                disabled={selected.size === 0 || isRunning}
+                onClick={() => enqueue.mutate([...selected])}
+              >
+                {isRunning ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Auditing…
+                  </>
+                ) : (
+                  `Audit selected pages (${selected.size})`
+                )}
+              </Button>
+              <JobProgress
+                jobId={jobId}
+                status={job?.status}
+                progress={progress}
+                error={job?.error}
+                label={extendLabel}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

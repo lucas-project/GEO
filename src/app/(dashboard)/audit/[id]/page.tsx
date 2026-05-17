@@ -1,10 +1,22 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
-import { getAudit, DIMENSION_LABELS, DIMENSION_DESCRIPTIONS, type Dimension } from '@modules/geo-audit';
+import {
+  DIMENSIONS,
+  DIMENSION_LABELS,
+  DIMENSION_DESCRIPTIONS,
+  plainDimensionLabel,
+  type Dimension,
+} from '@modules/geo-audit';
+import { getAudit } from '@modules/geo-audit/server';
+import { getSiteMonitorStatus } from '@modules/monitoring';
+import { MonitoredBadge } from '@/components/geo/monitored-badge';
 import { ScoreGauge } from '@/components/geo/score-gauge';
 import { IssueList } from '@/features/audit/issue-list';
 import { AuditPagesPanel } from '@/features/audit/audit-pages-panel';
+import { AuditMorePages } from '@/features/audit/audit-more-pages';
+import { BenchmarksPanel } from '@/features/intelligence/benchmarks-panel';
+import { WatchSitePrompt } from '@/features/monitor/watch-site-prompt';
 import { DimensionBar } from '@/components/geo/dimension-bar';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +32,9 @@ export default async function AuditReportPage({
   const { id } = await params;
   const audit = await getAudit(id);
   if (!audit) notFound();
+
+  const monitorStatus = audit.siteId ? await getSiteMonitorStatus(audit.siteId) : null;
+  const isMonitored = Boolean(monitorStatus?.monitored && monitorStatus?.monitorEnabled);
 
   const dimensions = audit.dimensions;
   const dimensionEntries = (Object.keys(DIMENSION_LABELS) as Dimension[]).map((dim) => ({
@@ -40,8 +55,11 @@ export default async function AuditReportPage({
 
       <div className="flex items-start justify-between gap-6 mb-8">
         <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-fg-subtle mb-1">GEO Report</div>
-          <h1 className="text-2xl font-semibold truncate">{audit.url}</h1>
+          <div className="text-[11px] uppercase tracking-wider text-fg-subtle mb-1">GEO Report</div>
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <h1 className="text-2xl font-semibold truncate">{audit.url}</h1>
+            {isMonitored && <MonitoredBadge />}
+          </div>
           <div className="mt-2 flex items-center gap-2 text-xs text-fg-muted">
             <span>{formatDate(audit.createdAt)}</span>
             <span className="text-fg-subtle/40">·</span>
@@ -64,8 +82,27 @@ export default async function AuditReportPage({
       </div>
 
       {audit.pageInventory && audit.pageInventory.pages.length > 0 && (
-        <AuditPagesPanel inventory={audit.pageInventory} />
+        <AuditPagesPanel auditId={audit.id} inventory={audit.pageInventory} />
       )}
+
+      <AuditMorePages
+        auditId={audit.id}
+        siteUrl={audit.url}
+        auditedUrls={
+          audit.pageInventory?.pages.filter((p) => p.audited).map((p) => p.url) ?? [audit.url]
+        }
+      />
+
+      {audit.siteId && (
+        <WatchSitePrompt
+          siteId={audit.siteId}
+          url={audit.url}
+          defaultPageUrls={
+            audit.pageInventory?.pages.filter((p) => p.audited).map((p) => p.url) ?? [audit.url]
+          }
+        />
+      )}
+      <BenchmarksPanel siteId={audit.siteId} />
 
       {audit.narrative && (
         <Card className="mb-6">
@@ -106,7 +143,7 @@ export default async function AuditReportPage({
                 value={`${audit.pageInventory.auditedCount} / ${audit.pageInventory.discoveredCount}`}
               />
             )}
-            <Stat label="Top issues found" value={String(audit.topIssues.length)} />
+            <Stat label="Issues found" value={String(audit.topIssues.length)} />
             <Stat label="Fixes generated" value={String(audit.topFixes.length)} />
             <Stat
               label="Strongest dimension"
@@ -126,7 +163,7 @@ export default async function AuditReportPage({
             />
             {audit.screenshotUrl && (
               <div className="pt-3 border-t border-border-subtle">
-                <div className="text-fg-subtle uppercase tracking-wider text-[10px] mb-2">Screenshot</div>
+                <div className="text-fg-subtle uppercase tracking-wider text-[11px] mb-2">Screenshot</div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={audit.screenshotUrl}
@@ -142,14 +179,19 @@ export default async function AuditReportPage({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Top issues</CardTitle>
+            <CardTitle>All issues ({audit.topIssues.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-fg-muted mb-3">Click an issue to see affected URLs, reasons, and fixes.</p>
+            <p className="text-xs text-fg-muted mb-3">
+              Click an issue for a plain-language explanation, affected pages, highlighted code, and what to do next.
+            </p>
             <IssueList
+              auditId={audit.id}
               issues={audit.topIssues}
               auditUrl={audit.url}
-              dimensionLabels={DIMENSION_LABELS}
+              dimensionLabels={Object.fromEntries(
+                DIMENSIONS.map((d) => [d, plainDimensionLabel(d)]),
+              )}
               sitePageUrls={
                 audit.pageInventory?.pages.map((p) => p.url) ??
                 []
@@ -182,7 +224,7 @@ export default async function AuditReportPage({
                     <div className="mt-2 pt-2 border-t border-border-subtle">
                       <Link
                         href={`/optimize?auditId=${audit.id}&type=${fix.artifactType}`}
-                        className="text-[11px] text-accent hover:underline"
+                        className="text-[12px] text-accent hover:underline"
                       >
                         Generate this fix →
                       </Link>
@@ -201,7 +243,7 @@ export default async function AuditReportPage({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-fg-subtle uppercase tracking-wider text-[10px]">{label}</span>
+      <span className="text-fg-subtle uppercase tracking-wider text-[11px]">{label}</span>
       <span className="text-fg font-medium">{value}</span>
     </div>
   );

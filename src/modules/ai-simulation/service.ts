@@ -61,6 +61,7 @@ export interface RunSimulationInput {
   prompt: string;
   targetBrand?: string;
   targetUrl?: string;
+  siteId?: string;
   runsPerPlatform?: number;
   /** Optional GEO audit id — top similar chunks are prepended as retrieval context */
   contextAuditId?: string;
@@ -120,6 +121,7 @@ export async function runSimulation(input: RunSimulationInput): Promise<Simulati
     await prisma.aiSimulation.create({
       data: {
         id: run.id,
+        siteId: input.siteId ?? null,
         prompt: input.prompt,
         platform: run.platform,
         runId,
@@ -151,6 +153,14 @@ export async function runSimulation(input: RunSimulationInput): Promise<Simulati
     },
     'simulation complete',
   );
+
+  if (input.siteId) {
+    const { ingestCitationSnapshot } = await import('@modules/intelligence');
+    void ingestCitationSnapshot(input.siteId).catch((err) => {
+      simLogger.warn({ err: (err as Error).message, siteId: input.siteId }, 'citation snapshot ingest skipped');
+    });
+  }
+
   return result;
 }
 

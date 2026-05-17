@@ -46,11 +46,56 @@ model Site {
   monitored   Boolean  @default(false)
   /** Optional HTTPS URL for POST JSON monitoring alerts after each run */
   webhookUrl  String?
+  /** Continuous monitoring schedule */
+  monitorEnabled         Boolean   @default(true)
+  monitorIntervalHours   Int       @default(24)
+  /** 12h | daily | weekly | adaptive — resolved to monitorIntervalHours */
+  monitorSchedulePreset  String    @default("daily")
+  /** After crawl failures: lighter health-check runs until success */
+  monitorHealthCheck     Boolean   @default(false)
+  nextRunAt              DateTime?
+  lastMonitorStatus    String?
+  lastMonitorError     String?
+  timezone             String    @default("UTC")
+  /** Cohort tagging for benchmarks */
+  vertical             String?
+  cohortTags           String?   // JSON string[]
+  /** Opt-in: run AI simulation on each monitor cycle (costly) */
+  monitorSimulation    Boolean   @default(false)
+  /** Consecutive monitor failures — drives exponential backoff */
+  monitorFailureCount  Int       @default(0)
+  /** Set while a monitor audit is in flight (duplicate-run guard) */
+  monitorLockedAt      DateTime?
+  /** JSON string[] — same-origin URLs to re-audit on each monitor run */
+  monitorPageUrls      String?
   createdAt   DateTime @default(now())
 
-  audits           GeoAudit[]
+  audits            GeoAudit[]
   competitorReports CompetitorReport[]
-  monitoringRuns   MonitoringRun[]
+  monitoringRuns    MonitoringRun[]
+  auditRollups        AuditRollup[]
+  citationSnapshots CitationSnapshot[]
+  fixOutcomes       FixOutcome[]
+  patternEmbeddings PatternEmbedding[]
+  geoContentPacks   GeoContentPack[]
+}
+
+// ---------------------------------------------------------------
+// GEO CONTENT PACKS — server-persisted content idea outputs
+// ---------------------------------------------------------------
+model GeoContentPack {
+  id        String   @id @default(cuid())
+  auditId   String
+  siteId    String?
+  url       String
+  payload   String   // JSON: GeoContentPack + keywords metadata
+  createdAt DateTime @default(now())
+
+  site Site? @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  @@index([auditId])
+  @@index([url])
+  @@index([createdAt])
 }
 
 // ---------------------------------------------------------------
@@ -150,6 +195,7 @@ model ExtractionResult {
 // ---------------------------------------------------------------
 model AiSimulation {
   id            String   @id @default(cuid())
+  siteId        String?
   prompt        String
   platform      String   // "chatgpt" | "gemini" | "claude" | "perplexity"
   runId         String?
@@ -159,6 +205,7 @@ model AiSimulation {
   brandMentions String   // JSON: {brand, count}[]
   createdAt     DateTime @default(now())
 
+  @@index([siteId])
   @@index([runId])
   @@index([prompt])
 }
@@ -258,4 +305,113 @@ model AgentPlan {
   updatedAt      DateTime @updatedAt
 
   @@index([status])
+}
+
+// ---------------------------------------------------------------
+// INTELLIGENCE — cross-audit rollups and cohort patterns
+// ---------------------------------------------------------------
+model AuditRollup {
+  id               String   @id @default(cuid())
+  siteId           String
+  auditId          String   @unique
+  overallScore     Int
+  dimensionScores  String   // JSON: Record<Dimension, number>
+  schemaTypes      String   // JSON: string[] — legacy mirror of signals
+  faqCount         Int      @default(0)
+  chunkCount       Int      @default(0)
+  answerFirstRatio Float?
+  /** Full GEO signal bundle (hierarchy, entities, tables, readability, etc.) */
+  signals          String   @default("{}")
+  vertical         String?
+  createdAt        DateTime @default(now())
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, createdAt])
+}
+
+model CitationSnapshot {
+  id                    String   @id @default(cuid())
+  siteId                String
+  auditId               String?
+  platformBreakdown     String   @default("{}")
+  citedDomains          String   @default("[]")
+  targetVisibilityScore Float    @default(0)
+  createdAt             DateTime @default(now())
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+  @@index([auditId])
+}
+
+model IssueOccurrence {
+  id        String   @id @default(cuid())
+  auditId   String
+  siteId    String?
+  issueKey  String
+  severity  String
+  dimension String
+  createdAt DateTime @default(now())
+
+  @@index([issueKey])
+  @@index([siteId])
+  @@index([auditId])
+}
+
+model PatternStat {
+  id              String   @id @default(cuid())
+  cohortKey       String
+  patternType     String
+  patternKey      String
+  sampleCount     Int
+  avgOverallScore Float
+  p50Score        Float?
+  metadata        String   @default("{}")
+  updatedAt       DateTime @updatedAt
+
+  @@unique([cohortKey, patternType, patternKey])
+  @@index([cohortKey])
+}
+
+model FixOutcome {
+  id              String    @id @default(cuid())
+  siteId          String
+  optimizationId  String?
+  issueKey        String
+  artifactType    String
+  scoreBefore     Int
+  scoreAfter      Int?
+  dimensionBefore String
+  dimensionAfter  String?
+  appliedAt       DateTime  @default(now())
+  verifiedAt      DateTime?
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+  @@index([optimizationId])
+}
+
+/** High-scoring chunk patterns for cohort RAG */
+model PatternEmbedding {
+  id            String   @id @default(cuid())
+  siteId        String?
+  cohortKey     String
+  auditId       String
+  chunkIndex    Int
+  textPreview   String
+  overallScore  Int
+  dimensions    Int      @default(256)
+  vector        String
+  model         String
+  signalTags    String   @default("[]")
+  dimensionHint String?
+  industry      String?
+  createdAt     DateTime @default(now())
+
+  site Site? @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  @@index([cohortKey])
+  @@index([auditId])
 }

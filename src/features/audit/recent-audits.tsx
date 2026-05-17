@@ -1,28 +1,46 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScoreGauge } from '@/components/geo/score-gauge';
-import { formatDate, truncate } from '@/lib/utils';
+import { MonitoredBadge } from '@/components/geo/monitored-badge';
+import { formatDate } from '@/lib/utils';
+import type { SiteAuditGroup } from '@modules/geo-audit';
 
-interface AuditRow {
-  id: string;
-  url: string;
-  overallScore: number;
-  status: string;
-  createdAt: string;
+const SITES_PER_PAGE = 10;
+
+interface SiteGroupsResponse {
+  groups: SiteAuditGroup[];
+  page: number;
+  pageSize: number;
+  totalSites: number;
+  totalPages: number;
+  hasMore: boolean;
 }
 
 export function RecentAudits() {
-  const { data, isLoading } = useQuery<{ audits: AuditRow[] }>({
-    queryKey: ['recent-audits'],
-    queryFn: () => api.get('/api/geo-audit'),
+  const [page, setPage] = useState(0);
+
+  const { data, isLoading } = useQuery<SiteGroupsResponse>({
+    queryKey: ['recent-audits', 'grouped', page],
+    queryFn: () =>
+      api.get(`/api/geo-audit?grouped=1&page=${page}&pageSize=${SITES_PER_PAGE}`),
     refetchInterval: 5000,
   });
+
+  const siteGroups = data?.groups ?? [];
+  const totalSites = data?.totalSites ?? 0;
+  const totalPages = data?.totalPages ?? 0;
+  const hasMore = data?.hasMore ?? false;
+  const canGoPrev = page > 0;
+  const rangeStart = totalSites === 0 ? 0 : page * SITES_PER_PAGE + 1;
+  const rangeEnd = Math.min((page + 1) * SITES_PER_PAGE, totalSites);
 
   if (isLoading) {
     return (
@@ -34,8 +52,7 @@ export function RecentAudits() {
     );
   }
 
-  const audits = data?.audits ?? [];
-  if (audits.length === 0) {
+  if (siteGroups.length === 0 && page === 0) {
     return (
       <Card className="p-6">
         <p className="text-sm text-fg-muted text-center">No audits yet. Run your first audit above.</p>
@@ -44,25 +61,82 @@ export function RecentAudits() {
   }
 
   return (
-    <div className="grid gap-2">
-      {audits.map((a) => (
-        <Link key={a.id} href={`/audit/${a.id}`}>
-          <Card className="p-4 hover:border-accent/40 hover:bg-bg-subtle transition-colors cursor-pointer">
-            <div className="flex items-center gap-4">
-              <ScoreGauge score={a.overallScore} size="sm" />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-fg truncate">{truncate(a.url, 80)}</div>
-                <div className="text-xs text-fg-subtle mt-0.5 flex items-center gap-2">
-                  <span className="capitalize">{a.status}</span>
-                  <span className="text-fg-subtle/40">·</span>
-                  <span>{formatDate(a.createdAt)}</span>
-                </div>
+    <div className="space-y-4">
+      <div className="grid gap-2">
+        {siteGroups.map((group) => {
+          const { latest } = group;
+          return (
+            <Card
+              key={group.siteKey}
+              className="p-4 hover:border-accent/40 hover:bg-bg-subtle transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <Link
+                  href={`/audit/${latest.id}`}
+                  className="flex flex-1 items-center gap-4 min-w-0"
+                >
+                  <ScoreGauge score={latest.overallScore} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-fg truncate block">
+                      {group.displayHost}
+                    </span>
+                    <div className="text-xs text-fg-subtle mt-0.5 flex items-center gap-2 flex-wrap">
+                      <span>
+                        {group.auditCount} audit{group.auditCount === 1 ? '' : 's'}
+                      </span>
+                      <span className="text-fg-subtle/40">·</span>
+                      <span className="capitalize">{latest.status}</span>
+                      <span className="text-fg-subtle/40">·</span>
+                      <span>Latest {formatDate(latest.createdAt)}</span>
+                    </div>
+                  </div>
+                </Link>
+                {group.monitored && <MonitoredBadge href="/monitor" />}
+                <Link
+                  href={`/audit/${latest.id}`}
+                  className="shrink-0 text-fg-subtle hover:text-fg transition-colors"
+                  aria-label={`View latest audit for ${group.displayHost}`}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
               </div>
-              <ChevronRight className="w-4 h-4 text-fg-subtle" />
-            </div>
-          </Card>
-        </Link>
-      ))}
+            </Card>
+          );
+        })}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <p className="text-xs text-fg-subtle">
+            Showing {rangeStart}–{rangeEnd} of {totalSites} sites
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!canGoPrev}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
+            </Button>
+            <span className="text-xs text-fg-muted tabular-nums px-1">
+              Page {page + 1} of {totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!hasMore}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

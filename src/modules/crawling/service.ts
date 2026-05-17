@@ -12,6 +12,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
+import { canonicalPageUrl } from '@/lib/website-url';
 import { config } from '@shared/config';
 import { crawlLogger } from '@shared/logger';
 import { telemetry } from '@shared/telemetry';
@@ -41,7 +42,7 @@ async function saveScreenshot(auditId: string, url: string, bytes: Buffer): Prom
   return `/screenshots/${fileName}`;
 }
 
-async function crawlSinglePage(
+export async function crawlSinglePage(
   url: string,
   opts: { timeoutMs: number; screenshot: boolean; auditId: string },
 ): Promise<CrawledPage> {
@@ -93,6 +94,8 @@ async function crawlSinglePage(
 
 export interface CrawlServiceOptions extends Partial<CrawlOptions> {
   auditId: string;
+  /** When set, crawl only these URLs (root always included), skipping auto queue. */
+  pageUrls?: string[];
   onProgress?: (progress: number, message: string) => void;
 }
 
@@ -150,12 +153,27 @@ export async function crawl(opts: CrawlServiceOptions): Promise<CrawlResult> {
         ? discoverInternalLinks(rootPage.renderedHtml, parsed.url, 40)
         : [];
 
-    const additional = buildCrawlQueue(
-      parsed.url,
-      sitemap.map((e) => e.loc),
-      internalLinks,
-      parsed.maxPages,
-    );
+    const rootNorm = canonicalPageUrl(rootPage.finalUrl || parsed.url, parsed.url);
+    let additional: string[];
+
+    if (opts.pageUrls?.length) {
+      const seen = new Set<string>([rootNorm]);
+      additional = [];
+      for (const raw of opts.pageUrls) {
+        if (additional.length >= parsed.maxPages - 1) break;
+        const norm = canonicalPageUrl(raw, parsed.url);
+        if (seen.has(norm)) continue;
+        seen.add(norm);
+        additional.push(norm);
+      }
+    } else {
+      additional = buildCrawlQueue(
+        parsed.url,
+        sitemap.map((e) => e.loc),
+        internalLinks,
+        parsed.maxPages,
+      );
+    }
 
     let i = 0;
     for (const url of additional) {

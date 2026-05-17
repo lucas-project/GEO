@@ -28,7 +28,7 @@ export function DimensionBar({ name, score, description }: DimensionBarProps) {
           style={{ width: `${clamped}%` }}
         />
       </div>
-      {description && <p className="text-[11px] text-fg-subtle leading-snug">{description}</p>}
+      {description && <p className="text-[13px] text-fg-subtle leading-snug">{description}</p>}
     </div>
   );
 }

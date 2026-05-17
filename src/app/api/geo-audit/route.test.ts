@@ -6,8 +6,9 @@ vi.mock('@shared/queue', () => ({
   },
 }));
 
-vi.mock('@modules/geo-audit', () => ({
+vi.mock('@modules/geo-audit/server', () => ({
   listRecentAudits: vi.fn().mockResolvedValue([]),
+  listRecentAuditSiteGroups: vi.fn().mockResolvedValue({ groups: [], totalSites: 0 }),
 }));
 
 describe('POST /api/geo-audit', () => {

@@ -3,7 +3,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getAudit } from '@modules/geo-audit';
+import { getAudit } from '@modules/geo-audit/server';
 import { findSimilarChunks } from '@modules/embeddings';
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {

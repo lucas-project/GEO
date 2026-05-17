@@ -56,7 +56,7 @@ export function ScoreGauge({ score, size = 'md', label, className }: ScoreGaugeP
         <span className={cn('font-semibold tabular-nums', font)} style={{ color }}>
           {clamped}
         </span>
-        {label && <span className="text-[10px] uppercase tracking-wider text-fg-subtle mt-0.5">{label}</span>}
+        {label && <span className="text-[12px] uppercase tracking-wider text-fg-subtle mt-0.5">{label}</span>}
       </div>
     </div>
   );

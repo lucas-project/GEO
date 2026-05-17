@@ -9,11 +9,12 @@
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
 import { canonicalSiteUrlFromGoal, normalizeWebsiteUrl } from '@/lib/website-url';
 import { logger } from '@shared/logger';
-import { runAudit } from '@modules/geo-audit';
+import { runAudit } from '@modules/geo-audit/server';
 import { runSimulation } from '@modules/ai-simulation';
 import { runComparison } from '@modules/competitor-analysis';
 import { generateArtifact } from '@modules/optimization';
 import { addMonitoredSite } from '@modules/monitoring';
+import { queue } from '@shared/queue';
 import type { Plan, StepResult } from './schemas';
 
 const execLogger = logger.child({ module: 'geo-agent/executor' });
@@ -117,8 +118,9 @@ export async function executePlan(plan: Plan, ctx: ExecutorContext): Promise<Ste
         case 'monitor-add': {
           const url =
             canonicalSiteUrlFromGoal(goal, step.url) ?? normalizeWebsiteUrl(step.url);
-          const r = await addMonitoredSite(url);
-          output = { siteId: r.siteId };
+          const r = await addMonitoredSite(url, { monitorIntervalHours: 24 });
+          const jobId = await queue.enqueue('monitoring.run', { siteId: r.siteId });
+          output = { siteId: r.siteId, monitoringJobId: jobId };
           break;
         }
       }

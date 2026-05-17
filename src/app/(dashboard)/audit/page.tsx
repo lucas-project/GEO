@@ -17,7 +17,10 @@ export default function AuditPage() {
       <AuditEntry />
 
       <div className="mt-12">
-        <h2 className="text-lg font-semibold mb-4">Recent audits</h2>
+        <h2 className="text-lg font-semibold mb-1">Recent audits</h2>
+        <p className="text-sm text-fg-muted mb-4">
+          Grouped by site (10 per page). Use Next to see more audited sites.
+        </p>
         <RecentAudits />
       </div>
     </div>

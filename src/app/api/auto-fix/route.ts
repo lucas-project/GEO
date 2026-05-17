@@ -5,7 +5,13 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { ARTIFACT_TYPES, generateArtifact, listArtifactsForAudit, applyArtifactToWordpress } from '@modules/optimization';
+import {
+  ARTIFACT_TYPES,
+  generateArtifact,
+  listArtifactsForAudit,
+  applyArtifactToWordpress,
+  markOptimizationApplied,
+} from '@modules/optimization';
 import { parseJsonBody, parseZod } from '@/lib/api-route';
 
 const RequestSchema = z.object({
@@ -31,6 +37,21 @@ export async function POST(req: Request) {
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
+}
+
+const MarkAppliedSchema = z.object({
+  optimizationId: z.string().min(1),
+});
+
+export async function PATCH(req: Request) {
+  const bodyResult = await parseJsonBody(req);
+  if (!bodyResult.ok) return bodyResult.response;
+
+  const parsed = parseZod(MarkAppliedSchema, bodyResult.body);
+  if (!parsed.ok) return parsed.response;
+
+  await markOptimizationApplied(parsed.data.optimizationId);
+  return NextResponse.json({ applied: true });
 }
 
 export async function GET(req: Request) {

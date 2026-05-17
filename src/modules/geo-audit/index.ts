@@ -1,9 +1,11 @@
 /**
- * GEO Audit module — public surface.
+ * GEO Audit module — client-safe public surface (types, scoring copy, grouping).
+ * Server pipeline: `@modules/geo-audit/server`.
  */
 
-export { geoAuditService, runAudit, getAudit, listRecentAudits } from './service';
-export { registerGeoAuditHandlers } from './handlers';
+export { groupAuditsBySite } from './group-by-site';
+export type { AuditListRow, SiteAuditGroup } from './group-by-site';
+export { discoverAuditPages } from './discover-pages';
 export {
   DIMENSIONS,
   DIMENSION_LABELS,
@@ -18,4 +20,14 @@ export type {
   Fix,
   PageInventory,
   AuditPageEntry,
+  PageIssueImpact,
+  PageCodeHighlight,
+  SourceRange,
 } from './schemas';
+export {
+  plainDimensionLabel,
+  plainImpact,
+  plainIssueSummary,
+  expandReason,
+  isNegativeReason,
+} from './plain-language';

@@ -69,7 +69,7 @@ export function JobProgress({
           {label}
         </span>
         {status === 'running' && (
-          <span className="text-[10px] text-fg-subtle tabular-nums">{progress}%</span>
+          <span className="text-[12px] text-fg-subtle tabular-nums">{progress}%</span>
         )}
       </div>
       {status === 'running' && (

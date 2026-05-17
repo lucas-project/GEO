@@ -7,7 +7,7 @@ export default function AgentPage() {
   return (
     <div className="max-w-5xl mx-auto px-8 py-10">
       <div className="mb-8 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-accent to-purple-600 flex items-center justify-center shadow-[0_0_30px_-8px_rgba(124,92,255,0.6)]">
+        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-accent to-sky-500 flex items-center justify-center shadow-[0_0_30px_-8px_rgba(56,189,248,0.6)]">
           <Bot className="w-5 h-5 text-white" />
         </div>
         <div>

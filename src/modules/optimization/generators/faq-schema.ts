@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { ai } from '@shared/ai';
 import { logger } from '@shared/logger';
 import type { FaqEntry } from '@modules/extraction';
+import { getIntelligenceContext } from '@modules/intelligence';
 import { FAQ_GENERATION_SYSTEM, buildFaqGenerationPrompt } from '../prompts';
 
 const optLogger = logger.child({ module: 'optimization' });
@@ -22,6 +23,7 @@ export async function generateFaqSchema(input: {
   url: string;
   bodyText: string;
   existingFaqs: FaqEntry[];
+  siteId?: string | null;
 }): Promise<{ jsonLd: string; entries: Array<{ question: string; answer: string }>; rationale: string }> {
   const additional = await generateAdditionalFaqs(input);
 
@@ -56,13 +58,19 @@ export async function generateFaqSchema(input: {
 async function generateAdditionalFaqs(input: {
   title: string;
   bodyText: string;
+  siteId?: string | null;
 }): Promise<Array<{ question: string; answer: string }>> {
   try {
+    const cohortHint = input.siteId ? await getIntelligenceContext(input.siteId) : '';
+    const prompt = buildFaqGenerationPrompt(input);
+    const enriched = cohortHint
+      ? `${prompt}\n\nHigh-performing patterns from similar sites:\n${cohortHint}`
+      : prompt;
     const { data } = await ai.generateStructuredOutput({
       schema: FaqResponseSchema,
       schemaName: 'FaqGeneration',
       system: FAQ_GENERATION_SYSTEM,
-      prompt: buildFaqGenerationPrompt(input),
+      prompt: enriched,
     });
     return data.faqs.slice(0, 8);
   } catch (err) {

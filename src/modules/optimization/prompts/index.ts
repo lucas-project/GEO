@@ -25,6 +25,15 @@ Constraints:
 
 Return JSON: { "rewritten": "...", "rationale": "..." }.`;
 
+export const READABILITY_SHORTEN_SYSTEM = `You shorten web copy so AI tools can quote it easily.
+Constraints:
+- First sentence: aim for ~12–18 words (shorter than the original when possible).
+- One clear idea per sentence; remove filler and redundant phrases.
+- Keep every fact from the original (product, location, use case).
+- Do NOT add new claims or lengthen the sentence.
+
+Return JSON: { "rewritten": "...", "rationale": "..." }.`;
+
 export const FAQ_GENERATION_SYSTEM = `You expand a page's content into additional FAQ entries that an AI assistant might receive as questions.
 Constraints:
 - Generate 4-8 new Q&A pairs grounded in the supplied content. Do not invent facts not present.
@@ -44,15 +53,58 @@ ${input.bodyText.slice(0, 3000)}
 Write the AI summary block.`;
 }
 
-export function buildAnswerFirstPrompt(input: { title: string; firstChunk: string }): string {
-  return `Page title: ${input.title}
+export function buildAnswerFirstPrompt(input: {
+  title: string;
+  firstChunk: string;
+  problem?: string;
+  fixHint?: string;
+  variantIndex?: number;
+}): string {
+  const issueBlock =
+    input.problem || input.fixHint
+      ? `\nDetected issue:\n${input.problem ? `- Problem: ${input.problem}\n` : ''}${input.fixHint ? `- Fix guidance: ${input.fixHint}\n` : ''}`
+      : '';
 
-Original first paragraph:
+  const variantBlock =
+    input.variantIndex && input.variantIndex > 0
+      ? `\nProvide variation #${input.variantIndex + 1}: use clearly different wording from prior attempts while keeping the same facts.\n`
+      : '';
+
+  return `Section or page title: ${input.title}
+
+Original text to rewrite:
 """
 ${input.firstChunk}
 """
+${issueBlock}${variantBlock}
+Rewrite it in answer-first form. Address the detected issue. Keep facts from the original; only change structure and opening wording.`;
+}
 
-Rewrite it in answer-first form.`;
+export function buildReadabilityShortenPrompt(input: {
+  title: string;
+  firstChunk: string;
+  problem?: string;
+  fixHint?: string;
+  variantIndex?: number;
+}): string {
+  const issueBlock =
+    input.problem || input.fixHint
+      ? `\nDetected issue:\n${input.problem ? `- Problem: ${input.problem}\n` : ''}${input.fixHint ? `- Fix guidance: ${input.fixHint}\n` : ''}`
+      : '';
+
+  const variantBlock =
+    input.variantIndex && input.variantIndex > 0
+      ? `\nProvide variation #${input.variantIndex + 1}: another shorter wording, same facts.\n`
+      : '';
+
+  return `Section or page title: ${input.title}
+
+Original text to shorten:
+"""
+${input.firstChunk}
+"""
+${issueBlock}${variantBlock}
+Rewrite with a shorter first sentence. Keep all facts; do not make it longer.`;
 }
 
 export function buildFaqGenerationPrompt(input: { title: string; bodyText: string }): string {

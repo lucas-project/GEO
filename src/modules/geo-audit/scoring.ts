@@ -9,6 +9,7 @@
  */
 
 import { canonicalPageUrl } from '@/lib/website-url';
+import { buildIssueKey } from '@modules/intelligence';
 import type { CrawlResult, CrawledPage, RobotsInfo } from '@modules/crawling';
 import type { PageExtraction, SchemaBlock } from '@modules/extraction';
 import {
@@ -19,6 +20,21 @@ import {
   type Issue,
   type Fix,
 } from './schemas';
+import { buildImpactedPages, pathHint } from './issue-evidence';
+import {
+  isNegativeReason,
+  plainImpact,
+  plainIssueSummary,
+  plainDimensionRecommendation,
+  plainIssueRecommendation,
+  expandReason,
+} from './plain-language';
+import {
+  canonicalCategoryForReason,
+  canonicalIssueId,
+  normalizeReasonText,
+  type CanonicalIssueCategory,
+} from './issue-categories';
 
 const DIMENSION_WEIGHTS: Record<Dimension, number> = {
   aiReadability: 1.2,
@@ -429,15 +445,6 @@ const PAGE_DIMENSION_SCORERS: Record<PageDimension, (ctx: ScoringContext) => Dim
   structuredContent: scoreStructuredContent,
 };
 
-function pathHint(url: string): string {
-  try {
-    const p = new URL(url).pathname;
-    return p === '/' ? 'homepage' : p;
-  } catch {
-    return url;
-  }
-}
-
 function aggregateDimensionScores(
   rootUrl: string,
   perPage: Array<{ url: string; score: DimensionScore }>,
@@ -554,28 +561,11 @@ function llmsTxtUrl(site: string): string | null {
   }
 }
 
-const DIMENSION_RECOMMENDATIONS: Partial<Record<Dimension, string>> = {
-  aiReadability:
-    'Shorten sentences, ensure critical content is in server-rendered HTML, and set the html lang attribute.',
-  citationFriendliness:
-    'Add FAQ blocks and FAQPage JSON-LD, include author/byline signals, and surface numeric facts in prose.',
-  semanticClarity:
-    'Use exactly one H1, organize sections with H2/H3 headings, and write a descriptive title tag.',
-  entityClarity:
-    'Name organizations and products clearly in copy and reinforce them with Organization/Product JSON-LD.',
-  answerExtraction:
-    'Rewrite section openings as answer-first sentences and add explicit Q&A content.',
-  chunkOptimization:
-    'Split long sections into 60–250 word chunks with headings; use bullet lists where appropriate.',
-  summarizationQuality:
-    'Add a strong meta description, OpenGraph tags, and a summary-style lead paragraph.',
-  trustSignals:
-    'Add visible author attribution, Organization schema, and credible external citations.',
-  structuredContent:
-    'Publish JSON-LD for FAQPage, Product/Organization, Article, and BreadcrumbList where relevant.',
-  crawlerFriendliness:
-    'Allow AI crawlers in robots.txt, declare sitemaps, reduce JS-only content, and publish /llms.txt.',
-};
+const DIMENSION_RECOMMENDATIONS: Partial<Record<Dimension, string>> = Object.fromEntries(
+  (['aiReadability', 'citationFriendliness', 'semanticClarity', 'entityClarity', 'answerExtraction', 'chunkOptimization', 'summarizationQuality', 'trustSignals', 'structuredContent', 'crawlerFriendliness'] as Dimension[]).map(
+    (dim) => [dim, plainDimensionRecommendation(dim)],
+  ),
+) as Partial<Record<Dimension, string>>;
 
 /** Returns only the pages that actually fail this dimension's checks. */
 function affectedPagesForDimension(dim: Dimension, ctx: ScoringContext): string[] {
@@ -646,12 +636,21 @@ function affectedPagesForDimension(dim: Dimension, ctx: ScoringContext): string[
   return [...affected];
 }
 
-function buildIssueDetails(dim: Dimension, ds: DimensionScore, ctx: ScoringContext): Issue['details'] {
+function buildIssueDetails(
+  dim: Dimension,
+  ds: DimensionScore,
+  ctx: ScoringContext,
+  focusReason?: string,
+  canonicalId?: string,
+): Issue['details'] {
   const site = canonicalPageUrl(pageUrl(ctx), ctx.url);
   const urls = new Set<string>([site]);
   const locations: string[] = [];
 
   for (const u of affectedPagesForDimension(dim, ctx)) urls.add(u);
+
+  const impactedPages = buildImpactedPages(dim, ctx);
+  for (const p of impactedPages) urls.add(p.url);
 
   switch (dim) {
     case 'crawlerFriendliness': {
@@ -662,40 +661,32 @@ function buildIssueDetails(dim: Dimension, ds: DimensionScore, ctx: ScoringConte
       if (llms) urls.add(llms);
       break;
     }
-    case 'answerExtraction': {
-      const pages = ctx.pageExtractions ?? [{ page: ctx.rootPage, extraction: ctx.extraction }];
-      for (const { page, extraction } of pages) {
-        const bad = extraction.chunks.filter((c) => !c.hasAnswerFirstSentence);
-        if (bad.length === 0) continue;
-        const hint = pathHint(page.finalUrl || page.url);
-        for (const c of bad.slice(0, 4)) {
-          locations.push(`${hint}: ${c.heading?.trim() || `Chunk (${c.wordCount} words)`}`);
-        }
-      }
-      break;
-    }
-    case 'chunkOptimization': {
-      const pages = ctx.pageExtractions ?? [{ page: ctx.rootPage, extraction: ctx.extraction }];
-      for (const { page, extraction } of pages) {
-        const bad = extraction.chunks.filter((c) => c.wordCount > 250 || c.wordCount < 60);
-        if (bad.length === 0) continue;
-        for (const c of bad.slice(0, 3)) {
-          locations.push(
-            `${pathHint(page.finalUrl || page.url)} — ${c.heading?.trim() || c.id} (${c.wordCount} words)`,
-          );
-        }
-      }
-      break;
-    }
     default:
+      for (const p of impactedPages) {
+        for (const h of p.highlights) {
+          if (h.kind === 'chunk') {
+            locations.push(`${p.pathHint ?? p.url}: ${h.label}`);
+          }
+        }
+      }
       break;
   }
 
+  const reasons = focusReason
+    ? [
+        focusReason,
+        ...ds.reasons.filter((r) => r !== focusReason && isNegativeReason(r)).slice(0, 2),
+      ]
+    : ds.reasons.filter(isNegativeReason).length > 0
+      ? ds.reasons.filter(isNegativeReason)
+      : ds.reasons;
+
   return {
     affectedUrls: [...urls].slice(0, 30),
-    reasons: ds.reasons,
-    recommendation: DIMENSION_RECOMMENDATIONS[dim],
+    reasons,
+    recommendation: plainIssueRecommendation(canonicalId, dim),
     locations: locations.length > 0 ? locations.slice(0, 15) : undefined,
+    impactedPages: impactedPages.length > 0 ? impactedPages : undefined,
   };
 }
 
@@ -709,22 +700,71 @@ export function deriveIssuesAndFixes(
   const issues: Issue[] = [];
   const fixes: Fix[] = [];
 
+  type Candidate = { dim: Dimension; reason: string; score: number };
+  const buckets = new Map<string, { canonical: CanonicalIssueCategory | null; candidates: Candidate[] }>();
+
   for (const dim of DIMENSIONS) {
     const ds = dimensions[dim];
     if (ds.score >= 75) continue;
-    const severity: Issue['severity'] = ds.score < 35 ? 'critical' : ds.score < 55 ? 'high' : 'medium';
-    const lead = ds.reasons.find((r) => /missing|no |too |disallow|few|weak|limited/i.test(r)) ?? ds.reasons[0];
-    if (lead) {
-      issues.push({
-        id: `issue-${dim}`,
-        severity,
-        title: lead,
-        description: ds.reasons.slice(1, 4).join(' · ') || lead,
-        dimension: dim,
-        impact: `Improves ${DIMENSION_LABELS[dim]} (currently ${ds.score}/100)`,
-        details: ctx ? buildIssueDetails(dim, ds, ctx) : undefined,
-      });
+    const negativeReasons = ds.reasons.filter(isNegativeReason);
+    const reasonsToEmit =
+      negativeReasons.length > 0 ? negativeReasons : ds.reasons[0] ? [ds.reasons[0]] : [];
+
+    for (const reason of reasonsToEmit) {
+      const canonical = canonicalCategoryForReason(reason);
+      const bucketId = canonical?.id ?? canonicalIssueId(reason, dim);
+      const existing = buckets.get(bucketId);
+      if (existing) {
+        existing.candidates.push({ dim, reason, score: ds.score });
+      } else {
+        buckets.set(bucketId, { canonical, candidates: [{ dim, reason, score: ds.score }] });
+      }
     }
+  }
+
+  for (const [bucketId, { canonical, candidates }] of buckets) {
+    const primaryDim = canonical?.primaryDimension ?? candidates[0].dim;
+    const primaryScore = dimensions[primaryDim].score;
+    const worstScore = Math.min(...candidates.map((c) => c.score));
+    const severity: Issue['severity'] =
+      worstScore < 35 ? 'critical' : worstScore < 55 ? 'high' : 'medium';
+
+    const lead =
+      candidates.find((c) => c.dim === primaryDim) ??
+      candidates.sort((a, b) => a.score - b.score)[0];
+    const normalizedReasons = [
+      ...new Set(
+        candidates
+          .map((c) => normalizeReasonText(c.reason))
+          .filter((r) => r.length > 0 && !/^aggregated across/i.test(r)),
+      ),
+    ];
+    const displayTitle = canonical?.title ?? lead.reason;
+    const summaryReason = normalizedReasons[0] ?? normalizeReasonText(lead.reason);
+
+    const baseDetails = ctx
+      ? buildIssueDetails(primaryDim, dimensions[primaryDim], ctx, lead.reason, bucketId)
+      : undefined;
+
+    issues.push({
+      id: `issue-${bucketId}`,
+      issueKey: buildIssueKey(primaryDim, canonical?.id ?? summaryReason),
+      severity,
+      title: displayTitle,
+      description: expandReason(summaryReason),
+      dimension: primaryDim,
+      impact: plainImpact(primaryDim, Math.min(primaryScore, worstScore)),
+      summaryPlain: plainIssueSummary(primaryDim, summaryReason, Math.min(primaryScore, worstScore)),
+      details: baseDetails
+        ? {
+            ...baseDetails,
+            reasons:
+              normalizedReasons.length > 0
+                ? normalizedReasons
+                : baseDetails.reasons,
+          }
+        : undefined,
+    });
   }
 
   const dimsBelow = Object.entries(dimensions)
@@ -782,5 +822,9 @@ export function deriveIssuesAndFixes(
     });
   }
 
-  return { issues: issues.slice(0, 8), fixes: fixes.slice(0, 6) };
+  return { issues, fixes: fixes.slice(0, 6) };
+}
+
+export function getDimensionRecommendation(dim: Dimension): string | undefined {
+  return DIMENSION_RECOMMENDATIONS[dim];
 }

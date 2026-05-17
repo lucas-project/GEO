@@ -219,6 +219,43 @@ export class MockAIProvider implements AIProvider {
       };
     }
 
+    if (input.schemaName === 'AnswerFirst' || input.schemaName === 'ReadabilityShorten') {
+      const isShorten = input.schemaName === 'ReadabilityShorten';
+      const variantMatch = input.prompt.match(/variation #(\d+)/i);
+      const variantIndex = variantMatch ? Math.max(0, parseInt(variantMatch[1], 10) - 1) : 0;
+      const titleMatch = input.prompt.match(/Section or page title:\s*(.+)/);
+      const chunkMatch = input.prompt.match(
+        /Original text to (?:rewrite|shorten):\s*"""\s*([\s\S]*?)\s*"""/,
+      );
+      const firstChunk = chunkMatch?.[1]?.trim() ?? '';
+      const data = isShorten
+        ? (
+            await import('@modules/optimization/generators/readability-rewrite')
+          ).rewriteReadabilityLocal({ firstChunk, variantIndex })
+        : (
+            await import('@modules/optimization/generators/answer-first-local')
+          ).rewriteAnswerFirstLocal({
+            title: titleMatch?.[1]?.trim() ?? 'Section',
+            firstChunk,
+            variantIndex,
+          });
+      const parsed = input.schema.safeParse(data);
+      if (!parsed.success) {
+        throw new AIProviderError(
+          `mock ${input.schemaName} did not match schema: ${parsed.error.message}`,
+          this.name,
+        );
+      }
+      const inputTokens = tokenCount(input.prompt);
+      const outputTokens = tokenCount(JSON.stringify(parsed.data));
+      return {
+        data: parsed.data,
+        tokens: { input: inputTokens, output: outputTokens, total: inputTokens + outputTokens },
+        model: isShorten ? 'mock-readability-shorten-v1' : 'mock-answer-first-v1',
+        provider: this.name,
+      };
+    }
+
     if (input.schemaName === 'GeoContentPack') {
       const { buildMockGeoContentPack } = await import('@modules/geo-content/mock-pack');
       const data = buildMockGeoContentPack(input.prompt) as z.infer<TSchema>;

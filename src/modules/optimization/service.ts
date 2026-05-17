@@ -19,6 +19,9 @@ import { generateProductSchema } from './generators/product-schema';
 import { type GeneratedArtifact, type ArtifactType } from './schemas';
 import { pickAdapter } from './cms';
 import type { CmsPatchResult } from './cms';
+import { recordFixApplied } from '@modules/intelligence';
+import type { DimensionScore } from '@modules/geo-audit';
+import { DIMENSIONS } from '@modules/geo-audit';
 
 const optLogger = logger.child({ module: 'optimization' });
 
@@ -64,6 +67,7 @@ export async function generateArtifact(input: GenerateInput): Promise<GeneratedA
         url: audit.url,
         bodyText,
         existingFaqs: ext.faqs,
+        siteId: audit.siteId,
       });
       content = `<script type="application/ld+json">\n${out.jsonLd}\n</script>`;
       rationale = out.rationale;
@@ -215,8 +219,43 @@ export async function applyArtifactToWordpress(
   return adapter.applyPatch({ url: audit.url, artifactType, content });
 }
 
+export async function markOptimizationApplied(optimizationId: string): Promise<void> {
+  const row = await prisma.optimizationSuggestion.findUnique({
+    where: { id: optimizationId },
+    include: { audit: true },
+  });
+  if (!row || row.applied) return;
+
+  await prisma.optimizationSuggestion.update({
+    where: { id: optimizationId },
+    data: { applied: true },
+  });
+
+  const audit = row.audit;
+  if (!audit?.siteId) return;
+
+  const dims = parseJson<Record<string, DimensionScore>>(audit.dimensions, {});
+  const dimScores: Record<string, number> = {};
+  for (const d of DIMENSIONS) {
+    dimScores[d] = dims[d]?.score ?? 0;
+  }
+
+  const issueKey = `${row.type}:applied`;
+  await recordFixApplied({
+    siteId: audit.siteId,
+    optimizationId,
+    issueKey,
+    artifactType: row.type,
+    scoreBefore: audit.overallScore,
+    dimensionBefore: dimScores,
+  });
+
+  optLogger.info({ optimizationId, siteId: audit.siteId }, 'optimization marked applied');
+}
+
 export const optimizationService = {
   generateArtifact,
   listArtifactsForAudit,
   applyArtifactToWordpress,
+  markOptimizationApplied,
 };

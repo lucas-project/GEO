@@ -7,6 +7,7 @@ export {
   generateArtifact,
   listArtifactsForAudit,
   applyArtifactToWordpress,
+  markOptimizationApplied,
 } from './service';
 export { ARTIFACT_TYPES } from './schemas';
 export type { GeneratedArtifact, ArtifactType } from './schemas';

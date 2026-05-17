@@ -2,7 +2,8 @@
  * GEO content ideas — refined keywords + one prompt section per content type.
  */
 
-import { prisma, parseJson } from '@shared/database/client';
+import { randomId } from '@shared/util/id';
+import { prisma, parseJson, stringifyJson } from '@shared/database/client';
 import { logger } from '@shared/logger';
 import { ai } from '@shared/ai';
 import { normalizeWebsiteUrl, sameTargetSite } from '@/lib/website-url';
@@ -148,6 +149,16 @@ export async function generateGeoContentPack(input: GenerateGeoContentInput): Pr
     log.warn({ err: (err as Error).message, auditId: audit.id }, 'structured GEO content failed; using fallback pack');
     pack = packFromFallback({ url: targetUrl, title, keywords });
   }
+
+  await prisma.geoContentPack.create({
+    data: {
+      id: randomId(),
+      auditId: audit.id,
+      siteId: audit.siteId,
+      url: targetUrl,
+      payload: stringifyJson({ keywords, pack }),
+    },
+  });
 
   log.info(
     { auditId: audit.id, targetUrl, keywords: keywords.length, sections: pack.sections.length },

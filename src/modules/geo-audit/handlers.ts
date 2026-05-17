@@ -7,12 +7,17 @@
  */
 
 import { queue } from '@shared/queue';
-import { runAudit } from './service';
+import { extendAudit, runAudit } from './service';
 
 export function registerGeoAuditHandlers(): void {
-  queue.process<{ url: string }, { auditId: string }>('geo-audit.run', async (ctx) => {
+  queue.process<
+    { url: string; pageUrls?: string[]; maxPages?: number },
+    { auditId: string }
+  >('geo-audit.run', async (ctx) => {
     const result = await runAudit({
       url: ctx.job.payload.url,
+      pageUrls: ctx.job.payload.pageUrls,
+      maxPages: ctx.job.payload.maxPages,
       onProgress: async (p, msg) => {
         ctx.log(msg, { progress: p });
         await ctx.reportProgress(p);
@@ -20,4 +25,15 @@ export function registerGeoAuditHandlers(): void {
     });
     return { auditId: result.id };
   });
+
+  queue.process<{ auditId: string; pageUrls: string[] }, { auditId: string }>(
+    'geo-audit.extend',
+    async (ctx) => {
+      const result = await extendAudit(ctx.job.payload.auditId, ctx.job.payload.pageUrls, async (p, msg) => {
+        ctx.log(msg, { progress: p });
+        await ctx.reportProgress(p);
+      });
+      return { auditId: result.id };
+    },
+  );
 }

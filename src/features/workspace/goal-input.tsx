@@ -39,7 +39,7 @@ export function GoalInput() {
   return (
     <div>
       <div className="relative group">
-        <div className="absolute -inset-px bg-gradient-to-br from-accent/40 via-purple-500/20 to-accent/40 rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm" />
+        <div className="absolute -inset-px bg-gradient-to-br from-accent/40 via-sky-400/20 to-accent/40 rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm" />
         <div className="relative bg-bg-elevated border border-border rounded-2xl p-1.5 shadow-[0_2px_24px_-12px_rgba(0,0,0,0.7)]">
           <div className="flex items-start gap-3 px-3 py-2">
             <Sparkles className="w-4 h-4 text-accent shrink-0 mt-2.5" />
@@ -57,9 +57,9 @@ export function GoalInput() {
             />
           </div>
           <div className="flex items-center justify-between px-3 pb-1.5 pt-0">
-            <div className="text-[10px] text-fg-subtle flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div className="text-[12px] text-fg-subtle flex flex-wrap items-center gap-x-3 gap-y-1">
               <span>
-                <kbd className="font-mono bg-bg-muted px-1.5 py-0.5 rounded text-[10px] border border-border-subtle">⌘ Enter</kbd>
+                <kbd className="font-mono bg-bg-muted px-1.5 py-0.5 rounded text-[12px] border border-border-subtle">⌘ Enter</kbd>
                 <span className="ml-2">to dispatch agent</span>
               </span>
               {targetUrl.trim() && (
@@ -101,7 +101,7 @@ export function GoalInput() {
           <button
             key={s}
             onClick={() => setGoal(s)}
-            className="text-[11px] px-2.5 py-1 rounded-full border border-border-subtle bg-bg-elevated/40 text-fg-muted hover:text-fg hover:border-border-strong hover:bg-bg-muted transition-colors"
+            className="text-[13px] px-2.5 py-1 rounded-full border border-border-subtle bg-bg-elevated/40 text-fg-muted hover:text-fg hover:border-border-strong hover:bg-bg-muted transition-colors"
           >
             {s}
           </button>

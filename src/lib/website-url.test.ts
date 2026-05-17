@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   extractWebsiteFromText,
+  getSiteRootKey,
   isPlausibleWebsiteUrl,
   normalizeWebsiteUrl,
 } from './website-url';
@@ -23,6 +24,13 @@ describe('extractWebsiteFromText', () => {
 
   it('returns null for empty input', () => {
     expect(extractWebsiteFromText('')).toBeNull();
+  });
+});
+
+describe('getSiteRootKey', () => {
+  it('normalizes www and bare host to the same key', () => {
+    expect(getSiteRootKey('https://www.example.com/a')).toBe('example.com');
+    expect(getSiteRootKey('https://example.com/b')).toBe('example.com');
   });
 });
 

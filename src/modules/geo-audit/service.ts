@@ -1,3 +1,5 @@
+import 'server-only';
+
 /**
  * GEO Audit service — orchestrates the full Phase-1 pipeline.
  *
@@ -24,11 +26,18 @@ import {
 } from '@/lib/website-url';
 import { logger } from '@shared/logger';
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
-import { crawlingService } from '@modules/crawling';
+import { crawlingService, crawlSinglePage, fetchRobots, discoverSitemaps, fetchSitemap } from '@modules/crawling';
 import { discoverInternalLinks } from '@modules/crawling';
+import type { CrawledPage, CrawlResult } from '@modules/crawling';
+import type { PageExtraction } from '@modules/extraction';
 import { extractionService } from '@modules/extraction';
 import { embeddingsService } from '@modules/embeddings';
+import { ingestAuditSync } from '@modules/intelligence';
+import { queue } from '@shared/queue';
 import { scoreAll, deriveIssuesAndFixes, type PageExtractionInput } from './scoring';
+import { buildImpactedPagesFromExtractionRow } from './issue-evidence';
+import { attachRangesToHighlights } from './locate-in-source';
+import type { SourceRange } from './schemas';
 import { buildPageInventory } from './page-inventory';
 import { NARRATIVE_SYSTEM, buildNarrativePrompt } from './prompts/narrative';
 import {
@@ -41,6 +50,8 @@ import {
   type PageInventory,
 } from './schemas';
 import type { LinkInfo } from '@modules/extraction';
+import { groupAuditsBySite, type SiteAuditGroup } from './group-by-site';
+import { plainIssueRecommendation } from './plain-language';
 
 /** Pages rendered + extracted per audit (capped for Playwright runtime). */
 const AUDIT_MAX_PAGES = Math.min(config.crawl.maxPages, 5);
@@ -53,6 +64,10 @@ export interface RunAuditInput {
   url: string;
   /** When the agent goal is a bare domain, pass it here to override truncated step URLs. */
   goalHint?: string;
+  /** Cap crawl depth (monitoring health-check uses fewer pages). */
+  maxPages?: number;
+  /** User-selected same-origin URLs to crawl (homepage always included). */
+  pageUrls?: string[];
   onProgress?: (progress: number, message: string) => void;
 }
 
@@ -96,10 +111,15 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
 
   try {
     input.onProgress?.(10, 'Crawling site…');
+    const defaultMax = input.pageUrls?.length
+      ? Math.max(input.pageUrls.length, AUDIT_MAX_PAGES)
+      : AUDIT_MAX_PAGES;
+    const maxPages = Math.min(input.maxPages ?? defaultMax, config.crawl.maxPages);
     let crawl = await crawlingService.crawl({
       url: normalizedUrl,
       auditId: audit.id,
-      maxPages: AUDIT_MAX_PAGES,
+      maxPages,
+      pageUrls: input.pageUrls,
       screenshot: true,
       onProgress: (p, m) => input.onProgress?.(10 + Math.round((p / 100) * 40), m),
     });
@@ -114,7 +134,8 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
       crawl = await crawlingService.crawl({
         url: normalizedUrl,
         auditId: audit.id,
-        maxPages: AUDIT_MAX_PAGES,
+        maxPages,
+        pageUrls: input.pageUrls,
         screenshot: true,
         respectRobots: false,
         onProgress: (p, m) => input.onProgress?.(10 + Math.round((p / 100) * 40), m),
@@ -224,7 +245,12 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
     const { issues, fixes } = deriveIssuesAndFixes(dimensions, scoringCtx);
 
     input.onProgress?.(90, 'Generating narrative…');
-    const narrative = await generateNarrative({ url: normalizedUrl, overallScore, dimensions });
+    const narrative = await generateNarrative({
+      url: normalizedUrl,
+      overallScore,
+      dimensions,
+      siteId: site.id,
+    });
 
     input.onProgress?.(97, 'Saving report…');
     await prisma.geoAudit.update({
@@ -253,6 +279,13 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
     input.onProgress?.(100, 'Done!');
     auditLogger.info({ auditId: audit.id, overallScore }, 'audit complete');
 
+    await ingestAuditSync(audit.id).catch((err) => {
+      auditLogger.warn({ err: (err as Error).message, auditId: audit.id }, 'intelligence sync ingest skipped');
+    });
+    void queue.enqueue('intelligence.ingest', { auditId: audit.id, embeddingsOnly: true }).catch((err) => {
+      auditLogger.warn({ err: (err as Error).message, auditId: audit.id }, 'intelligence embedding job skipped');
+    });
+
     return {
       id: audit.id,
       url: normalizedUrl,
@@ -279,12 +312,13 @@ async function generateNarrative(input: {
   url: string;
   overallScore: number;
   dimensions: Record<Dimension, DimensionScore>;
+  siteId?: string;
 }): Promise<string> {
   try {
     const { data } = await ai.generateStructuredOutput({
       schema: NarrativeResponseSchema,
       system: NARRATIVE_SYSTEM,
-      prompt: buildNarrativePrompt(input),
+      prompt: await buildNarrativePrompt(input),
     });
     return data.narrative.trim();
   } catch (err) {
@@ -297,8 +331,16 @@ export async function getAudit(auditId: string): Promise<GeoAuditResult | null> 
   const row = await prisma.geoAudit.findUnique({
     where: { id: auditId },
     select: {
-      id: true, url: true, overallScore: true, dimensions: true,
-      narrative: true, topIssues: true, topFixes: true, screenshotUrl: true, createdAt: true,
+      id: true,
+      siteId: true,
+      url: true,
+      overallScore: true,
+      dimensions: true,
+      narrative: true,
+      topIssues: true,
+      topFixes: true,
+      screenshotUrl: true,
+      createdAt: true,
     },
   });
   if (!row) return null;
@@ -314,14 +356,21 @@ export async function getAudit(auditId: string): Promise<GeoAuditResult | null> 
     pageInventory = await getAuditPageInventoryFallback(auditId);
   }
 
-  const rawIssues = parseJson<Issue[]>(row.topIssues, []);
-  const topIssues = await enrichIssuesFromStoredPages(auditId, row.url, rawIssues, pageInventory);
+  const dimensions = parseJson(row.dimensions, {} as Record<Dimension, DimensionScore>);
+  const { issues: derivedIssues } = deriveIssuesAndFixes(dimensions);
+  const topIssues = await enrichIssuesFromStoredPages(
+    auditId,
+    row.url,
+    derivedIssues,
+    pageInventory,
+  );
 
   return {
     id: row.id,
+    siteId: row.siteId,
     url: row.url,
     overallScore: row.overallScore,
-    dimensions: parseJson(row.dimensions, {} as Record<Dimension, DimensionScore>),
+    dimensions,
     narrative: row.narrative,
     topIssues,
     topFixes: parseJson<Fix[]>(row.topFixes, []),
@@ -336,28 +385,135 @@ export async function getAudit(auditId: string): Promise<GeoAuditResult | null> 
  * data from the DB and re-derive per-issue affected URLs without re-running Playwright.
  * Issues that already have multi-page details are returned unchanged.
  */
+const PAGE_SOURCE_MAX_CHARS = 120_000;
+const PAGE_SOURCE_WINDOW_PAD = 8_192;
+
+async function collectRangesFromAuditIssues(
+  auditId: string,
+  pageUrl: string,
+): Promise<SourceRange[]> {
+  const audit = await prisma.geoAudit.findUnique({
+    where: { id: auditId },
+    select: { url: true, topIssues: true },
+  });
+  if (!audit) return [];
+
+  const target = canonicalPageUrl(pageUrl, audit.url);
+  const issues = parseJson<Issue[]>(audit.topIssues, []);
+  const ranges: SourceRange[] = [];
+
+  for (const issue of issues) {
+    for (const page of issue.details?.impactedPages ?? []) {
+      if (canonicalPageUrl(page.url, audit.url) !== target) continue;
+      for (const h of page.highlights) {
+        if (h.sourceRanges?.length) ranges.push(...h.sourceRanges);
+      }
+    }
+  }
+
+  return ranges;
+}
+
+export async function getAuditPageSource(
+  auditId: string,
+  pageUrl: string,
+): Promise<{
+  url: string;
+  statusCode: number;
+  html: string;
+  offset: number;
+  truncated: boolean;
+  error: string | null;
+} | null> {
+  const audit = await prisma.geoAudit.findUnique({
+    where: { id: auditId },
+    select: { url: true },
+  });
+  if (!audit) return null;
+
+  const target = canonicalPageUrl(pageUrl, audit.url);
+  const rows = await prisma.crawlResult.findMany({
+    where: { auditId },
+    select: { url: true, statusCode: true, renderedHtml: true, html: true, error: true },
+  });
+
+  const row = rows.find((r) => canonicalPageUrl(r.url, audit.url) === target);
+  if (!row) return null;
+
+  const raw = row.renderedHtml ?? row.html ?? '';
+  const ranges = await collectRangesFromAuditIssues(auditId, target);
+
+  const rangeBeyondCap = ranges.some(
+    (r) => r.start >= PAGE_SOURCE_MAX_CHARS || r.end > PAGE_SOURCE_MAX_CHARS,
+  );
+  const fileTooLarge = raw.length > PAGE_SOURCE_MAX_CHARS;
+
+  if (ranges.length > 0 && (rangeBeyondCap || fileTooLarge)) {
+    const minStart = Math.max(0, Math.min(...ranges.map((r) => r.start)) - PAGE_SOURCE_WINDOW_PAD);
+    const maxEnd = Math.min(raw.length, Math.max(...ranges.map((r) => r.end)) + PAGE_SOURCE_WINDOW_PAD);
+    return {
+      url: target,
+      statusCode: row.statusCode,
+      html: raw.slice(minStart, maxEnd),
+      offset: minStart,
+      truncated: minStart > 0 || maxEnd < raw.length,
+      error: row.error,
+    };
+  }
+
+  const truncated = fileTooLarge;
+  const html = truncated ? raw.slice(0, PAGE_SOURCE_MAX_CHARS) : raw;
+
+  return {
+    url: target,
+    statusCode: row.statusCode,
+    html,
+    offset: 0,
+    truncated,
+    error: row.error,
+  };
+}
+
 async function enrichIssuesFromStoredPages(
   auditId: string,
   siteUrl: string,
   issues: Issue[],
-  pageInventory?: PageInventory,
+  _pageInventory?: PageInventory,
 ): Promise<Issue[]> {
-  // If all issues already have details with more than just the root URL, skip re-enrichment.
   const rootCanon = canonicalPageUrl(siteUrl, siteUrl);
-  const allHaveRealDetails = issues.every(
+  const allEnriched = issues.every(
     (iss) =>
-      iss.details &&
-      iss.details.affectedUrls.length > 1 &&
-      !iss.details.affectedUrls.every((u) => canonicalPageUrl(u, siteUrl) === rootCanon),
+      iss.details?.impactedPages &&
+      iss.details.impactedPages.length > 0 &&
+      (iss.details.impactedPages.length > 1 ||
+        iss.details.impactedPages[0]?.url !== rootCanon),
   );
-  if (allHaveRealDetails) return issues;
+  if (allEnriched) return issues;
 
-  // Load per-page extractions from DB.
   const rows = await prisma.extractionResult.findMany({
     where: { auditId },
-    select: { url: true, schemas: true, faqs: true, authors: true, headings: true, chunks: true, metadata: true },
+    select: {
+      url: true,
+      schemas: true,
+      faqs: true,
+      authors: true,
+      headings: true,
+      chunks: true,
+      metadata: true,
+      entities: true,
+    },
   });
   if (rows.length === 0) return issues;
+
+  const crawlByUrl = new Map<string, string>();
+  const crawlRows = await prisma.crawlResult.findMany({
+    where: { auditId },
+    select: { url: true, renderedHtml: true, html: true },
+  });
+  for (const c of crawlRows) {
+    const key = canonicalPageUrl(c.url, siteUrl);
+    crawlByUrl.set(key, c.renderedHtml ?? c.html ?? '');
+  }
 
   // Build a lightweight per-page summary for per-dimension URL filtering.
   type PageSummary = {
@@ -419,17 +575,41 @@ async function enrichIssuesFromStoredPages(
 
   return issues.map((issue) => {
     const dim = issue.dimension;
+    const impactedPages = rows
+      .map((r) => {
+        const base = buildImpactedPagesFromExtractionRow(dim, siteUrl, r);
+        if (!base) return null;
+        const rendered = crawlByUrl.get(canonicalPageUrl(r.url, siteUrl));
+        if (!rendered) return base;
+        return {
+          ...base,
+          highlights: attachRangesToHighlights(base.highlights, rendered, dim),
+        };
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null);
+
     const affected = new Set<string>([rootCanon, ...pagesForDim(dim)]);
+    for (const p of impactedPages) affected.add(p.url);
+
     const reasons = issue.details?.reasons ??
       (issue.description ? issue.description.split(' · ').filter(Boolean) : [issue.title]);
+
+    const locations =
+      issue.details?.locations ??
+      impactedPages.flatMap((p) =>
+        p.highlights.filter((h) => h.kind === 'chunk').map((h) => `${p.pathHint}: ${h.label}`),
+      ).slice(0, 15);
 
     return {
       ...issue,
       details: {
         affectedUrls: [...affected].slice(0, 30),
         reasons,
-        recommendation: issue.details?.recommendation,
-        locations: issue.details?.locations,
+        recommendation:
+          issue.details?.recommendation ??
+          plainIssueRecommendation(issue.id.replace(/^issue-/, ''), dim),
+        locations: locations.length > 0 ? locations : undefined,
+        impactedPages: impactedPages.length > 0 ? impactedPages : issue.details?.impactedPages,
       },
     };
   });
@@ -467,11 +647,21 @@ export async function listRecentAudits(limit = 20): Promise<Array<{
   overallScore: number;
   status: string;
   createdAt: string;
+  siteId: string | null;
+  monitored: boolean;
 }>> {
   const rows = await prisma.geoAudit.findMany({
     orderBy: { createdAt: 'desc' },
     take: limit,
-    select: { id: true, url: true, overallScore: true, status: true, createdAt: true },
+    select: {
+      id: true,
+      url: true,
+      overallScore: true,
+      status: true,
+      createdAt: true,
+      siteId: true,
+      site: { select: { monitored: true, monitorEnabled: true } },
+    },
   });
   return rows.map((r) => ({
     id: r.id,
@@ -479,11 +669,299 @@ export async function listRecentAudits(limit = 20): Promise<Array<{
     overallScore: r.overallScore,
     status: r.status,
     createdAt: r.createdAt.toISOString(),
+    siteId: r.siteId,
+    monitored: Boolean(r.site?.monitored && r.site?.monitorEnabled),
   }));
+}
+
+/** Scan recent audits, group by site, return one page of site rows. */
+const SITE_GROUP_AUDIT_SCAN = 500;
+
+export async function listRecentAuditSiteGroups(
+  page: number,
+  pageSize: number,
+): Promise<{
+  groups: SiteAuditGroup[];
+  page: number;
+  pageSize: number;
+  totalSites: number;
+  totalPages: number;
+  hasMore: boolean;
+}> {
+  const audits = await listRecentAudits(SITE_GROUP_AUDIT_SCAN);
+  const allGroups = groupAuditsBySite(
+    audits.map(({ id, url, overallScore, status, createdAt, monitored }) => ({
+      id,
+      url,
+      overallScore,
+      status,
+      createdAt,
+      monitored,
+    })),
+  );
+
+  const safePage = Math.max(0, Number.isFinite(page) ? page : 0);
+  const safeSize = Math.min(Math.max(pageSize, 1), 50);
+  const start = safePage * safeSize;
+  const totalSites = allGroups.length;
+  const totalPages = totalSites === 0 ? 0 : Math.ceil(totalSites / safeSize);
+
+  return {
+    groups: allGroups.slice(start, start + safeSize),
+    page: safePage,
+    pageSize: safeSize,
+    totalSites,
+    totalPages,
+    hasMore: start + safeSize < totalSites,
+  };
+}
+
+function extractionFromDbRow(row: {
+  url: string;
+  metadata: string;
+  headings: string;
+  schemas: string;
+  faqs: string;
+  entities: string;
+  chunks: string;
+  links: string;
+  tables: string;
+  authors: string;
+}): PageExtraction {
+  return {
+    url: row.url,
+    metadata: parseJson(row.metadata, {
+      title: null,
+      description: null,
+      canonical: null,
+      ogTitle: null,
+      ogDescription: null,
+      ogType: null,
+      twitterCard: null,
+      language: null,
+      charset: null,
+      robots: null,
+    }),
+    headings: parseJson(row.headings, []),
+    schemas: parseJson(row.schemas, []),
+    faqs: parseJson(row.faqs, []),
+    entities: parseJson(row.entities, []),
+    chunks: parseJson(row.chunks, []),
+    links: parseJson(row.links, []),
+    tables: parseJson(row.tables, []),
+    authors: parseJson(row.authors, []),
+  };
+}
+
+/** Crawl and score additional pages on an existing audit. */
+export async function extendAudit(
+  auditId: string,
+  pageUrls: string[],
+  onProgress?: (progress: number, message: string) => void,
+): Promise<GeoAuditResult> {
+  const audit = await prisma.geoAudit.findUnique({
+    where: { id: auditId },
+    select: { id: true, siteId: true, url: true, status: true, screenshotUrl: true, createdAt: true },
+  });
+  if (!audit) throw new Error('Audit not found');
+  if (audit.status !== 'completed') throw new Error('Audit is not complete');
+
+  const normalizedUrl = audit.url;
+  const existingRows = await prisma.crawlResult.findMany({
+    where: { auditId },
+    select: { url: true },
+  });
+  const auditedSet = new Set(
+    existingRows.map((r) => canonicalPageUrl(r.url, normalizedUrl)),
+  );
+
+  const toCrawl = pageUrls
+    .map((u) => canonicalPageUrl(u, normalizedUrl))
+    .filter((u) => sameTargetSite(u, normalizedUrl) && !auditedSet.has(u));
+
+  if (toCrawl.length === 0) {
+    throw new Error('All selected pages were already audited');
+  }
+
+  onProgress?.(5, `Crawling ${toCrawl.length} new page(s)…`);
+  let done = 0;
+  for (const pageUrl of toCrawl) {
+    const crawled = await crawlSinglePage(pageUrl, {
+      timeoutMs: config.crawl.timeoutMs,
+      screenshot: false,
+      auditId,
+    });
+
+    await prisma.crawlResult.create({
+      data: {
+        auditId,
+        url: pageUrl,
+        statusCode: crawled.statusCode,
+        html: crawled.html?.slice(0, 200_000),
+        renderedHtml: crawled.renderedHtml?.slice(0, 400_000),
+        screenshotPath: crawled.screenshotPath,
+        contentType: crawled.contentType,
+        durationMs: crawled.durationMs,
+        error: crawled.error,
+      },
+    });
+
+    if (crawled.renderedHtml) {
+      const extraction = await extractionService.extractPage({
+        url: canonicalPageUrl(crawled.finalUrl || pageUrl, normalizedUrl),
+        html: crawled.renderedHtml,
+      });
+
+      await prisma.extractionResult.create({
+        data: {
+          auditId,
+          url: canonicalPageUrl(crawled.finalUrl || pageUrl, normalizedUrl),
+          metadata: stringifyJson(extraction.metadata),
+          headings: stringifyJson(extraction.headings),
+          schemas: stringifyJson(extraction.schemas),
+          faqs: stringifyJson(extraction.faqs),
+          entities: stringifyJson(extraction.entities),
+          chunks: stringifyJson(extraction.chunks),
+          links: stringifyJson(extraction.links),
+          tables: stringifyJson(extraction.tables),
+          authors: stringifyJson(extraction.authors),
+        },
+      });
+    }
+
+    done++;
+    onProgress?.(5 + Math.round((done / toCrawl.length) * 45), `Processed ${pageUrl}`);
+  }
+
+  onProgress?.(55, 'Re-scoring audit…');
+  const crawlRows = await prisma.crawlResult.findMany({ where: { auditId } });
+  const extractionRows = await prisma.extractionResult.findMany({ where: { auditId } });
+
+  const pages: CrawledPage[] = crawlRows.map((r) => ({
+    url: r.url,
+    finalUrl: r.url,
+    statusCode: r.statusCode,
+    contentType: r.contentType,
+    html: r.html,
+    renderedHtml: r.renderedHtml,
+    title: null,
+    fetchedAt: new Date().toISOString(),
+    durationMs: r.durationMs ?? 0,
+    screenshotPath: r.screenshotPath,
+    error: r.error,
+    hydrationDelta: null,
+  }));
+
+  const rootCanon = canonicalPageUrl(normalizedUrl, normalizedUrl);
+  const rootPage =
+    pages.find((p) => canonicalPageUrl(p.finalUrl || p.url, normalizedUrl) === rootCanon) ?? pages[0];
+  if (!rootPage?.renderedHtml) {
+    throw new Error('Root page HTML missing; cannot re-score');
+  }
+
+  const pageExtractions: PageExtractionInput[] = [];
+  for (const row of extractionRows) {
+    const page =
+      pages.find(
+        (p) => canonicalPageUrl(p.url, normalizedUrl) === canonicalPageUrl(row.url, normalizedUrl),
+      ) ?? rootPage;
+    pageExtractions.push({ page, extraction: extractionFromDbRow(row) });
+  }
+
+  const robots = await fetchRobots(normalizedUrl);
+  let sitemapUrls = robots.sitemaps;
+  if (sitemapUrls.length === 0) sitemapUrls = await discoverSitemaps(normalizedUrl);
+  const sitemap = [];
+  for (const sm of sitemapUrls.slice(0, 3)) {
+    sitemap.push(...(await fetchSitemap(sm, 50)));
+  }
+
+  const crawl: CrawlResult = {
+    rootUrl: normalizedUrl,
+    pages,
+    robots,
+    sitemap,
+    startedAt: new Date().toISOString(),
+    finishedAt: new Date().toISOString(),
+  };
+
+  const internalLinks =
+    rootPage.renderedHtml != null
+      ? discoverInternalLinks(rootPage.renderedHtml, normalizedUrl, 80)
+      : [];
+
+  const auditedUrls = new Set(
+    extractionRows.map((r) => canonicalPageUrl(r.url, normalizedUrl)),
+  );
+
+  const pageInventory = buildPageInventory({
+    rootUrl: normalizedUrl,
+    crawl,
+    internalLinks,
+    auditedUrls,
+  });
+
+  const extraction = pageExtractions[0]!.extraction;
+  const scoringCtx = {
+    url: normalizedUrl,
+    rootPage,
+    extraction,
+    crawl,
+    pageExtractions: pageExtractions.length > 1 ? pageExtractions : undefined,
+  };
+
+  const { dimensions, overallScore } = scoreAll(scoringCtx);
+  const { issues, fixes } = deriveIssuesAndFixes(dimensions, scoringCtx);
+
+  onProgress?.(85, 'Updating narrative…');
+  const narrative = await generateNarrative({
+    url: normalizedUrl,
+    overallScore,
+    dimensions,
+    siteId: audit.siteId ?? undefined,
+  });
+
+  await prisma.geoAudit.update({
+    where: { id: auditId },
+    data: {
+      overallScore,
+      dimensions: stringifyJson(dimensions),
+      narrative,
+      topIssues: stringifyJson(issues),
+      topFixes: stringifyJson(fixes),
+    },
+  });
+
+  await prisma.$executeRawUnsafe(
+    `UPDATE "GeoAudit" SET "pageInventory" = ? WHERE "id" = ?`,
+    stringifyJson(pageInventory),
+    auditId,
+  ).catch((err) => {
+    auditLogger.warn({ err: (err as Error).message, auditId }, 'pageInventory save skipped');
+  });
+
+  onProgress?.(100, 'Done');
+  await ingestAuditSync(auditId).catch(() => {});
+
+  return {
+    id: auditId,
+    siteId: audit.siteId,
+    url: normalizedUrl,
+    overallScore,
+    dimensions,
+    narrative,
+    topIssues: issues,
+    topFixes: fixes,
+    pageInventory,
+    screenshotUrl: audit.screenshotUrl,
+    createdAt: audit.createdAt.toISOString(),
+  };
 }
 
 export const geoAuditService = {
   runAudit,
+  extendAudit,
   getAudit,
+  getAuditPageSource,
   listRecentAudits,
 };

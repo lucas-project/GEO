@@ -116,14 +116,14 @@ export function AgentExecution({ planId }: { planId: string }) {
 
       <div className="flex items-start justify-between gap-6 mb-6">
         <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-fg-subtle mb-1 flex items-center gap-1.5">
+          <div className="text-[12px] uppercase tracking-wider text-fg-subtle mb-1 flex items-center gap-1.5">
             <Bot className="w-3 h-3" />
             Agent plan
           </div>
           <h1 className="text-2xl font-semibold">{plan.goal}</h1>
           <p className="mt-2 text-sm text-fg-muted">{plan.plan.summary ?? ''}</p>
           {auditUrlResolved && (
-            <p className="mt-2 text-[11px] text-fg-subtle">
+            <p className="mt-2 text-[13px] text-fg-subtle">
               Site URL for audit:{' '}
               <span className="font-mono text-fg">{auditUrlResolved}</span>
             </p>
@@ -282,10 +282,10 @@ function StepRow({
             <span>{title}</span>
             <Badge variant="outline">{step.type}</Badge>
           </div>
-          <div className="text-[11px] text-fg-muted truncate mt-0.5">{step.reason}</div>
+          <div className="text-[13px] text-fg-muted truncate mt-0.5">{step.reason}</div>
         </div>
         {link && (
-          <Link href={link} className="text-[11px] text-accent hover:underline shrink-0 inline-flex items-center gap-1">
+          <Link href={link} className="text-[13px] text-accent hover:underline shrink-0 inline-flex items-center gap-1">
             View <ExternalLink className="w-3 h-3" />
           </Link>
         )}
@@ -324,9 +324,9 @@ function stepLink(step: Record<string, unknown>, result: StepResult | null): str
 function Detail({ label, value, variant }: { label: string; value: string; variant?: 'danger' }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wider text-fg-subtle mb-1">{label}</div>
+      <div className="text-[12px] uppercase tracking-wider text-fg-subtle mb-1">{label}</div>
       <pre
-        className={`text-[11px] font-mono whitespace-pre-wrap break-all rounded border border-border-subtle p-2 ${
+        className={`text-[13px] font-mono whitespace-pre-wrap break-all rounded border border-border-subtle p-2 ${
           variant === 'danger' ? 'text-danger bg-danger/5' : 'text-fg-muted bg-bg'
         }`}
       >
