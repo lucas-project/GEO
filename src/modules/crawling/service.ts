@@ -17,8 +17,8 @@ import { config } from '@shared/config';
 import { crawlLogger } from '@shared/logger';
 import { telemetry } from '@shared/telemetry';
 import { fetchRobots } from './robots';
-import { fetchSitemap, discoverSitemaps } from './sitemap';
-import { buildCrawlQueue, discoverInternalLinks } from './discover-links';
+import { fetchSitemapRecursive, discoverSitemaps } from './sitemap';
+import { discoverInternalLinks } from './discover-links';
 import { renderPage } from './browser/pool';
 import {
   type CrawlOptions,
@@ -121,11 +121,11 @@ export async function crawl(opts: CrawlServiceOptions): Promise<CrawlResult> {
     let sitemapUrls = robots.sitemaps;
     if (sitemapUrls.length === 0) sitemapUrls = await discoverSitemaps(parsed.url);
 
-    const sitemap = [];
-    for (const sm of sitemapUrls.slice(0, 3)) {
-      const entries = await fetchSitemap(sm, 50);
-      sitemap.push(...entries);
-    }
+    const sitemap = await fetchSitemapRecursive(sitemapUrls, {
+      maxFiles: config.discovery.maxSitemapFiles,
+      maxUrls: config.discovery.maxSitemapUrls,
+      maxDepth: 3,
+    });
 
     if (parsed.respectRobots && !robots.allowed) {
       log.warn('robots.txt disallows root URL');
@@ -167,12 +167,12 @@ export async function crawl(opts: CrawlServiceOptions): Promise<CrawlResult> {
         additional.push(norm);
       }
     } else {
-      additional = buildCrawlQueue(
-        parsed.url,
-        sitemap.map((e) => e.loc),
-        internalLinks,
-        parsed.maxPages,
-      );
+      opts.onProgress?.(18, 'GEO discovery — ranking pages…');
+      const { discoverGeoPages } = await import('@modules/geo-discovery/server');
+      const discovery = await discoverGeoPages(parsed.url, (msg) => opts.onProgress?.(20, msg));
+      additional = discovery.suggestedUrls
+        .filter((u) => u !== rootNorm)
+        .slice(0, parsed.maxPages - 1);
     }
 
     let i = 0;

@@ -15,3 +15,4 @@ export {
   listRecentAuditSiteGroups,
 } from './service';
 export { registerGeoAuditHandlers } from './handlers';
+export { discoverAuditPages } from './discover-pages';

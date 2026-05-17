@@ -12,7 +12,7 @@ import { useAsyncJob } from '@/hooks/use-async-job';
 import { JobProgress, resolveJobProgressLabel } from '@/components/geo/job-progress';
 import {
   AuditPagePicker,
-  defaultHomepageSelection,
+  defaultGeoSelection,
   discoverSitePages,
   selectedPageUrls,
   type DiscoverResult,
@@ -83,7 +83,7 @@ export function AuditEntry() {
     try {
       const result = await discoverSitePages(targetUrl.trim());
       setDiscovered(result);
-      setSelected(defaultHomepageSelection(result));
+      setSelected(defaultGeoSelection(result));
     } catch (e) {
       setDiscoverError(e instanceof Error ? e.message : 'Could not discover pages');
     } finally {
@@ -141,7 +141,7 @@ export function AuditEntry() {
               {discovering ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Finding pages…
+                  Discovering & ranking pages…
                 </>
               ) : (
                 'Find pages'

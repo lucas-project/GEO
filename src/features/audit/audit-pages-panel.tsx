@@ -16,11 +16,13 @@ interface AuditPagesPanelProps {
   inventory: PageInventory;
 }
 
-const SOURCE_LABELS = {
+const SOURCE_LABELS: Record<string, string> = {
   seed: 'Homepage',
   sitemap: 'Sitemap',
   internal: 'Internal link',
-} as const;
+  llms: 'llms.txt',
+  graph: 'Link graph',
+};
 
 export function AuditPagesPanel({ auditId, inventory }: AuditPagesPanelProps) {
   const [open, setOpen] = useState(true);

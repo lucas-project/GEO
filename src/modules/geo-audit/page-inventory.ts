@@ -66,8 +66,16 @@ export function buildPageInventory(input: {
 
   const pages = [...byUrl.values()].sort((a, b) => {
     if (a.audited !== b.audited) return a.audited ? -1 : 1;
-    const order = { seed: 0, sitemap: 1, internal: 2 } as const;
-    if (order[a.source] !== order[b.source]) return order[a.source] - order[b.source];
+    const sourceRank: Record<string, number> = {
+      seed: 0,
+      llms: 1,
+      graph: 2,
+      internal: 3,
+      sitemap: 4,
+    };
+    const ra = sourceRank[a.source] ?? 5;
+    const rb = sourceRank[b.source] ?? 5;
+    if (ra !== rb) return ra - rb;
     return a.url.localeCompare(b.url);
   });
 

@@ -26,25 +26,101 @@ export async function fetchSitemap(url: string, limit = DEFAULT_LIMIT): Promise<
   }
 }
 
-export function parseSitemapXml(xml: string, limit: number): SitemapEntry[] {
-  const $ = cheerio.load(xml, { xmlMode: true });
-  const entries: SitemapEntry[] = [];
+export interface ParsedSitemap {
+  urls: SitemapEntry[];
+  nestedSitemaps: string[];
+}
 
-  // Standard urlset
+export function parseSitemapXml(xml: string, limit: number): SitemapEntry[] {
+  return parseSitemapXmlDetailed(xml, limit).urls;
+}
+
+export function parseSitemapXmlDetailed(xml: string, limit: number): ParsedSitemap {
+  const $ = cheerio.load(xml, { xmlMode: true });
+  const urls: SitemapEntry[] = [];
+  const nestedSitemaps: string[] = [];
+
   $('url').each((_, el) => {
+    if (urls.length >= limit) return;
     const loc = $(el).find('loc').first().text().trim();
     const lastmod = $(el).find('lastmod').first().text().trim();
-    if (loc) entries.push({ loc, lastmod: lastmod || null });
+    if (loc) urls.push({ loc, lastmod: lastmod || null });
   });
 
-  // Sitemap index — we don't recurse here to avoid runaway crawls; caller
-  // can call fetchSitemap on each nested sitemap if needed.
   $('sitemap').each((_, el) => {
     const loc = $(el).find('loc').first().text().trim();
-    if (loc) entries.push({ loc, lastmod: null });
+    if (loc) nestedSitemaps.push(loc);
   });
 
-  return entries.slice(0, limit);
+  return { urls, nestedSitemaps };
+}
+
+export interface FetchSitemapRecursiveOptions {
+  maxFiles?: number;
+  maxUrls?: number;
+  maxDepth?: number;
+}
+
+/** Recursively fetch sitemap indexes and urlsets with global budgets. */
+export async function fetchSitemapRecursive(
+  rootUrls: string[],
+  opts: FetchSitemapRecursiveOptions = {},
+): Promise<SitemapEntry[]> {
+  const maxFiles = opts.maxFiles ?? 12;
+  const maxUrls = opts.maxUrls ?? 500;
+  const maxDepth = opts.maxDepth ?? 3;
+
+  const seenFiles = new Set<string>();
+  const byLoc = new Map<string, SitemapEntry>();
+  const queue: { url: string; depth: number }[] = rootUrls.map((url) => ({ url, depth: 0 }));
+
+  while (queue.length > 0 && seenFiles.size < maxFiles && byLoc.size < maxUrls) {
+    const next = queue.shift()!;
+    if (seenFiles.has(next.url) || next.depth > maxDepth) continue;
+    seenFiles.add(next.url);
+
+    try {
+      const res = await fetch(next.url, {
+        headers: { 'user-agent': config.crawl.userAgent },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) continue;
+      const xml = await res.text();
+      const remaining = maxUrls - byLoc.size;
+      const parsed = parseSitemapXmlDetailed(xml, remaining);
+
+      for (const entry of parsed.urls) {
+        if (byLoc.size >= maxUrls) break;
+        if (!entry.loc || entry.loc.endsWith('.xml')) continue;
+        const existing = byLoc.get(entry.loc);
+        if (!existing || isNewer(entry.lastmod, existing.lastmod)) {
+          byLoc.set(entry.loc, entry);
+        }
+      }
+
+      for (const nested of parsed.nestedSitemaps) {
+        if (seenFiles.size + queue.length < maxFiles) {
+          queue.push({ url: nested, depth: next.depth + 1 });
+        }
+      }
+    } catch (err) {
+      crawlLogger.warn({ err: (err as Error).message, url: next.url }, 'sitemap fetch failed');
+    }
+  }
+
+  return [...byLoc.values()].sort((a, b) => {
+    const da = a.lastmod ? Date.parse(a.lastmod) : 0;
+    const db = b.lastmod ? Date.parse(b.lastmod) : 0;
+    return db - da;
+  });
+}
+
+function isNewer(a: string | null | undefined, b: string | null | undefined): boolean {
+  const ta = a ? Date.parse(a) : 0;
+  const tb = b ? Date.parse(b) : 0;
+  if (!Number.isFinite(ta)) return !Number.isFinite(tb) || tb === 0;
+  if (!Number.isFinite(tb)) return true;
+  return ta > tb;
 }
 
 /**

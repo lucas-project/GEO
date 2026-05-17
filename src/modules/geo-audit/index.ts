@@ -5,7 +5,7 @@
 
 export { groupAuditsBySite } from './group-by-site';
 export type { AuditListRow, SiteAuditGroup } from './group-by-site';
-export { discoverAuditPages } from './discover-pages';
+export { ARCHETYPE_LABELS, ARCHETYPE_DISPLAY_ORDER } from './archetype-labels';
 export {
   DIMENSIONS,
   DIMENSION_LABELS,
@@ -20,10 +20,13 @@ export type {
   Fix,
   PageInventory,
   AuditPageEntry,
+  PageArchetype,
+  DiscoverySource,
   PageIssueImpact,
   PageCodeHighlight,
   SourceRange,
 } from './schemas';
+export { PAGE_ARCHETYPES, DISCOVERY_SOURCES } from './schemas';
 export {
   plainDimensionLabel,
   plainImpact,

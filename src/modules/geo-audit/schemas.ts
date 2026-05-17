@@ -122,13 +122,35 @@ export const FixSchema = z.object({
 });
 export type Fix = z.infer<typeof FixSchema>;
 
+export const PAGE_ARCHETYPES = [
+  'homepage',
+  'faq',
+  'qa',
+  'glossary',
+  'comparison',
+  'documentation',
+  'product',
+  'blog',
+  'content',
+  'utility',
+] as const;
+export type PageArchetype = (typeof PAGE_ARCHETYPES)[number];
+
+export const DISCOVERY_SOURCES = ['seed', 'sitemap', 'internal', 'llms', 'graph'] as const;
+export type DiscoverySource = (typeof DISCOVERY_SOURCES)[number];
+
 export const AuditPageEntrySchema = z.object({
   url: z.string(),
   title: z.string().nullable().optional(),
   statusCode: z.number().int().optional(),
-  source: z.enum(['seed', 'sitemap', 'internal']),
+  source: z.enum(['seed', 'sitemap', 'internal', 'llms', 'graph']),
+  sources: z.array(z.enum(DISCOVERY_SOURCES)).optional(),
   audited: z.boolean(),
   error: z.string().nullable().optional(),
+  geoScore: z.number().int().min(0).max(100).optional(),
+  archetype: z.enum(PAGE_ARCHETYPES).optional(),
+  signals: z.array(z.string()).optional(),
+  probed: z.boolean().optional(),
 });
 export type AuditPageEntry = z.infer<typeof AuditPageEntrySchema>;
 

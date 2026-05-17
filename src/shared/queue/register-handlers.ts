@@ -8,7 +8,7 @@ import { registerSimulationHandlers } from '@modules/ai-simulation';
 import { registerCompetitorHandlers } from '@modules/competitor-analysis';
 import { registerMonitoringHandlers } from '@modules/monitoring';
 import { registerAgentHandlers } from '@modules/geo-agent';
-import { registerCrawlHandlers } from '@modules/crawling';
+import { registerCrawlHandlers } from '@modules/crawling/server';
 import { registerIntelligenceHandlers } from '@modules/intelligence';
 
 export function registerAllQueueHandlers(): void {

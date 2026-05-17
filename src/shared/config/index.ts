@@ -122,6 +122,19 @@ export const config = {
     respectRobots: bool(process.env.CRAWL_RESPECT_ROBOTS, true),
   },
 
+  /** GEO-aware page discovery (audit picker + crawl queue). */
+  discovery: {
+    /** 0 = no cap on discovered URLs shown in the picker. */
+    maxCandidates: int(process.env.DISCOVERY_MAX_CANDIDATES, 0),
+    maxSitemapFiles: int(process.env.DISCOVERY_MAX_SITEMAP_FILES, 25),
+    maxSitemapUrls: int(process.env.DISCOVERY_MAX_SITEMAP_URLS, 10_000),
+    linkGraphDepth: int(process.env.DISCOVERY_LINK_GRAPH_DEPTH, 2),
+    linkGraphMaxPages: int(process.env.DISCOVERY_LINK_GRAPH_MAX_PAGES, 8),
+    probeCount: int(process.env.DISCOVERY_PROBE_COUNT, 30),
+    probeConcurrency: int(process.env.DISCOVERY_PROBE_CONCURRENCY, 3),
+    timeoutMs: int(process.env.DISCOVERY_TIMEOUT_MS, 300_000),
+  },
+
   logging: {
     level: process.env.LOG_LEVEL ?? 'info',
     pretty: process.env.NODE_ENV !== 'production',

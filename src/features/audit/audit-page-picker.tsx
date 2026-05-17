@@ -1,74 +1,194 @@
 'use client';
 
-import { Loader2, ArrowRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ChevronDown, Loader2, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api-client';
-import { canonicalPageUrl } from '@/lib/website-url';
-import type { AuditPageEntry } from '@modules/geo-audit';
+import { cn } from '@/lib/utils';
+import type { AuditPageEntry, PageArchetype } from '@modules/geo-audit';
+import {
+  defaultExpandedArchetypes,
+  groupPagesByArchetype,
+  groupSelectionState,
+  type PageArchetypeGroup,
+} from './group-pages-by-archetype';
+import {
+  countSelectedPages,
+  pageSelectionKey,
+  selectedPageUrls,
+} from './page-selection';
 
-const SOURCE_LABELS = {
+const SOURCE_LABELS: Record<AuditPageEntry['source'], string> = {
   seed: 'Homepage',
   sitemap: 'Sitemap',
-  internal: 'Internal link',
-} as const;
+  internal: 'Nav link',
+  llms: 'llms.txt',
+  graph: 'Link graph',
+};
+
+/** Discovery ranking only — not the post-audit GEO score. */
+const DISCOVERY_PRIORITY_HINT =
+  'How strongly we recommend auditing this page first. This is not your site GEO audit score.';
 
 export interface DiscoverResult {
   url: string;
   pages: AuditPageEntry[];
   suggestedUrls: string[];
   maxSelectable: number;
+  discoveredCount: number;
+  probedCount: number;
 }
 
 interface AuditPagePickerProps {
   siteUrl: string;
-  /** Discovery result from parent (required to show the list). */
   discovery: DiscoverResult;
   selected: Set<string>;
   onSelectedChange: (next: Set<string>) => void;
   disabled?: boolean;
-  /** Primary action below the list */
   onStart?: () => void;
   startLabel?: string;
   startLoading?: boolean;
-  /** When false (e.g. “audit more pages”), homepage is not forced. */
   lockHomepage?: boolean;
 }
 
-export function pageSelectionKey(url: string, siteRoot: string): string {
-  return canonicalPageUrl(url, siteRoot);
+export { pageSelectionKey, countSelectedPages, selectedPageUrls };
+
+export function defaultGeoSelection(discovery: DiscoverResult): Set<string> {
+  return new Set(discovery.suggestedUrls.map((u) => pageSelectionKey(u, discovery.url)));
 }
 
-/** Homepage is always selected and cannot be unchecked. */
 export function defaultHomepageSelection(discovery: DiscoverResult): Set<string> {
-  const root = discovery.suggestedUrls[0] ?? discovery.url;
-  return new Set([pageSelectionKey(root, discovery.url)]);
+  return defaultGeoSelection(discovery);
 }
 
-export function countSelectedPages(
-  pages: AuditPageEntry[],
-  selected: Set<string>,
-  siteRoot: string,
-): number {
-  let n = 0;
-  for (const p of pages) {
-    if (selected.has(pageSelectionKey(p.url, siteRoot))) n++;
-  }
-  return n;
-}
+function CategorySection({
+  group,
+  siteRoot,
+  homepageKey,
+  lockHomepage,
+  selected,
+  disabled,
+  expanded,
+  onToggleExpand,
+  onTogglePage,
+  onToggleCategory,
+}: {
+  group: PageArchetypeGroup;
+  siteRoot: string;
+  homepageKey: string;
+  lockHomepage: boolean;
+  selected: Set<string>;
+  disabled?: boolean;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  onTogglePage: (url: string) => void;
+  onToggleCategory: () => void;
+}) {
+  const { allSelected, someSelected, selectableKeys } = groupSelectionState(
+    group,
+    selected,
+    siteRoot,
+    homepageKey,
+    lockHomepage,
+  );
+  const selectedInGroup = group.pages.filter((p) =>
+    selected.has(pageSelectionKey(p.url, siteRoot)),
+  ).length;
 
-export function selectedPageUrls(
-  pages: AuditPageEntry[],
-  selected: Set<string>,
-  siteRoot: string,
-): string[] {
-  return pages
-    .filter((p) => selected.has(pageSelectionKey(p.url, siteRoot)))
-    .map((p) => pageSelectionKey(p.url, siteRoot));
+  return (
+    <div className="border-b border-border-subtle last:border-b-0">
+      <div className="flex items-center gap-2 px-3 py-2 bg-bg-subtle/40 hover:bg-bg-subtle/70 transition-colors">
+        {selectableKeys.length > 0 ? (
+          <input
+            type="checkbox"
+            className="shrink-0"
+            checked={allSelected}
+            ref={(el) => {
+              if (el) el.indeterminate = someSelected;
+            }}
+            disabled={disabled}
+            onChange={onToggleCategory}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Select all ${group.label} pages`}
+          />
+        ) : (
+          <span className="w-3.5 shrink-0" />
+        )}
+        <button
+          type="button"
+          className="flex flex-1 items-center gap-2 min-w-0 text-left"
+          onClick={onToggleExpand}
+          aria-expanded={expanded}
+        >
+          <ChevronDown
+            className={cn(
+              'h-3.5 w-3.5 shrink-0 text-fg-muted transition-transform',
+              expanded && 'rotate-180',
+            )}
+          />
+          <span className="text-xs font-medium text-fg truncate">{group.label}</span>
+          <span className="text-[11px] text-fg-muted shrink-0">
+            {selectedInGroup}/{group.pages.length}
+          </span>
+        </button>
+      </div>
+      {expanded && (
+        <ul className="divide-y divide-border-subtle/80">
+          {group.pages.map((page) => {
+            const key = pageSelectionKey(page.url, siteRoot);
+            const isHome = lockHomepage && key === homepageKey;
+            return (
+              <li key={key} className="flex items-start gap-2 px-3 py-2 pl-9 text-xs">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 shrink-0"
+                  checked={selected.has(key)}
+                  disabled={isHome || disabled}
+                  onChange={() => onTogglePage(page.url)}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="break-all text-fg">{page.url}</p>
+                  {page.title ? <p className="text-fg-muted truncate">{page.title}</p> : null}
+                  {page.signals && page.signals.length > 0 && (
+                    <p
+                      className="text-[11px] text-fg-subtle mt-0.5 line-clamp-2"
+                      title={page.signals.join(' · ')}
+                    >
+                      {page.signals.slice(0, 2).join(' · ')}
+                    </p>
+                  )}
+                  {isHome && (
+                    <p className="text-[12px] text-fg-subtle mt-0.5">Required · homepage</p>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {page.geoScore != null && (
+                    <Badge
+                      variant="accent"
+                      className="text-[10px] px-1.5"
+                      title={DISCOVERY_PRIORITY_HINT}
+                    >
+                      Priority {page.geoScore}
+                    </Badge>
+                  )}
+                  {page.probed && (
+                    <span className="text-[10px] text-fg-subtle">Probed</span>
+                  )}
+                  <Badge variant="default" className="text-[10px] px-1.5">
+                    {SOURCE_LABELS[page.source]}
+                  </Badge>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export function AuditPagePicker({
-  siteUrl,
   discovery,
   selected,
   onSelectedChange,
@@ -80,48 +200,84 @@ export function AuditPagePicker({
 }: AuditPagePickerProps) {
   const siteRoot = discovery.url;
   const homepageKey = pageSelectionKey(discovery.suggestedUrls[0] ?? discovery.url, siteRoot);
-  const pageKeys = discovery.pages.map((p) => pageSelectionKey(p.url, siteRoot));
-  const selectableKeys = lockHomepage
-    ? pageKeys.filter((k) => k !== homepageKey)
-    : pageKeys;
+  const groups = useMemo(
+    () => groupPagesByArchetype(discovery.pages, siteRoot),
+    [discovery.pages, siteRoot],
+  );
+  const [expanded, setExpanded] = useState<Set<PageArchetype>>(() =>
+    defaultExpandedArchetypes(groups),
+  );
+
   const selectedCount = countSelectedPages(discovery.pages, selected, siteRoot);
-  const allSelectableCount = Math.min(selectableKeys.length, discovery.maxSelectable - (lockHomepage ? 1 : 0));
+  const discoveredCount = discovery.discoveredCount ?? discovery.pages.length;
+  const probedCount = discovery.probedCount ?? discovery.pages.filter((p) => p.probed).length;
+
+  const allPageKeys = discovery.pages.map((p) => pageSelectionKey(p.url, siteRoot));
+  const selectableKeys = lockHomepage
+    ? allPageKeys.filter((k) => k !== homepageKey)
+    : allPageKeys;
   const optionalSelectedCount = selectableKeys.filter((k) => selected.has(k)).length;
-  const allSelected =
+  const allSelectableCount = Math.min(
+    selectableKeys.length,
+    discovery.maxSelectable - (lockHomepage ? 1 : 0),
+  );
+  const allTopSelected =
     selectableKeys.length > 0 &&
     optionalSelectedCount >= Math.min(selectableKeys.length, allSelectableCount);
-  const someSelected = optionalSelectedCount > 0 && !allSelected;
+  const someTopSelected = optionalSelectedCount > 0 && !allTopSelected;
 
   const toggle = (pageUrl: string) => {
     const key = pageSelectionKey(pageUrl, siteRoot);
     if (lockHomepage && key === homepageKey) return;
-
     const next = new Set(selected);
-    if (next.has(key)) {
-      next.delete(key);
-    } else if (next.size < discovery.maxSelectable) {
-      next.add(key);
-    }
+    if (next.has(key)) next.delete(key);
+    else if (next.size < discovery.maxSelectable) next.add(key);
     if (lockHomepage && !next.has(homepageKey)) next.add(homepageKey);
     onSelectedChange(next);
   };
 
-  const selectAll = () => {
-    const next = new Set<string>(lockHomepage ? [homepageKey] : []);
-    for (const p of discovery.pages) {
+  const addKeysUpToCap = (next: Set<string>, keys: string[]) => {
+    for (const k of keys) {
       if (next.size >= discovery.maxSelectable) break;
-      next.add(pageSelectionKey(p.url, siteRoot));
+      next.add(k);
     }
-    onSelectedChange(next);
+  };
+
+  const selectTopGeo = () => {
+    onSelectedChange(
+      new Set(discovery.suggestedUrls.map((u) => pageSelectionKey(u, siteRoot))),
+    );
   };
 
   const clearExtra = () => {
     onSelectedChange(lockHomepage ? new Set([homepageKey]) : new Set());
   };
 
-  const toggleSelectAll = () => {
-    if (allSelected) clearExtra();
-    else selectAll();
+  const toggleCategory = (group: PageArchetypeGroup) => {
+    const { allSelected: catAll, selectableKeys: keys } = groupSelectionState(
+      group,
+      selected,
+      siteRoot,
+      homepageKey,
+      lockHomepage,
+    );
+    const next = new Set(selected);
+    if (lockHomepage) next.add(homepageKey);
+    if (catAll) {
+      for (const k of keys) next.delete(k);
+    } else {
+      addKeysUpToCap(next, keys);
+    }
+    onSelectedChange(next);
+  };
+
+  const toggleExpand = (archetype: PageArchetype) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(archetype)) next.delete(archetype);
+      else next.add(archetype);
+      return next;
+    });
   };
 
   return (
@@ -130,15 +286,26 @@ export function AuditPagePicker({
         <div className="px-3 py-2 bg-bg-elevated border-b border-border flex items-center justify-between gap-2 flex-wrap">
           <div>
             <p className="text-xs font-medium text-fg">
-              {selectedCount} page{selectedCount !== 1 ? 's' : ''} selected
-              {discovery.maxSelectable < discovery.pages.length && (
-                <span className="text-fg-muted font-normal"> (max {discovery.maxSelectable})</span>
+              {discoveredCount} page{discoveredCount !== 1 ? 's' : ''} found
+              {probedCount > 0 && (
+                <span className="text-fg-muted font-normal">
+                  {' '}
+                  · {probedCount} ranked for audit priority
+                </span>
               )}
             </p>
-            <p className="text-[12px] text-fg-muted mt-0.5">
-              {lockHomepage
-                ? 'Homepage is always included. Pick any other pages to audit.'
-                : 'Tick the pages you want to add to this audit.'}
+            <p className="text-xs font-medium text-fg mt-1">
+              {selectedCount} selected
+              {discovery.maxSelectable < discoveredCount && (
+                <span className="text-fg-muted font-normal">
+                  {' '}
+                  (max {discovery.maxSelectable} to audit)
+                </span>
+              )}
+            </p>
+            <p className="text-[12px] text-fg-muted mt-0.5" title={DISCOVERY_PRIORITY_HINT}>
+              Grouped by page type. Priority scores recommend which pages to audit — not your final
+              GEO score.
             </p>
           </div>
           <div className="flex gap-1.5 shrink-0">
@@ -148,9 +315,9 @@ export function AuditPagePicker({
               size="sm"
               className="h-7 text-[13px] px-2"
               disabled={disabled || selectableKeys.length === 0}
-              onClick={selectAll}
+              onClick={selectTopGeo}
             >
-              Select all
+              Top priority
             </Button>
             <Button
               type="button"
@@ -169,49 +336,36 @@ export function AuditPagePicker({
             <input
               type="checkbox"
               className="shrink-0"
-              checked={allSelected}
+              checked={allTopSelected}
               ref={(el) => {
-                if (el) el.indeterminate = someSelected;
+                if (el) el.indeterminate = someTopSelected;
               }}
               disabled={disabled}
-              onChange={toggleSelectAll}
+              onChange={() => (allTopSelected ? clearExtra() : selectTopGeo())}
             />
             <span className="text-fg-muted">
-              {allSelected ? 'Deselect all' : 'Select all'} ({selectableKeys.length} page
-              {selectableKeys.length !== 1 ? 's' : ''})
+              {allTopSelected ? 'Deselect extras' : 'Select top priority'}
             </span>
           </label>
         )}
-        <ul className="max-h-56 overflow-y-auto divide-y divide-border-subtle">
-          {discovery.pages.map((page) => {
-            const key = pageSelectionKey(page.url, siteRoot);
-            const isHome = lockHomepage && key === homepageKey;
-            const checked = selected.has(key);
-            return (
-              <li key={key} className="flex items-start gap-2 px-3 py-2 text-xs">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={checked}
-                  disabled={isHome || disabled}
-                  onChange={() => toggle(page.url)}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="break-all text-fg">{page.url}</p>
-                  {page.title ? <p className="text-fg-muted truncate">{page.title}</p> : null}
-                  {isHome && (
-                    <p className="text-[12px] text-fg-subtle mt-0.5">Required · homepage</p>
-                  )}
-                </div>
-                <Badge variant="default" className="shrink-0">
-                  {SOURCE_LABELS[page.source]}
-                </Badge>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="max-h-[28rem] overflow-y-auto">
+          {groups.map((group) => (
+            <CategorySection
+              key={group.archetype}
+              group={group}
+              siteRoot={siteRoot}
+              homepageKey={homepageKey}
+              lockHomepage={lockHomepage}
+              selected={selected}
+              disabled={disabled}
+              expanded={expanded.has(group.archetype)}
+              onToggleExpand={() => toggleExpand(group.archetype)}
+              onTogglePage={toggle}
+              onToggleCategory={() => toggleCategory(group)}
+            />
+          ))}
+        </div>
       </div>
-
       {onStart && (
         <Button
           type="button"
@@ -236,7 +390,6 @@ export function AuditPagePicker({
   );
 }
 
-/** Imperative discover for parent-controlled flows */
 export async function discoverSitePages(siteUrl: string): Promise<DiscoverResult> {
   return api.post<DiscoverResult>('/api/geo-audit/discover', { url: siteUrl.trim() });
 }

@@ -4,7 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { discoverAuditPages } from '@modules/geo-audit';
+import { discoverAuditPages } from '@modules/geo-audit/server';
 import { normalizeWebsiteUrl } from '@/lib/website-url';
 import { parseJsonBody, parseZod } from '@/lib/api-route';
 

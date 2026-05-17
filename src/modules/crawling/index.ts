@@ -7,9 +7,12 @@
 
 export { crawlingService, crawl, crawlSinglePage } from './service';
 export { fetchRobots } from './robots';
-export { fetchSitemap, discoverSitemaps } from './sitemap';
-export { shutdownBrowser } from './browser/pool';
-export { registerCrawlHandlers } from './handlers';
+export {
+  fetchSitemap,
+  fetchSitemapRecursive,
+  discoverSitemaps,
+  parseSitemapXmlDetailed,
+} from './sitemap';
 export { discoverInternalLinks, buildCrawlQueue } from './discover-links';
 export type {
   CrawlOptions,
