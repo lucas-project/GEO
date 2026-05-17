@@ -53,6 +53,14 @@ export const RollupSignalsSchema = z.object({
     count: z.number().int(),
     hasByline: z.boolean(),
   }),
+  pipeline: z
+    .object({
+      citationProbability: z.number().min(0).max(1).optional(),
+      bottleneckLayer: z.string().optional(),
+      bottleneckDimension: z.string().optional(),
+      layerScores: z.record(z.string(), z.number()).optional(),
+    })
+    .optional(),
 });
 export type RollupSignals = z.infer<typeof RollupSignalsSchema>;
 
@@ -99,6 +107,17 @@ export const BenchmarkInsightSchema = z.object({
   liftPoints: z.number().optional(),
   liftPercent: z.number().optional(),
   youHavePattern: z.boolean().optional(),
+  /** Avg GEO score for sites that have this pattern (for charts) */
+  withPatternAvgScore: z.number().optional(),
+  /** Avg GEO score for sites without this pattern */
+  withoutPatternAvgScore: z.number().optional(),
+  /** Plain-language headline for the insight card */
+  title: z.string(),
+  /** One-sentence takeaway */
+  summary: z.string(),
+  /** Longer explanation for non-technical readers */
+  explanation: z.string(),
+  /** Combined text (LLM / legacy) */
   message: z.string(),
 });
 export type BenchmarkInsight = z.infer<typeof BenchmarkInsightSchema>;

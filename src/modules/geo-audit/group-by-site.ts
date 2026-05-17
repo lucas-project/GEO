@@ -4,6 +4,7 @@ export interface AuditListRow {
   id: string;
   url: string;
   overallScore: number;
+  citationProbability?: number;
   status: string;
   createdAt: string;
   monitored: boolean;

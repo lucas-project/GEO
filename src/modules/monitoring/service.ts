@@ -465,7 +465,19 @@ export async function runMonitoringFor(
     let alerts: Alert[] = [];
     let diffJson: string | null = null;
     if (previousAudit) {
-      const { alerts: diffAlerts, diff } = diffAudits(previousAudit, currentAudit, {
+      const scoringMetaByAudit = await loadScoringMetaForAudits([
+        previousAudit.id,
+        currentAudit.id,
+      ]);
+      const prevWithMeta = {
+        ...previousAudit,
+        scoringMeta: scoringMetaByAudit.get(previousAudit.id),
+      };
+      const curWithMeta = {
+        ...currentAudit,
+        scoringMeta: scoringMetaByAudit.get(currentAudit.id),
+      };
+      const { alerts: diffAlerts, diff } = diffAudits(prevWithMeta, curWithMeta, {
         prevExtraction,
         curExtraction,
         prevCitation: { targetVisibilityScore: prevCitationVisibility },
@@ -572,6 +584,25 @@ export async function runMonitoringSweep(): Promise<{
     'monitoring sweep complete',
   );
   return { sitesProcessed: due.length, totalAlerts, failed };
+}
+
+async function loadScoringMetaForAudits(
+  auditIds: string[],
+): Promise<Map<string, string | undefined>> {
+  const out = new Map<string, string | undefined>();
+  if (auditIds.length === 0) return out;
+  const placeholders = auditIds.map(() => '?').join(',');
+  const rows = await prisma.$queryRawUnsafe<Array<{ id: string; scoringMeta: string }>>(
+    `SELECT "id", "scoringMeta" FROM "GeoAudit" WHERE "id" IN (${placeholders})`,
+    ...auditIds,
+  ).catch(() => []);
+  for (const id of auditIds) out.set(id, undefined);
+  for (const row of rows) {
+    if (row.scoringMeta && row.scoringMeta !== '{}') {
+      out.set(row.id, row.scoringMeta);
+    }
+  }
+  return out;
 }
 
 export const monitoringService = {

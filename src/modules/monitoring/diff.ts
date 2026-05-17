@@ -5,7 +5,7 @@
 import { randomId } from '@shared/util/id';
 import { config } from '@shared/config';
 import { parseJson, stringifyJson } from '@shared/database/client';
-import { type DimensionScore, DIMENSIONS, type Issue } from '@modules/geo-audit';
+import { type DimensionScore, DIMENSIONS, type Issue, ScoringMetaSchema } from '@modules/geo-audit';
 import { buildIssueKey } from '@modules/intelligence';
 import type { Alert, MonitoringDiffPayload } from './schemas';
 
@@ -13,7 +13,16 @@ interface AuditLike {
   id?: string;
   overallScore: number;
   dimensions: string;
+  scoringMeta?: string;
   topIssues?: string;
+}
+
+function citationProbabilityFromMeta(json: string | undefined): number | null {
+  if (!json || json === '{}') return null;
+  const parsed = parseJson<unknown>(json, null);
+  if (!parsed) return null;
+  const result = ScoringMetaSchema.safeParse(parsed);
+  return result.success ? result.data.citationProbability : null;
 }
 
 export interface MonitorExtractionSignals {
@@ -55,6 +64,7 @@ const REGRESSION_THRESHOLD = config.monitoring.overallRegressionThreshold;
 const IMPROVEMENT_THRESHOLD = config.monitoring.improvementThreshold;
 const DIMENSION_DELTA_THRESHOLD = config.monitoring.dimensionDeltaThreshold;
 const CITATION_DELTA_THRESHOLD = config.monitoring.citationDeltaThreshold;
+const CITATION_PROB_DELTA_THRESHOLD = config.monitoring.citationProbabilityDeltaThreshold;
 const ENTITY_DELTA_THRESHOLD = config.monitoring.entityDeltaThreshold;
 const READABILITY_DELTA_THRESHOLD = config.monitoring.readabilityDeltaThreshold;
 
@@ -216,6 +226,33 @@ export function diffAudits(
       dimension: dim,
       delta,
     });
+  }
+
+  const prevProb = citationProbabilityFromMeta(previous.scoringMeta);
+  const curProb = citationProbabilityFromMeta(current.scoringMeta);
+  if (prevProb != null && curProb != null) {
+    const probDelta = curProb - prevProb;
+    if (probDelta <= -CITATION_PROB_DELTA_THRESHOLD) {
+      alerts.push({
+        id: randomId(),
+        severity: 'regression',
+        kind: 'citation',
+        title: `Citation probability dropped ${Math.round(Math.abs(probDelta) * 100)}%`,
+        detail: `Estimated citation likelihood fell from ${Math.round(prevProb * 100)}% to ${Math.round(curProb * 100)}%.`,
+        dimension: 'citationFriendliness',
+        delta: probDelta,
+      });
+    } else if (probDelta >= CITATION_PROB_DELTA_THRESHOLD) {
+      alerts.push({
+        id: randomId(),
+        severity: 'info',
+        kind: 'citation',
+        title: `Citation probability rose ${Math.round(probDelta * 100)}%`,
+        detail: `Estimated citation likelihood rose from ${Math.round(prevProb * 100)}% to ${Math.round(curProb * 100)}%.`,
+        dimension: 'citationFriendliness',
+        delta: probDelta,
+      });
+    }
   }
 
   const schemas = { removed: [] as string[], added: [] as string[] };

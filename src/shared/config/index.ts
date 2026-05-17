@@ -74,6 +74,9 @@ export const config = {
     maxFailureBackoffHours: int(process.env.MONITOR_MAX_BACKOFF_HOURS, 72),
     /** Min change in citation visibility (0–1) to alert */
     citationDeltaThreshold: parseFloat(process.env.MONITOR_CITATION_DELTA_THRESHOLD ?? '0.15'),
+    citationProbabilityDeltaThreshold: parseFloat(
+      process.env.MONITOR_CITATION_PROB_DELTA_THRESHOLD ?? '0.12',
+    ),
     entityDeltaThreshold: int(process.env.MONITOR_ENTITY_DELTA_THRESHOLD, 3),
     readabilityDeltaThreshold: int(process.env.MONITOR_READABILITY_DELTA_THRESHOLD, 12),
     /** Pages to crawl during health-check recovery runs */
@@ -87,6 +90,52 @@ export const config = {
       process.env.INTELLIGENCE_CITATION_EMBED_THRESHOLD ?? '0.4',
     ),
     readabilityHighThreshold: int(process.env.INTELLIGENCE_READABILITY_HIGH, 75),
+    minCalibrationSamples: int(process.env.SCORING_MIN_CALIBRATION_SAMPLES, 25),
+  },
+
+  /** Hierarchical GEO scoring — layer weights, gating, citation probability. */
+  scoring: {
+    layerBlend: {
+      foundation: 0.15,
+      understanding: 0.2,
+      generation: 0.25,
+      outcome: 0.4,
+    },
+    layerDimensionWeights: {
+      foundation: {
+        crawlerFriendliness: 1.2,
+        structuredContent: 1.1,
+        semanticClarity: 1.0,
+      },
+      understanding: {
+        entityClarity: 1.2,
+        chunkOptimization: 1.0,
+        aiReadability: 1.1,
+        trustSignals: 0.8,
+      },
+      generation: {
+        answerExtraction: 1.3,
+        summarizationQuality: 1.0,
+      },
+      outcome: {
+        citationFriendliness: 1.0,
+      },
+    },
+    gates: {
+      crawlerBlockedThreshold: 30,
+      crawlerBlockedCap: 40,
+      crawlerWeakThreshold: 50,
+      crawlerWeakCap: 60,
+      foundationWeakThreshold: 45,
+      propagationFactor: 0.92,
+      layerBuffer: 8,
+      answerExtractionCeilings: [
+        { maxScore: 40, citationCap: 55 },
+        { maxScore: 60, citationCap: 75 },
+      ],
+    },
+    citationSnapshotMargin: parseFloat(process.env.SCORING_CITATION_SNAPSHOT_MARGIN ?? '0.1'),
+    calibrationMaxAdjustment: 0.15,
   },
 
   ai: {

@@ -16,6 +16,7 @@ import { PatternStatMetadataSchema } from './schemas';
 import { getEffectiveMinCohortSamples, getMinCohortSamples } from './ingest';
 import { parseRollupSignals, listPatternsFromSignals } from './rollup';
 import { getLatestCitationVisibility } from './citation-snapshot';
+import { enrichBenchmarkInsight } from './benchmark-copy';
 
 function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length === 0 || b.length === 0 || a.length !== b.length) return 0;
@@ -57,28 +58,6 @@ function categoryForPattern(patternType: string): BenchmarkInsight['category'] {
     default:
       return 'content';
   }
-}
-
-function formatLiftMessage(
-  patternKey: string,
-  meta: PatternStatMetadata,
-  cohortKey: string,
-  sampleCount: number,
-  youHave: boolean,
-): string {
-  const n = sampleCount;
-  if (meta.liftPoints !== undefined && meta.withoutPatternAvgScore !== undefined) {
-    const sign = meta.liftPoints >= 0 ? '+' : '';
-    const pct =
-      meta.liftPercent !== undefined ? ` (${sign}${meta.liftPercent}% vs cohort without)` : '';
-    return youHave
-      ? `Sites using ${patternKey} average ${sign}${meta.liftPoints} GEO points vs cohort without (${cohortKey}, n=${n})${pct}.`
-      : `Sites with ${patternKey} average ${sign}${meta.liftPoints} GEO points higher than those without (${cohortKey}, n=${n})${pct}. You lack this pattern.`;
-  }
-  if (meta.withPatternAvgScore !== undefined) {
-    return `Sites with ${patternKey} in ${cohortKey} average ${Math.round(meta.withPatternAvgScore)}/100 (n=${n}).`;
-  }
-  return `Pattern ${patternKey} observed in cohort ${cohortKey} (n=${n}).`;
 }
 
 export async function getSiteTrend(siteId: string, limit = 30): Promise<SiteTrend> {
@@ -133,18 +112,21 @@ export async function getCohortInsights(cohortKey: string): Promise<BenchmarkIns
     const meta = parseMetadata(stat.metadata);
     const insightKind: InsightKind =
       meta.liftPoints !== undefined ? 'score_lift' : 'missing_pattern';
-    return {
-      insightKind,
-      category: categoryForPattern(stat.patternType),
-      patternType: stat.patternType as BenchmarkInsight['patternType'],
-      patternKey: stat.patternKey,
-      cohortKey,
-      sampleCount: stat.sampleCount,
-      avgOverallScore: Math.round(stat.avgOverallScore),
-      liftPoints: meta.liftPoints,
-      liftPercent: meta.liftPercent,
-      message: formatLiftMessage(stat.patternKey, meta, cohortKey, stat.sampleCount, false),
-    };
+    return enrichBenchmarkInsight(
+      {
+        insightKind,
+        category: categoryForPattern(stat.patternType),
+        patternType: stat.patternType as BenchmarkInsight['patternType'],
+        patternKey: stat.patternKey,
+        cohortKey,
+        sampleCount: stat.sampleCount,
+        avgOverallScore: Math.round(stat.avgOverallScore),
+        liftPoints: meta.liftPoints,
+        liftPercent: meta.liftPercent,
+        message: '',
+      },
+      meta,
+    );
   });
 }
 
@@ -186,38 +168,48 @@ export async function getBenchmarksForSite(siteId: string): Promise<BenchmarkIns
     const youHave = yourPatterns.has(key);
 
     if (youHave && meta.liftPoints !== undefined && meta.liftPoints > 0) {
-      insights.push({
-        insightKind: 'score_lift',
-        category: categoryForPattern(stat.patternType),
-        patternType: stat.patternType as BenchmarkInsight['patternType'],
-        patternKey: stat.patternKey,
-        cohortKey,
-        sampleCount: stat.sampleCount,
-        avgOverallScore: Math.round(stat.avgOverallScore),
-        yourScore,
-        liftPoints: meta.liftPoints,
-        liftPercent: meta.liftPercent,
-        youHavePattern: true,
-        message: formatLiftMessage(stat.patternKey, meta, cohortKey, stat.sampleCount, true),
-      });
+      insights.push(
+        enrichBenchmarkInsight(
+          {
+            insightKind: 'score_lift',
+            category: categoryForPattern(stat.patternType),
+            patternType: stat.patternType as BenchmarkInsight['patternType'],
+            patternKey: stat.patternKey,
+            cohortKey,
+            sampleCount: stat.sampleCount,
+            avgOverallScore: Math.round(stat.avgOverallScore),
+            yourScore,
+            liftPoints: meta.liftPoints,
+            liftPercent: meta.liftPercent,
+            youHavePattern: true,
+            message: '',
+          },
+          meta,
+        ),
+      );
     }
 
     if (!youHave && (meta.liftPoints ?? 0) > 5) {
-      insights.push({
-        insightKind: 'missing_pattern',
-        category: categoryForPattern(stat.patternType),
-        patternType: stat.patternType as BenchmarkInsight['patternType'],
-        patternKey: stat.patternKey,
-        cohortKey,
-        sampleCount: stat.sampleCount,
-        avgOverallScore: Math.round(stat.avgOverallScore),
-        yourScore,
-        delta: meta.liftPoints ?? Math.round(stat.avgOverallScore - yourScore),
-        liftPoints: meta.liftPoints,
-        liftPercent: meta.liftPercent,
-        youHavePattern: false,
-        message: formatLiftMessage(stat.patternKey, meta, cohortKey, stat.sampleCount, false),
-      });
+      insights.push(
+        enrichBenchmarkInsight(
+          {
+            insightKind: 'missing_pattern',
+            category: categoryForPattern(stat.patternType),
+            patternType: stat.patternType as BenchmarkInsight['patternType'],
+            patternKey: stat.patternKey,
+            cohortKey,
+            sampleCount: stat.sampleCount,
+            avgOverallScore: Math.round(stat.avgOverallScore),
+            yourScore,
+            delta: meta.liftPoints ?? Math.round(stat.avgOverallScore - yourScore),
+            liftPoints: meta.liftPoints,
+            liftPercent: meta.liftPercent,
+            youHavePattern: false,
+            message: '',
+          },
+          meta,
+        ),
+      );
     }
 
     if (meta.platforms) {
@@ -225,19 +217,24 @@ export async function getBenchmarksForSite(siteId: string): Promise<BenchmarkIns
         if (platMeta.sampleCount < min) continue;
         const platLift = platMeta.liftPoints ?? meta.liftPoints;
         if (platLift === undefined || platLift < 8) continue;
-        insights.push({
-          insightKind: 'platform',
-          category: 'platform',
-          patternType: stat.patternType as BenchmarkInsight['patternType'],
-          patternKey: stat.patternKey,
-          cohortKey: `platform:${platform}`,
-          sampleCount: platMeta.sampleCount,
-          avgOverallScore: Math.round(platMeta.avgScore),
-          yourScore,
-          liftPoints: platLift,
-          youHavePattern: youHave,
-          message: `${stat.patternKey} correlates with +${platLift} pts on ${platform} simulations (n=${platMeta.sampleCount}).`,
-        });
+        insights.push(
+          enrichBenchmarkInsight(
+            {
+              insightKind: 'platform',
+              category: 'platform',
+              patternType: stat.patternType as BenchmarkInsight['patternType'],
+              patternKey: stat.patternKey,
+              cohortKey: `platform:${platform}`,
+              sampleCount: platMeta.sampleCount,
+              avgOverallScore: Math.round(platMeta.avgScore),
+              yourScore,
+              liftPoints: platLift,
+              youHavePattern: youHave,
+              message: '',
+            },
+            meta,
+          ),
+        );
       }
     }
 
@@ -248,16 +245,21 @@ export async function getBenchmarksForSite(siteId: string): Promise<BenchmarkIns
     ) {
       const lift = Math.round((meta.citationRateWith - meta.citationRateWithout) * 100);
       if (lift > 10) {
-        insights.push({
-          insightKind: 'citation_lift',
-          category: 'citations',
-          patternType: 'citation',
-          patternKey: stat.patternKey,
-          cohortKey,
-          sampleCount: stat.sampleCount,
-          youHavePattern: youHave,
-          message: `Target visibility is +${lift}% when ${stat.patternKey} is present (n=${stat.sampleCount}).`,
-        });
+        insights.push(
+          enrichBenchmarkInsight(
+            {
+              insightKind: 'citation_lift',
+              category: 'citations',
+              patternType: 'citation',
+              patternKey: stat.patternKey,
+              cohortKey,
+              sampleCount: stat.sampleCount,
+              youHavePattern: youHave,
+              message: '',
+            },
+            meta,
+          ),
+        );
       }
     }
   }
@@ -267,21 +269,25 @@ export async function getBenchmarksForSite(siteId: string): Promise<BenchmarkIns
       const key = `${stat.patternType}:${stat.patternKey}`;
       const youHave = yourPatterns.has(key);
       const avg = Math.round(stat.avgOverallScore);
-      insights.push({
-        insightKind: youHave ? 'score_lift' : 'missing_pattern',
-        category: categoryForPattern(stat.patternType),
-        patternType: stat.patternType as BenchmarkInsight['patternType'],
-        patternKey: stat.patternKey,
-        cohortKey,
-        sampleCount: stat.sampleCount,
-        avgOverallScore: avg,
-        yourScore,
-        delta: avg - yourScore,
-        youHavePattern: youHave,
-        message: youHave
-          ? `Sites with ${stat.patternKey} in this cohort average ${avg}/100 (n=${stat.sampleCount}). Your score: ${yourScore}/100.`
-          : `Sites using ${stat.patternKey} average ${avg}/100 (n=${stat.sampleCount}). You may be missing this pattern.`,
-      });
+      const meta = parseMetadata(stat.metadata);
+      insights.push(
+        enrichBenchmarkInsight(
+          {
+            insightKind: youHave ? 'score_lift' : 'missing_pattern',
+            category: categoryForPattern(stat.patternType),
+            patternType: stat.patternType as BenchmarkInsight['patternType'],
+            patternKey: stat.patternKey,
+            cohortKey,
+            sampleCount: stat.sampleCount,
+            avgOverallScore: avg,
+            yourScore,
+            delta: avg - yourScore,
+            youHavePattern: youHave,
+            message: '',
+          },
+          meta,
+        ),
+      );
     }
   }
 
@@ -343,7 +349,7 @@ export async function getIntelligenceContext(siteId: string | null): Promise<str
   if (benchmarks.length === 0) return '';
   return benchmarks
     .slice(0, 3)
-    .map((b) => b.message)
+    .map((b) => b.summary)
     .join('\n');
 }
 

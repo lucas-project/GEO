@@ -10,11 +10,21 @@ export {
   DIMENSIONS,
   DIMENSION_LABELS,
   DIMENSION_DESCRIPTIONS,
+  DIMENSION_LAYERS,
+  SCORE_LAYERS,
+  LAYER_LABELS,
+  LAYER_DESCRIPTIONS,
   DimensionScoreSchema,
+  ScoringMetaSchema,
 } from './schemas';
 export type {
   Dimension,
   DimensionScore,
+  ScoreLayer,
+  LayerScore,
+  ScoringMeta,
+  Bottleneck,
+  GateApplied,
   GeoAuditResult,
   Issue,
   Fix,
@@ -26,6 +36,7 @@ export type {
   PageCodeHighlight,
   SourceRange,
 } from './schemas';
+export { deriveScoringMetaFromDimensions } from './hierarchical-scoring';
 export { PAGE_ARCHETYPES, DISCOVERY_SOURCES } from './schemas';
 export {
   plainDimensionLabel,

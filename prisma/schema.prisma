@@ -107,6 +107,8 @@ model GeoAudit {
   url           String
   overallScore  Int      @default(0)
   dimensions    String   // JSON: dimension -> {score, reasons[]}
+  /** Hierarchical pipeline: layers, citation probability, bottleneck, gates */
+  scoringMeta   String   @default("{}")
   narrative     String?  // LLM-generated human summary
   topIssues     String   // JSON: Issue[]
   topFixes      String   // JSON: Fix[]

@@ -77,6 +77,11 @@ export function RecentAudits() {
                 >
                   <ScoreGauge score={latest.overallScore} size="sm" />
                   <div className="flex-1 min-w-0">
+                    {latest.citationProbability != null && (
+                      <span className="text-[10px] text-fg-subtle tabular-nums">
+                        {Math.round(latest.citationProbability * 100)}% cite prob
+                      </span>
+                    )}
                     <span className="text-sm font-medium text-fg truncate block">
                       {group.displayHost}
                     </span>

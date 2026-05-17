@@ -1,11 +1,35 @@
 /**
  * GEO Audit schemas — the contract every audit returns.
  *
- * Ten dimensions are scored, each 0-100 with reasons. Overall is a
- * weighted aggregate (see scoring.ts).
+ * Ten dimensions are scored, each 0-100 with reasons. Overall uses a
+ * hierarchical pipeline (foundation → understanding → generation → outcome).
  */
 
 import { z } from 'zod';
+
+/** AI visibility pipeline layers (causal order). */
+export const SCORE_LAYERS = [
+  'foundation',
+  'understanding',
+  'generation',
+  'outcome',
+] as const;
+
+export type ScoreLayer = (typeof SCORE_LAYERS)[number];
+
+export const LAYER_LABELS: Record<ScoreLayer, string> = {
+  foundation: 'Foundation',
+  understanding: 'Understanding',
+  generation: 'Generation',
+  outcome: 'Outcome',
+};
+
+export const LAYER_DESCRIPTIONS: Record<ScoreLayer, string> = {
+  foundation: 'Can AI crawl, parse structure, and read markup?',
+  understanding: 'Can AI understand entities, chunks, and trust signals?',
+  generation: 'Can AI extract answers and summarize content?',
+  outcome: 'Will AI cite this page as a source?',
+};
 
 export const DIMENSIONS = [
   'aiReadability',
@@ -48,11 +72,67 @@ export const DIMENSION_DESCRIPTIONS: Record<Dimension, string> = {
   crawlerFriendliness: 'AI crawler accessibility (robots, llms.txt, JS).',
 };
 
+export const DIMENSION_LAYERS: Record<Dimension, ScoreLayer> = {
+  crawlerFriendliness: 'foundation',
+  structuredContent: 'foundation',
+  semanticClarity: 'foundation',
+  entityClarity: 'understanding',
+  chunkOptimization: 'understanding',
+  aiReadability: 'understanding',
+  trustSignals: 'understanding',
+  answerExtraction: 'generation',
+  summarizationQuality: 'generation',
+  citationFriendliness: 'outcome',
+};
+
 export const DimensionScoreSchema = z.object({
   score: z.number().int().min(0).max(100),
   reasons: z.array(z.string()),
 });
 export type DimensionScore = z.infer<typeof DimensionScoreSchema>;
+
+export const LayerScoreSchema = z.object({
+  layer: z.enum(SCORE_LAYERS),
+  rawScore: z.number().int().min(0).max(100),
+  effectiveScore: z.number().int().min(0).max(100),
+  dimensions: z.array(z.enum(DIMENSIONS)),
+  weakestDimension: z.enum(DIMENSIONS).optional(),
+});
+export type LayerScore = z.infer<typeof LayerScoreSchema>;
+
+export const GateAppliedSchema = z.object({
+  type: z.enum([
+    'crawler_blocked',
+    'crawler_weak',
+    'foundation_weak',
+    'propagation',
+    'answer_extraction_ceiling',
+    'citation_snapshot',
+  ]),
+  description: z.string(),
+  cap: z.number().optional(),
+});
+export type GateApplied = z.infer<typeof GateAppliedSchema>;
+
+export const BottleneckSchema = z.object({
+  layer: z.enum(SCORE_LAYERS),
+  dimension: z.enum(DIMENSIONS),
+  effectiveScore: z.number().int().min(0).max(100),
+  reason: z.string(),
+});
+export type Bottleneck = z.infer<typeof BottleneckSchema>;
+
+export const ScoringMetaSchema = z.object({
+  modelVersion: z.literal('hierarchical-v1'),
+  layers: z.record(z.enum(SCORE_LAYERS), LayerScoreSchema),
+  citationProbability: z.number().min(0).max(1),
+  bottleneck: BottleneckSchema,
+  gatesApplied: z.array(GateAppliedSchema),
+  overallCap: z.number().int().min(0).max(100).optional(),
+  citationSnapshotVisibility: z.number().min(0).max(1).optional(),
+  simulationRunCount: z.number().int().optional(),
+});
+export type ScoringMeta = z.infer<typeof ScoringMetaSchema>;
 
 export const SourceRangeSchema = z.object({
   start: z.number().int().nonnegative(),
@@ -167,6 +247,7 @@ export const GeoAuditResultSchema = z.object({
   url: z.string(),
   overallScore: z.number().int().min(0).max(100),
   dimensions: z.record(z.enum(DIMENSIONS), DimensionScoreSchema),
+  scoringMeta: ScoringMetaSchema.nullable().optional(),
   narrative: z.string().nullable(),
   topIssues: z.array(IssueSchema),
   topFixes: z.array(FixSchema),

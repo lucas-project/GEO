@@ -15,11 +15,15 @@ import type { PageExtraction, SchemaBlock } from '@modules/extraction';
 import {
   DIMENSIONS,
   DIMENSION_LABELS,
+  DIMENSION_LAYERS,
   type Dimension,
   type DimensionScore,
   type Issue,
   type Fix,
+  type ScoringMeta,
 } from './schemas';
+import { computeHierarchicalScore } from './hierarchical-scoring';
+import type { CalibrationWeights } from './calibration';
 import { buildImpactedPages, pathHint } from './issue-evidence';
 import {
   isNegativeReason,
@@ -35,19 +39,6 @@ import {
   normalizeReasonText,
   type CanonicalIssueCategory,
 } from './issue-categories';
-
-const DIMENSION_WEIGHTS: Record<Dimension, number> = {
-  aiReadability: 1.2,
-  citationFriendliness: 1.4,
-  semanticClarity: 1.1,
-  entityClarity: 1.2,
-  answerExtraction: 1.3,
-  chunkOptimization: 1.0,
-  summarizationQuality: 1.1,
-  trustSignals: 1.0,
-  structuredContent: 1.3,
-  crawlerFriendliness: 0.9,
-};
 
 export interface PageExtractionInput {
   page: CrawledPage;
@@ -505,21 +496,30 @@ function scoreDimensions(ctx: ScoringContext): Record<Dimension, DimensionScore>
   };
 }
 
-export function scoreAll(ctx: ScoringContext): {
+export interface ScoreAllOptions {
+  citationVisibility?: number | null;
+  simulationRunCount?: number;
+  calibration?: CalibrationWeights;
+}
+
+export function scoreAll(
+  ctx: ScoringContext,
+  options: ScoreAllOptions = {},
+): {
   dimensions: Record<Dimension, DimensionScore>;
   overallScore: number;
+  scoringMeta: ScoringMeta;
 } {
   const dimensions = scoreDimensions(ctx);
 
-  let weightedSum = 0;
-  let totalWeight = 0;
-  for (const dim of DIMENSIONS) {
-    const w = DIMENSION_WEIGHTS[dim];
-    weightedSum += dimensions[dim].score * w;
-    totalWeight += w;
-  }
-  const overallScore = clamp(weightedSum / totalWeight);
-  return { dimensions, overallScore };
+  const { overallScore, scoringMeta } = computeHierarchicalScore({
+    dimensions,
+    citationVisibility: options.citationVisibility,
+    simulationRunCount: options.simulationRunCount,
+    layerWeightMultipliers: options.calibration?.layerMultipliers,
+  });
+
+  return { dimensions, overallScore, scoringMeta };
 }
 
 // ---------- Issue + Fix derivation ----------
@@ -693,6 +693,7 @@ function buildIssueDetails(
 export function deriveIssuesAndFixes(
   dimensions: Record<Dimension, DimensionScore>,
   ctx?: ScoringContext,
+  scoringMeta?: ScoringMeta | null,
 ): {
   issues: Issue[];
   fixes: Fix[];
@@ -700,10 +701,25 @@ export function deriveIssuesAndFixes(
   const issues: Issue[] = [];
   const fixes: Fix[] = [];
 
+  const bottleneckLayer = scoringMeta?.bottleneck.layer;
+  const bottleneckDim = scoringMeta?.bottleneck.dimension;
+  const pipelinePrefix = bottleneckLayer
+    ? `Blocked by ${bottleneckLayer} layer: `
+    : '';
+
   type Candidate = { dim: Dimension; reason: string; score: number };
   const buckets = new Map<string, { canonical: CanonicalIssueCategory | null; candidates: Candidate[] }>();
 
-  for (const dim of DIMENSIONS) {
+  const sortedDimensions = [...DIMENSIONS].sort((a, b) => {
+    const aBottleneck =
+      a === bottleneckDim ? 0 : DIMENSION_LAYERS[a] === bottleneckLayer ? 1 : 2;
+    const bBottleneck =
+      b === bottleneckDim ? 0 : DIMENSION_LAYERS[b] === bottleneckLayer ? 1 : 2;
+    if (aBottleneck !== bBottleneck) return aBottleneck - bBottleneck;
+    return dimensions[a].score - dimensions[b].score;
+  });
+
+  for (const dim of sortedDimensions) {
     const ds = dimensions[dim];
     if (ds.score >= 75) continue;
     const negativeReasons = ds.reasons.filter(isNegativeReason);
@@ -746,12 +762,18 @@ export function deriveIssuesAndFixes(
       ? buildIssueDetails(primaryDim, dimensions[primaryDim], ctx, lead.reason, bucketId)
       : undefined;
 
+    const isBottleneck =
+      primaryDim === bottleneckDim || DIMENSION_LAYERS[primaryDim] === bottleneckLayer;
+    const description = isBottleneck && pipelinePrefix
+      ? `${pipelinePrefix}${expandReason(summaryReason)}`
+      : expandReason(summaryReason);
+
     issues.push({
       id: `issue-${bucketId}`,
       issueKey: buildIssueKey(primaryDim, canonical?.id ?? summaryReason),
       severity,
       title: displayTitle,
-      description: expandReason(summaryReason),
+      description,
       dimension: primaryDim,
       impact: plainImpact(primaryDim, Math.min(primaryScore, worstScore)),
       summaryPlain: plainIssueSummary(primaryDim, summaryReason, Math.min(primaryScore, worstScore)),
@@ -821,6 +843,16 @@ export function deriveIssuesAndFixes(
       artifactType: 'product-schema',
     });
   }
+
+  issues.sort((a, b) => {
+    const aPri =
+      a.dimension === bottleneckDim ? 0 : DIMENSION_LAYERS[a.dimension] === bottleneckLayer ? 1 : 2;
+    const bPri =
+      b.dimension === bottleneckDim ? 0 : DIMENSION_LAYERS[b.dimension] === bottleneckLayer ? 1 : 2;
+    if (aPri !== bPri) return aPri - bPri;
+    const sev = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+    return sev[a.severity] - sev[b.severity];
+  });
 
   return { issues, fixes: fixes.slice(0, 6) };
 }

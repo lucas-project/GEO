@@ -7,7 +7,7 @@
  */
 
 import { getIntelligenceContext } from '@modules/intelligence';
-import type { DimensionScore } from '../schemas';
+import { LAYER_LABELS, DIMENSION_LABELS, type DimensionScore, type ScoringMeta } from '../schemas';
 
 export const NARRATIVE_SYSTEM = `You are a GEO (Generative Engine Optimization) consultant.
 Your job: explain why a website is or isn't easy for AI search engines (ChatGPT, Gemini, Claude, Perplexity) to understand and cite, based on the dimension scores and reasons provided.
@@ -23,11 +23,26 @@ export async function buildNarrativePrompt(input: {
   url: string;
   overallScore: number;
   dimensions: Record<string, DimensionScore>;
+  scoringMeta?: ScoringMeta;
   siteId?: string;
 }): Promise<string> {
   const dimensionLines = Object.entries(input.dimensions)
     .map(([name, d]) => `- ${name} (${d.score}/100): ${d.reasons.join(' · ')}`)
     .join('\n');
+
+  const pipelineBlock = input.scoringMeta
+    ? `
+AI visibility pipeline (causal order):
+${Object.entries(input.scoringMeta.layers)
+  .map(
+    ([layer, ls]) =>
+      `- ${LAYER_LABELS[layer as keyof typeof LAYER_LABELS]}: ${ls.effectiveScore}/100 (raw ${ls.rawScore})`,
+  )
+  .join('\n')}
+Citation probability: ${Math.round(input.scoringMeta.citationProbability * 100)}%
+Primary bottleneck: ${LAYER_LABELS[input.scoringMeta.bottleneck.layer]} — ${DIMENSION_LABELS[input.scoringMeta.bottleneck.dimension]} (${input.scoringMeta.bottleneck.reason})
+`
+    : '';
 
   const cohortContext = input.siteId
     ? await getIntelligenceContext(input.siteId)
@@ -39,11 +54,11 @@ export async function buildNarrativePrompt(input: {
 
   return `URL: ${input.url}
 Overall GEO score: ${input.overallScore}/100
-
+${pipelineBlock}
 Per-dimension breakdown:
 ${dimensionLines}
 ${benchmarkBlock}
-Write a concise executive summary explaining where this page stands today for AI search visibility, what the biggest blocker is, and what fixing it would unlock.
+Write a concise executive summary explaining where this site stands in the AI visibility pipeline (crawl → understand → generate → cite). Lead with the pipeline bottleneck, not a random weak dimension. Explain what fixing the bottleneck would unlock for AI citation.
 
 Return JSON: { "narrative": "..." } — plain text, no markdown.`;
 }

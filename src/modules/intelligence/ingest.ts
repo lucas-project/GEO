@@ -6,8 +6,8 @@ import { prisma, parseJson, stringifyJson } from '@shared/database/client';
 import { logger } from '@shared/logger';
 import { config } from '@shared/config';
 import { ai } from '@shared/ai';
-import type { DimensionScore, Issue } from '@modules/geo-audit';
-import { DIMENSIONS } from '@modules/geo-audit';
+import type { DimensionScore, Issue, ScoringMeta } from '@modules/geo-audit';
+import { DIMENSIONS, ScoringMetaSchema } from '@modules/geo-audit';
 import {
   extractRollupSignals,
   parseExtractionRow,
@@ -48,6 +48,14 @@ export function cohortKeys(vertical: string | null | undefined, opts?: {
     platformHits: opts?.platformHits ?? [],
   };
   return buildCohortKeys(record);
+}
+
+function parseScoringMetaJson(json: string | null | undefined): ScoringMeta | null {
+  if (!json || json === '{}') return null;
+  const parsed = parseJson<unknown>(json, null);
+  if (!parsed) return null;
+  const result = ScoringMetaSchema.safeParse(parsed);
+  return result.success ? result.data : null;
 }
 
 function dimensionScoresMap(dimensionsJson: string): Record<string, number> {
@@ -121,6 +129,23 @@ export async function ingestAuditSync(auditId: string): Promise<void> {
   const extractions = audit.extractionResults.map(parseExtractionRow);
   const dimScores = dimensionScoresMap(audit.dimensions);
   const signals = extractRollupSignals(extractions, dimScores);
+
+  const scoringMetaJson = await prisma.$queryRawUnsafe<[{ scoringMeta: string }?]>(
+    `SELECT "scoringMeta" FROM "GeoAudit" WHERE "id" = ?`,
+    auditId,
+  ).then((rows) => rows[0]?.scoringMeta ?? null).catch(() => null);
+  const scoringMeta = parseScoringMetaJson(scoringMetaJson);
+  if (scoringMeta) {
+    signals.pipeline = {
+      citationProbability: scoringMeta.citationProbability,
+      bottleneckLayer: scoringMeta.bottleneck.layer,
+      bottleneckDimension: scoringMeta.bottleneck.dimension,
+      layerScores: Object.fromEntries(
+        Object.entries(scoringMeta.layers).map(([k, v]) => [k, v.effectiveScore]),
+      ),
+    };
+  }
+
   const legacy = legacyFieldsFromSignals(signals);
   const vertical = audit.site?.vertical ?? null;
 

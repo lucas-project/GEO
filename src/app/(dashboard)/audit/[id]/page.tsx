@@ -7,11 +7,15 @@ import {
   DIMENSION_DESCRIPTIONS,
   plainDimensionLabel,
   type Dimension,
+  type DimensionScore,
 } from '@modules/geo-audit';
 import { getAudit } from '@modules/geo-audit/server';
 import { getSiteMonitorStatus } from '@modules/monitoring';
 import { MonitoredBadge } from '@/components/geo/monitored-badge';
 import { ScoreGauge } from '@/components/geo/score-gauge';
+import { CitationProbabilityCard } from '@/components/geo/citation-probability-card';
+import { BottleneckCallout } from '@/components/geo/bottleneck-callout';
+import { CapabilityGraph } from '@/components/geo/capability-graph';
 import { IssueList } from '@/features/audit/issue-list';
 import { AuditPagesPanel } from '@/features/audit/audit-pages-panel';
 import { AuditMorePages } from '@/features/audit/audit-more-pages';
@@ -75,11 +79,20 @@ export default async function AuditReportPage({
           </div>
         </div>
 
-        <div className="shrink-0 text-center">
-          <ScoreGauge score={audit.overallScore} size="xl" />
-          <div className="mt-2 text-xs uppercase tracking-wider text-fg-muted">{scoreToLabel(audit.overallScore)}</div>
+        <div className="shrink-0 flex flex-col sm:flex-row items-center gap-4">
+          <div className="text-center">
+            <ScoreGauge score={audit.overallScore} size="xl" />
+            <div className="mt-2 text-xs uppercase tracking-wider text-fg-muted">
+              {scoreToLabel(audit.overallScore)}
+            </div>
+          </div>
+          {audit.scoringMeta && (
+            <CitationProbabilityCard scoringMeta={audit.scoringMeta} className="min-w-[200px]" />
+          )}
         </div>
       </div>
+
+      {audit.scoringMeta && <BottleneckCallout scoringMeta={audit.scoringMeta} />}
 
       {audit.pageInventory && audit.pageInventory.pages.length > 0 && (
         <AuditPagesPanel auditId={audit.id} inventory={audit.pageInventory} />
@@ -118,17 +131,26 @@ export default async function AuditReportPage({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>10-Dimension breakdown</CardTitle>
+            <CardTitle>AI visibility pipeline</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-            {dimensionEntries.map(({ dim, score, reasons }) => (
-              <DimensionBar
-                key={dim}
-                name={DIMENSION_LABELS[dim]}
-                score={score}
-                description={reasons[0] ?? DIMENSION_DESCRIPTIONS[dim]}
+          <CardContent className="min-w-0 overflow-hidden">
+            {audit.scoringMeta ? (
+              <CapabilityGraph
+                scoringMeta={audit.scoringMeta}
+                dimensions={dimensions as Record<Dimension, DimensionScore>}
               />
-            ))}
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                {dimensionEntries.map(({ dim, score, reasons }) => (
+                  <DimensionBar
+                    key={dim}
+                    name={DIMENSION_LABELS[dim]}
+                    score={score}
+                    description={reasons[0] ?? DIMENSION_DESCRIPTIONS[dim]}
+                  />
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -33,7 +33,10 @@ import type { PageExtraction } from '@modules/extraction';
 import { extractionService } from '@modules/extraction';
 import { embeddingsService } from '@modules/embeddings';
 import { ingestAuditSync } from '@modules/intelligence';
+import { getLatestCitationVisibility } from '@modules/intelligence/citation-snapshot';
 import { queue } from '@shared/queue';
+import { getCalibrationWeights } from './calibration';
+import { deriveScoringMetaFromDimensions } from './hierarchical-scoring';
 import { scoreAll, deriveIssuesAndFixes, type PageExtractionInput } from './scoring';
 import { buildImpactedPagesFromExtractionRow } from './issue-evidence';
 import { attachRangesToHighlights } from './locate-in-source';
@@ -45,9 +48,11 @@ import {
   type Dimension,
   type DimensionScore,
   type GeoAuditResult,
+  type ScoringMeta,
   type Issue,
   type Fix,
   type PageInventory,
+  ScoringMetaSchema,
 } from './schemas';
 import type { LinkInfo } from '@modules/extraction';
 import { groupAuditsBySite, type SiteAuditGroup } from './group-by-site';
@@ -233,7 +238,7 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
       auditedUrls,
     });
 
-    input.onProgress?.(80, 'Scoring 10 dimensions…');
+    input.onProgress?.(80, 'Scoring AI visibility pipeline…');
     const scoringCtx = {
       url: normalizedUrl,
       rootPage,
@@ -241,14 +246,24 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
       crawl,
       pageExtractions: pageExtractions.length > 1 ? pageExtractions : undefined,
     };
-    const { dimensions, overallScore } = scoreAll(scoringCtx);
-    const { issues, fixes } = deriveIssuesAndFixes(dimensions, scoringCtx);
+    const [citationVisibility, calibration, simulationRunCount] = await Promise.all([
+      getLatestCitationVisibility(site.id),
+      getCalibrationWeights(site.id),
+      prisma.aiSimulation.count({ where: { siteId: site.id } }),
+    ]);
+    const { dimensions, overallScore, scoringMeta } = scoreAll(scoringCtx, {
+      citationVisibility,
+      simulationRunCount,
+      calibration,
+    });
+    const { issues, fixes } = deriveIssuesAndFixes(dimensions, scoringCtx, scoringMeta);
 
     input.onProgress?.(90, 'Generating narrative…');
     const narrative = await generateNarrative({
       url: normalizedUrl,
       overallScore,
       dimensions,
+      scoringMeta,
       siteId: site.id,
     });
 
@@ -264,6 +279,14 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
         screenshotUrl: rootPage.screenshotPath,
         status: 'completed',
       },
+    });
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE "GeoAudit" SET "scoringMeta" = ? WHERE "id" = ?`,
+      stringifyJson(scoringMeta),
+      audit.id,
+    ).catch((err) => {
+      auditLogger.warn({ err: (err as Error).message, auditId: audit.id }, 'scoringMeta save skipped');
     });
 
     // pageInventory is a column added after the initial schema; use raw SQL to
@@ -288,9 +311,11 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
 
     return {
       id: audit.id,
+      siteId: site.id,
       url: normalizedUrl,
       overallScore,
       dimensions,
+      scoringMeta,
       narrative,
       topIssues: issues,
       topFixes: fixes,
@@ -312,6 +337,7 @@ async function generateNarrative(input: {
   url: string;
   overallScore: number;
   dimensions: Record<Dimension, DimensionScore>;
+  scoringMeta?: ScoringMeta;
   siteId?: string;
 }): Promise<string> {
   try {
@@ -345,11 +371,14 @@ export async function getAudit(auditId: string): Promise<GeoAuditResult | null> 
   });
   if (!row) return null;
 
-  // Read pageInventory via raw SQL to tolerate a stale Prisma client binary.
-  const rawInv = await prisma.$queryRawUnsafe<[{ pageInventory: string }?]>(
-    `SELECT "pageInventory" FROM "GeoAudit" WHERE "id" = ?`,
+  const rawCols = await prisma.$queryRawUnsafe<
+    [{ pageInventory: string; scoringMeta: string }?]
+  >(
+    `SELECT "pageInventory", "scoringMeta" FROM "GeoAudit" WHERE "id" = ?`,
     auditId,
-  ).then((rows) => rows[0]?.pageInventory ?? null).catch(() => null);
+  ).then((rows) => rows[0] ?? null).catch(() => null);
+
+  const rawInv = rawCols?.pageInventory ?? null;
 
   let pageInventory = parsePageInventory(rawInv);
   if (!pageInventory) {
@@ -357,7 +386,10 @@ export async function getAudit(auditId: string): Promise<GeoAuditResult | null> 
   }
 
   const dimensions = parseJson(row.dimensions, {} as Record<Dimension, DimensionScore>);
-  const { issues: derivedIssues } = deriveIssuesAndFixes(dimensions);
+  const storedMeta = parseScoringMeta(rawCols?.scoringMeta ?? null);
+  const scoringMeta =
+    storedMeta ?? (Object.keys(dimensions).length > 0 ? deriveScoringMetaFromDimensions(dimensions) : null);
+  const { issues: derivedIssues } = deriveIssuesAndFixes(dimensions, undefined, scoringMeta);
   const topIssues = await enrichIssuesFromStoredPages(
     auditId,
     row.url,
@@ -371,6 +403,7 @@ export async function getAudit(auditId: string): Promise<GeoAuditResult | null> 
     url: row.url,
     overallScore: row.overallScore,
     dimensions,
+    scoringMeta,
     narrative: row.narrative,
     topIssues,
     topFixes: parseJson<Fix[]>(row.topFixes, []),
@@ -645,6 +678,7 @@ export async function listRecentAudits(limit = 20): Promise<Array<{
   id: string;
   url: string;
   overallScore: number;
+  citationProbability?: number;
   status: string;
   createdAt: string;
   siteId: string | null;
@@ -663,10 +697,26 @@ export async function listRecentAudits(limit = 20): Promise<Array<{
       site: { select: { monitored: true, monitorEnabled: true } },
     },
   });
+
+  const metaById = new Map<string, number>();
+  if (rows.length > 0) {
+    const ids = rows.map((r) => r.id);
+    const placeholders = ids.map(() => '?').join(',');
+    const metaRows = await prisma.$queryRawUnsafe<Array<{ id: string; scoringMeta: string }>>(
+      `SELECT "id", "scoringMeta" FROM "GeoAudit" WHERE "id" IN (${placeholders})`,
+      ...ids,
+    ).catch(() => []);
+    for (const m of metaRows) {
+      const meta = parseScoringMeta(m.scoringMeta);
+      if (meta) metaById.set(m.id, meta.citationProbability);
+    }
+  }
+
   return rows.map((r) => ({
     id: r.id,
     url: r.url,
     overallScore: r.overallScore,
+    citationProbability: metaById.get(r.id),
     status: r.status,
     createdAt: r.createdAt.toISOString(),
     siteId: r.siteId,
@@ -690,10 +740,11 @@ export async function listRecentAuditSiteGroups(
 }> {
   const audits = await listRecentAudits(SITE_GROUP_AUDIT_SCAN);
   const allGroups = groupAuditsBySite(
-    audits.map(({ id, url, overallScore, status, createdAt, monitored }) => ({
+    audits.map(({ id, url, overallScore, citationProbability, status, createdAt, monitored }) => ({
       id,
       url,
       overallScore,
+      citationProbability,
       status,
       createdAt,
       monitored,
@@ -910,15 +961,26 @@ export async function extendAudit(
     pageExtractions: pageExtractions.length > 1 ? pageExtractions : undefined,
   };
 
-  const { dimensions, overallScore } = scoreAll(scoringCtx);
-  const { issues, fixes } = deriveIssuesAndFixes(dimensions, scoringCtx);
+  const siteId = audit.siteId;
+  const [citationVisibility, calibration, simulationRunCount] = await Promise.all([
+    siteId ? getLatestCitationVisibility(siteId) : Promise.resolve(null),
+    getCalibrationWeights(siteId),
+    siteId ? prisma.aiSimulation.count({ where: { siteId } }) : Promise.resolve(0),
+  ]);
+  const { dimensions, overallScore, scoringMeta } = scoreAll(scoringCtx, {
+    citationVisibility,
+    simulationRunCount,
+    calibration,
+  });
+  const { issues, fixes } = deriveIssuesAndFixes(dimensions, scoringCtx, scoringMeta);
 
   onProgress?.(85, 'Updating narrative…');
   const narrative = await generateNarrative({
     url: normalizedUrl,
     overallScore,
     dimensions,
-    siteId: audit.siteId ?? undefined,
+    scoringMeta,
+    siteId: siteId ?? undefined,
   });
 
   await prisma.geoAudit.update({
@@ -930,6 +992,14 @@ export async function extendAudit(
       topIssues: stringifyJson(issues),
       topFixes: stringifyJson(fixes),
     },
+  });
+
+  await prisma.$executeRawUnsafe(
+    `UPDATE "GeoAudit" SET "scoringMeta" = ? WHERE "id" = ?`,
+    stringifyJson(scoringMeta),
+    auditId,
+  ).catch((err) => {
+    auditLogger.warn({ err: (err as Error).message, auditId }, 'scoringMeta save skipped');
   });
 
   await prisma.$executeRawUnsafe(
@@ -949,6 +1019,7 @@ export async function extendAudit(
     url: normalizedUrl,
     overallScore,
     dimensions,
+    scoringMeta,
     narrative,
     topIssues: issues,
     topFixes: fixes,
@@ -956,6 +1027,14 @@ export async function extendAudit(
     screenshotUrl: audit.screenshotUrl,
     createdAt: audit.createdAt.toISOString(),
   };
+}
+
+function parseScoringMeta(json: string | null | undefined): ScoringMeta | null {
+  if (!json || json === '{}') return null;
+  const parsed = parseJson<unknown>(json, null);
+  if (!parsed) return null;
+  const result = ScoringMetaSchema.safeParse(parsed);
+  return result.success ? result.data : null;
 }
 
 export const geoAuditService = {
