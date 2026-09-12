@@ -6,6 +6,7 @@ import * as cheerio from 'cheerio';
 import { canonicalPageUrl } from '@/lib/website-url';
 import type { CrawlResult, CrawledPage } from '@modules/crawling';
 import type { PageExtraction } from '@modules/extraction';
+import { emptyPageChecklist } from '@modules/extraction';
 import type { Dimension, PageCodeHighlight, PageIssueImpact } from './schemas';
 import { getDimensionRecommendation } from './scoring';
 import { attachRangesToHighlights } from './locate-in-source';
@@ -468,6 +469,7 @@ export function buildImpactedPagesFromExtractionRow(
       description: meta.description ?? null,
       canonical: null,
       ogTitle: null,
+      ogSiteName: null,
       ogDescription: null,
       ogType: null,
       twitterCard: null,
@@ -500,6 +502,7 @@ export function buildImpactedPagesFromExtractionRow(
     links: [],
     tables: [],
     authors: authors as PageExtraction['authors'],
+    checklist: emptyPageChecklist(),
   };
 
   if (!isPageAffectedForDimension(dim, stubPage, extraction)) return null;

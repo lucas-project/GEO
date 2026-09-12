@@ -1,4 +1,11 @@
-import { DIMENSION_LABELS, type Dimension } from './schemas';
+import {
+  DIMENSION_DESCRIPTIONS,
+  DIMENSION_LABELS,
+  DIMENSION_LAYERS,
+  type Dimension,
+  type GateApplied,
+  type ScoreLayer,
+} from './schemas';
 
 const POSITIVE_HINT =
   /\b(present|detected|healthy|adequate|parsable|discrete chunks|distinct schema|allowed|found \d|reinforces|improve)\b/i;
@@ -14,6 +21,90 @@ export function isNegativeReason(reason: string): boolean {
   return NEGATIVE_HINT.test(t);
 }
 
+/** Plain-language summary of what each pipeline layer measures. */
+export const LAYER_SCORING_INTRO: Record<ScoreLayer, string> = {
+  foundation:
+    'This layer checks the basics: can AI crawlers reach your site, and is the page structure (headings, schema, robots rules) machine-readable?',
+  understanding:
+    'This layer checks whether AI can tell who you are, read your content in sensible chunks, and see trust signals like authors and credentials.',
+  presence:
+    'This layer checks whether your brand shows up beyond your website — linked social profiles, review sites, and optional web-search verification.',
+  generation:
+    'This layer checks whether AI can pull direct answers and summaries from your copy (answer-first sections, section length, question headings).',
+  outcome:
+    'This layer checks citation-ready markup (FAQ, product schema) and commercial signals (pricing, CTAs, trust) that make AI more likely to recommend you.',
+};
+
+export function dimensionsForLayer(layer: ScoreLayer): Dimension[] {
+  return (Object.keys(DIMENSION_LAYERS) as Dimension[]).filter(
+    (d) => DIMENSION_LAYERS[d] === layer,
+  );
+}
+
+export function plainWhatWeCheck(dim: Dimension): string {
+  const plain: Partial<Record<Dimension, string>> = {
+    crawlerFriendliness:
+      'robots.txt rules, sitemap access, and whether critical text is available without heavy JavaScript',
+    structuredContent: 'JSON-LD schema types (Organization, Product, FAQ, Article, etc.)',
+    semanticClarity: 'one clear H1, logical H2/H3 sections, and a descriptive page title',
+    entityClarity: 'named companies, products, and services in the page text and schema',
+    chunkOptimization: 'section sizes that are easy to quote (not tiny fragments or huge walls of text)',
+    aiReadability: 'sentence length, word count, and whether body text is in the initial HTML',
+    trustSignals: 'author names, bylines, credentials, and third-party references',
+    offSitePresence:
+      'outbound links to Reddit, Quora, LinkedIn, G2/Capterra/Trustpilot, and Organization sameAs URLs',
+    answerExtraction: 'whether sections start with a direct answer before background detail',
+    summarizationQuality: 'meta description, opening summary, and how quotable the lead paragraph is',
+    citationFriendliness: 'FAQ content, statistics, freshness dates, and E-E-A-T signals AI can cite',
+    commercialReadiness: 'pricing pages, primary CTAs, trust sections, and comparison content',
+  };
+  return plain[dim] ?? DIMENSION_DESCRIPTIONS[dim];
+}
+
+/** Which pipeline layers show each gate note (site-wide gates only on Foundation). */
+export const GATE_LAYERS: Record<GateApplied['type'], ScoreLayer[]> = {
+  crawler_blocked: ['foundation'],
+  crawler_weak: ['foundation'],
+  foundation_weak: ['foundation', 'understanding', 'presence', 'generation', 'outcome'],
+  propagation: ['understanding', 'presence', 'generation', 'outcome'],
+  answer_extraction_ceiling: ['generation', 'outcome'],
+  off_site_presence_weak: ['presence', 'outcome'],
+  citation_snapshot: ['outcome'],
+};
+
+export function plainGateExplanation(gate: GateApplied): string {
+  switch (gate.type) {
+    case 'crawler_blocked':
+      return gate.cap != null
+        ? `AI crawlers are blocked on your site. Your overall score cannot go above ${gate.cap}/100 until access rules improve.`
+        : 'AI crawlers are blocked on your site, which limits how high your overall score can go.';
+    case 'crawler_weak':
+      return gate.cap != null
+        ? `AI crawler access is limited (robots.txt, JavaScript-only content, etc.). Your overall score cannot go above ${gate.cap}/100 until this improves.`
+        : 'AI crawler access is limited, which holds back your overall score.';
+    case 'foundation_weak':
+      return 'Crawl and page-structure basics are weak, so higher layers cannot score much better until Foundation improves.';
+    case 'propagation':
+      return 'This layer did better on its own checks, but a weaker earlier pipeline step lowers the score you see here.';
+    case 'answer_extraction_ceiling':
+      return gate.cap != null
+        ? `Pages rarely lead with a direct answer, so citation-related scores stay around ${gate.cap}/100 or below.`
+        : 'Pages rarely lead with a direct answer, which limits citation-related scores.';
+    case 'off_site_presence_weak':
+      return gate.cap != null
+        ? `Your brand is hard to find outside your website, so outcome scores stay around ${gate.cap}/100 or below.`
+        : 'Your brand is hard to find outside your website, which limits outcome scores.';
+    case 'citation_snapshot':
+      return gate.cap != null
+        ? `Past AI citation checks for this site were weak, with a ceiling around ${gate.cap}/100.`
+        : 'Past AI citation checks for this site were weak.';
+    default:
+      return gate.cap != null
+        ? `${gate.description} (limited to about ${gate.cap}/100).`
+        : gate.description;
+  }
+}
+
 export function plainDimensionLabel(dim: Dimension): string {
   const labels: Record<Dimension, string> = {
     aiReadability: 'Easy for AI to read',
@@ -26,6 +117,8 @@ export function plainDimensionLabel(dim: Dimension): string {
     trustSignals: 'Trust and credibility',
     structuredContent: 'Structured data for machines',
     crawlerFriendliness: 'AI crawlers can reach your site',
+    offSitePresence: 'Visible beyond your website',
+    commercialReadiness: 'Ready to convert visitors',
   };
   return labels[dim] ?? DIMENSION_LABELS[dim];
 }
@@ -84,6 +177,22 @@ export function expandReason(reason: string): string {
       test: /lang attribute/i,
       text: 'The page does not declare its language, which can confuse translation and summarization tools.',
     },
+    {
+      test: /reddit|quora|community/i,
+      text: 'Your site does not link to community profiles where people discuss your category. AI tools often cite Reddit and Q&A sites when recommending products.',
+    },
+    {
+      test: /g2|capterra|trustpilot|review platform/i,
+      text: 'Review and comparison sites help AI verify your reputation. Link to your official profiles from your website.',
+    },
+    {
+      test: /sameAs|pricing|cta|call-to-action/i,
+      text: 'Missing signals make it harder for AI to connect your brand to trusted profiles or guide users toward a next step.',
+    },
+    {
+      test: /statistic|freshness|last-updated|quantified/i,
+      text: 'AI systems favor content with specific numbers and recent dates because they are easier to verify and quote.',
+    },
   ];
 
   for (const { test, text } of rules) {
@@ -124,6 +233,10 @@ export function plainDimensionRecommendation(dim: Dimension): string {
       'Add structured data (JSON-LD) for your organization, products, FAQs, or articles—whichever fits the page.',
     crawlerFriendliness:
       'Allow reputable AI crawlers in robots.txt, keep a sitemap, reduce reliance on JavaScript-only content, and consider a simple /llms.txt file that describes your site.',
+    offSitePresence:
+      'Link to your Reddit, Quora, LinkedIn, and review profiles (G2, Capterra, Trustpilot) from your site footer or About page. Add sameAs URLs in Organization JSON-LD.',
+    commercialReadiness:
+      'Add a clear pricing page, visible signup or demo buttons on the homepage, customer logos or certifications, and honest comparison content where relevant.',
   };
   return recs[dim] ?? '';
 }
@@ -169,6 +282,14 @@ const CANONICAL_RECOMMENDATIONS: Record<string, string> = {
     'Set <html lang="en"> (or the correct language code) on every page template.',
   'thin-lead':
     'Expand the opening paragraph to 2–3 sentences: topic, audience, and main takeaway. Match your meta description.',
+  'missing-reddit-quora':
+    'Add footer or About links to your Reddit subreddit or Quora space, or a company thread where your team participates.',
+  'missing-review-profiles':
+    'Claim your G2, Capterra, or Trustpilot listing and link to it from your site navigation or footer.',
+  'weak-off-site-presence':
+    'Build a consistent off-site footprint: social profiles, review listings, and sameAs URLs in Organization schema.',
+  'weak-commercial-readiness':
+    'Publish transparent pricing, a primary CTA on the homepage, and trust proof (logos, certifications, or customer quotes).',
 };
 
 /** Issue-level “What to do” when grouped by canonical category. */

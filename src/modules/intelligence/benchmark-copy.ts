@@ -9,6 +9,21 @@ const PATTERN_TITLES: Record<string, string> = {
   'multi-chunk': 'Content split into clear sections',
   'answer-first-majority': 'Answers stated upfront in most sections',
   'has-faq': 'FAQ-style questions on the page',
+  'has-reddit-link': 'Reddit profile linked from your site',
+  'has-quora-link': 'Quora profile linked from your site',
+  'has-g2-link': 'G2 review profile linked',
+  'has-capterra-link': 'Capterra listing linked',
+  'has-trustpilot-link': 'Trustpilot profile linked',
+  'has-linkedin-link': 'LinkedIn company page linked',
+  'sameas-profiles': 'Multiple sameAs URLs in Organization schema',
+  'has-pricing-page': 'Dedicated pricing page on site',
+  'has-primary-cta': 'Clear homepage call-to-action',
+  'has-question-headings-40pct': 'Question-style section headings (≥40%)',
+  'has-good-alt-text': 'Descriptive image alt text',
+  'has-definitional-lead': 'Definitional opening paragraph',
+  'has-case-study': 'Quantified case study on site',
+  'rich-internal-links': 'Strong internal linking between key pages',
+  'has-citation-phrases': 'Explicit source citations in copy',
   'clean-h1-h2': 'Clean heading hierarchy (one main title, clear sections)',
   'has-comparison': 'Comparison tables (e.g. plans or products)',
   'organization-present': 'Organization name clearly identified',
@@ -39,6 +54,28 @@ const PATTERN_EXPLANATIONS: Record<string, string> = {
     'Sentence length, structure, and formatting make the page easy to parse — not too dense, not too thin.',
   'target-visible':
     'In our AI simulation runs, this site already appears in answers sometimes. Patterns here reflect what worked for sites that get cited.',
+  'has-reddit-link':
+    'Linking to your Reddit community from your site helps AI systems associate your brand with discussions people trust.',
+  'has-g2-link':
+    'Review sites like G2 are often cited when AI compares software. A linked profile signals an official listing.',
+  'sameas-profiles':
+    'Organization schema with multiple sameAs URLs tells AI which profiles belong to the same brand.',
+  'has-pricing-page':
+    'A clear pricing page helps AI answer cost questions accurately instead of guessing.',
+  'has-primary-cta':
+    'A visible signup or demo button on the homepage helps users act after AI sends them to your site.',
+  'has-question-headings-40pct':
+    'Section titles phrased as questions match how people ask AI — and how models retrieve answers.',
+  'has-good-alt-text':
+    'Alt text on images gives AI extra context when it cannot see the image itself.',
+  'has-definitional-lead':
+    'A clear “X is …” opener in the first paragraph helps models quote your definition verbatim.',
+  'has-case-study':
+    'Named customers with metrics are high-trust evidence AI systems prefer over vague claims.',
+  'rich-internal-links':
+    'Links between pricing, product, and proof pages help AI map your site and cite the right URL.',
+  'has-citation-phrases':
+    'Phrases like “according to …” signal verifiable claims and improve trust scoring.',
 };
 
 const CATEGORY_INTROS: Record<BenchmarkInsight['category'], string> = {

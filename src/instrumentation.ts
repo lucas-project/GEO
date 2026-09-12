@@ -17,9 +17,10 @@ export async function register() {
     import('@shared/queue/register-handlers'),
   ]);
 
-  registerAllQueueHandlers();
+  await registerAllQueueHandlers();
 
   await queue.start();
+  queue.ensureActive();
   if (config.queue.driver === 'bullmq') {
     logger.warn(
       'QUEUE_DRIVER=bullmq: run `npm run worker` in another terminal so jobs are consumed (Next.js only enqueues).',

@@ -12,12 +12,15 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
-    "playwright:install": "playwright install chromium",
+    "playwright:install": "playwright install chromium firefox",
+    "cloak:install": "tsx scripts/ensure-cloak-browser.ts",
     "setup": "npm install && npm run prisma:generate && npm run prisma:push && npm run playwright:install",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\""
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "presence:probe": "tsx scripts/presence-probe.ts",
+    "ollama:check": "tsx scripts/check-ollama-simulation.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",
@@ -25,6 +28,7 @@
     "bullmq": "^5.34.0",
     "cheerio": "^1.0.0",
     "class-variance-authority": "^0.7.1",
+    "cloakbrowser": "^0.3.29",
     "clsx": "^2.1.1",
     "ioredis": "^5.4.1",
     "lucide-react": "^0.468.0",
@@ -32,8 +36,11 @@
     "pino": "^9.5.0",
     "pino-pretty": "^13.0.0",
     "playwright": "^1.49.1",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^2.5.5",
     "zod": "^3.24.1"
   },

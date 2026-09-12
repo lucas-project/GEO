@@ -22,6 +22,8 @@ export type {
   DimensionScore,
   ScoreLayer,
   LayerScore,
+  LayerEvidence,
+  LayerEvidenceItem,
   ScoringMeta,
   Bottleneck,
   GateApplied,
@@ -37,9 +39,36 @@ export type {
   SourceRange,
 } from './schemas';
 export { deriveScoringMetaFromDimensions } from './hierarchical-scoring';
+export { buildImprovementPlan, ARTIFACT_LABELS } from './improvement-plan';
+export {
+  SIMULATION_QUESTION_TYPES,
+  SIMULATION_QUESTION_TYPE_LABELS,
+  SIMULATION_QUESTION_TYPE_DESCRIPTIONS,
+  SIMULATION_PROMPTS_PER_TYPE,
+  normalizeSimulationPrompts,
+  simulationPromptText,
+  countSimulationPrompts,
+  resolveQuestionTypes,
+  expectedSimulationPromptCount,
+} from './simulation-prompts';
+export type {
+  SimulationQuestionType,
+  SimulationPromptEntry,
+  SimulationQuestionTypesInput,
+} from './simulation-prompts';
+export type {
+  ImprovementPlanItem,
+  ImprovementPlanItemKind,
+  ImprovementPlanItemStatus,
+} from './improvement-plan';
 export { PAGE_ARCHETYPES, DISCOVERY_SOURCES } from './schemas';
 export {
   plainDimensionLabel,
+  plainWhatWeCheck,
+  GATE_LAYERS,
+  plainGateExplanation,
+  LAYER_SCORING_INTRO,
+  dimensionsForLayer,
   plainImpact,
   plainIssueSummary,
   expandReason,

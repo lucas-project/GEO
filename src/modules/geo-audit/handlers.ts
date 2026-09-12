@@ -6,18 +6,26 @@
  * other modules' internals — only their public service surfaces.
  */
 
+import 'server-only';
+
 import { queue } from '@shared/queue';
-import { extendAudit, runAudit } from './service';
 
 export function registerGeoAuditHandlers(): void {
   queue.process<
-    { url: string; pageUrls?: string[]; maxPages?: number },
+    {
+      url: string;
+      pageUrls?: string[];
+      maxPages?: number;
+      pageRankings?: import('./page-inventory').PagePriorityHint[];
+    },
     { auditId: string }
   >('geo-audit.run', async (ctx) => {
+    const { runAudit } = await import('./service');
     const result = await runAudit({
       url: ctx.job.payload.url,
       pageUrls: ctx.job.payload.pageUrls,
       maxPages: ctx.job.payload.maxPages,
+      pageRankings: ctx.job.payload.pageRankings,
       onProgress: async (p, msg) => {
         ctx.log(msg, { progress: p });
         await ctx.reportProgress(p);
@@ -29,11 +37,27 @@ export function registerGeoAuditHandlers(): void {
   queue.process<{ auditId: string; pageUrls: string[] }, { auditId: string }>(
     'geo-audit.extend',
     async (ctx) => {
+      const { extendAudit } = await import('./service');
       const result = await extendAudit(ctx.job.payload.auditId, ctx.job.payload.pageUrls, async (p, msg) => {
         ctx.log(msg, { progress: p });
         await ctx.reportProgress(p);
       });
       return { auditId: result.id };
+    },
+  );
+
+  queue.process<
+    { auditId: string; questionTypes?: { brand?: boolean; discovery?: boolean } },
+    { prompts: number; competitors: number }
+  >(
+    'geo-audit.enrich-suggestions',
+    async (ctx) => {
+      const { enrichAuditSuggestions } = await import('./enrich-suggestions');
+      const result = await enrichAuditSuggestions(ctx.job.payload.auditId, {
+        questionTypes: ctx.job.payload.questionTypes,
+      });
+      await ctx.reportProgress(100, 'Suggestions generated');
+      return result;
     },
   );
 }

@@ -52,6 +52,15 @@ export const CrawledPageSchema = z.object({
       addedNodes: z.number(),
     })
     .nullable(),
+  performance: z
+    .object({
+      lcpMs: z.number().nullable(),
+      mobileBodyTextLength: z.number().nullable(),
+    })
+    .nullable()
+    .optional(),
+  /** Present when a headed WAF retry was used after headless block. */
+  fetchChannel: z.enum(['stealth', 'headed']).optional(),
 });
 export type CrawledPage = z.infer<typeof CrawledPageSchema>;
 

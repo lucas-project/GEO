@@ -106,7 +106,7 @@ function BenchmarkCard({ insight }: { insight: BenchmarkInsight }) {
             youHavePattern={insight.youHavePattern}
             yourScore={insight.yourScore}
             sampleCount={insight.sampleCount}
-            className="mt-auto"
+            className="shrink-0"
           />
         )}
       </div>
@@ -169,10 +169,9 @@ export function BenchmarksPanel({ siteId }: { siteId: string | null | undefined 
         </div>
 
         <p className="text-xs text-fg-muted leading-relaxed">
-          We compare your site to others we have audited. Each card shows average GEO scores for
-          sites <strong className="text-fg font-medium">with</strong> vs.{' '}
-          <strong className="text-fg font-medium">without</strong> a pattern — plus whether you
-          already have it.
+          Each card compares <strong className="text-fg font-medium">other websites</strong> in our
+          database: average GEO score for sites that have a feature vs. sites that do not. Your site
+          is marked separately — the bar numbers are group averages, not your personal score.
         </p>
 
         {isLoading ? (

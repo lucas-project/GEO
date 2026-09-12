@@ -4,6 +4,7 @@
  */
 
 export { classifyUrl } from './classify-url';
+export { scorePagePriority } from './priority';
 export type {
   DiscoverGeoPagesResult,
   GeoDiscoveredPage,

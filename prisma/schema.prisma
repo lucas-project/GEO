@@ -22,6 +22,7 @@ model Job {
   type      String
   status    String   @default("pending") // pending | running | completed | failed | cancelled
   progress  Int      @default(0)
+  statusMessage String?
   payload   String   // JSON-encoded
   result    String?  // JSON-encoded
   error     String?
@@ -68,6 +69,8 @@ model Site {
   monitorLockedAt      DateTime?
   /** JSON string[] — same-origin URLs to re-audit on each monitor run */
   monitorPageUrls      String?
+  /** JSON string[] — AI-generated simulation questions to re-run each monitor cycle */
+  monitorSimulationPrompts String?
   createdAt   DateTime @default(now())
 
   audits            GeoAudit[]
@@ -185,6 +188,7 @@ model ExtractionResult {
   links     String   // JSON
   tables    String   // JSON (comparison tables)
   authors   String   // JSON (author signals)
+  checklist String   @default("{}") // JSON (GEO ref checklist signals)
   createdAt DateTime @default(now())
 
   audit GeoAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)

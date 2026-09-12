@@ -6,8 +6,12 @@ import {
   backfillIntelligenceFromAudits,
   getMinCohortSamples,
   getEffectiveMinCohortSamples,
-  ingestCitationSnapshot,
 } from './ingest';
+import {
+  ingestCitationSnapshot,
+  getCitationVisibilityTrend,
+  getLatestCitationVisibility,
+} from './citation-snapshot';
 import {
   getBenchmarksForSite,
   getPlaybook,
@@ -29,6 +33,8 @@ export const intelligenceService = {
   getMinCohortSamples,
   getEffectiveMinCohortSamples,
   ingestCitationSnapshot,
+  getCitationVisibilityTrend,
+  getLatestCitationVisibility,
   getBenchmarksForSite,
   getPlaybook,
   getSiteTrend,
@@ -49,6 +55,8 @@ export {
   getMinCohortSamples,
   getEffectiveMinCohortSamples,
   ingestCitationSnapshot,
+  getCitationVisibilityTrend,
+  getLatestCitationVisibility,
   getBenchmarksForSite,
   getPlaybook,
   getSiteTrend,

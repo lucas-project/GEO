@@ -40,18 +40,8 @@ export async function generateArtifact(input: GenerateInput): Promise<GeneratedA
   const extraction = audit.extractionResults[0];
   if (!extraction) throw new Error('no extraction available for audit');
 
-  const ext: PageExtraction = {
-    url: extraction.url,
-    metadata: parseJson(extraction.metadata, {} as PageExtraction['metadata']),
-    headings: parseJson(extraction.headings, []),
-    schemas: parseJson(extraction.schemas, []),
-    faqs: parseJson(extraction.faqs, []),
-    entities: parseJson(extraction.entities, []),
-    chunks: parseJson(extraction.chunks, []),
-    links: parseJson(extraction.links, []),
-    tables: parseJson(extraction.tables, []),
-    authors: parseJson(extraction.authors, []),
-  };
+  const { parseExtractionRow } = await import('@modules/intelligence/rollup');
+  const ext = parseExtractionRow(extraction);
 
   let content = '';
   let rationale = '';

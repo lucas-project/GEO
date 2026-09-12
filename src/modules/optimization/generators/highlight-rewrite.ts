@@ -19,7 +19,7 @@ const ResponseSchema = z.object({
   rationale: z.string(),
 });
 
-export function useShorterRewriteMode(input: {
+export function prefersShorterRewrite(input: {
   dimension?: Dimension;
   fixHint?: string;
   problem?: string;
@@ -37,7 +37,7 @@ export async function generateHighlightRewrite(input: {
   problem?: string;
   fixHint?: string;
 }): Promise<{ rewritten: string; rationale: string }> {
-  const shorter = useShorterRewriteMode(input);
+  const shorter = prefersShorterRewrite(input);
   const variantIndex = input.variantIndex ?? 0;
 
   if (ai.name === 'mock') {

@@ -11,10 +11,15 @@ export interface PolledJob<TResult = unknown> {
   type?: string;
   status: JobStatus;
   progress: number;
+  statusMessage?: string;
   result?: TResult | null;
   error?: string;
 }
 
 export function isTerminalJobStatus(status: JobStatus | undefined): boolean {
   return status === 'completed' || status === 'failed' || status === 'cancelled';
+}
+
+export function isInterruptedJobError(error: string | undefined): boolean {
+  return Boolean(error?.includes('Interrupted'));
 }

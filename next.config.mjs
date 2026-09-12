@@ -6,7 +6,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  serverExternalPackages: ['playwright', 'pino', '@prisma/client', 'bullmq', 'ioredis'],
+  serverExternalPackages: [
+    'playwright',
+    'playwright-extra',
+    'puppeteer-extra-plugin',
+    'puppeteer-extra-plugin-stealth',
+    'clone-deep',
+    'merge-deep',
+    'lazy-cache',
+    'pino',
+    '@prisma/client',
+    'bullmq',
+    'ioredis',
+  ],
   outputFileTracingRoot: __dirname,
   eslint: {
     ignoreDuringBuilds: false,
@@ -14,7 +26,10 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, nextRuntime }) => {
+    if (nextRuntime === 'middleware') {
+      config.output.globalObject = 'globalThis';
+    }
     config.externals = config.externals || [];
     if (isServer) {
       config.externals.push(
@@ -24,6 +39,12 @@ const nextConfig = {
         { 'redis-errors': 'commonjs redis-errors' },
         {
           'playwright-core': 'commonjs playwright-core',
+          'playwright-extra': 'commonjs playwright-extra',
+          'puppeteer-extra-plugin': 'commonjs puppeteer-extra-plugin',
+          'puppeteer-extra-plugin-stealth': 'commonjs puppeteer-extra-plugin-stealth',
+          'clone-deep': 'commonjs clone-deep',
+          'merge-deep': 'commonjs merge-deep',
+          'lazy-cache': 'commonjs lazy-cache',
           // Treat Node built-ins as externals — fixes webpack handling of
           // both the `crypto`/`fs`/`path` and `node:*` import forms inside
           // the instrumentation + route-bundling contexts.
@@ -33,6 +54,8 @@ const nextConfig = {
           'node:crypto': 'commonjs node:crypto',
           'node:fs': 'commonjs node:fs',
           'node:path': 'commonjs node:path',
+          child_process: 'commonjs child_process',
+          'node:child_process': 'commonjs node:child_process',
         },
       );
     }

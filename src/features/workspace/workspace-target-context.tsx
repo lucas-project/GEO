@@ -9,7 +9,9 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { brandMatchesUrl } from '@/lib/brand-url-match';
 import { normalizeWebsiteUrl } from '@/lib/website-url';
+import { siteKeywordsMatchUrl, useSiteKeywords } from './use-site-keywords';
 
 const STORAGE_KEY = 'geo_workspace_target_v1';
 
@@ -18,6 +20,8 @@ type PersistedShape = {
   lastAuditId: string | null;
   lastAuditForUrl: string | null;
   targetBrand: string;
+  siteKeywords: string[];
+  siteKeywordsForUrl: string | null;
 };
 
 const defaultPersisted: PersistedShape = {
@@ -25,6 +29,8 @@ const defaultPersisted: PersistedShape = {
   lastAuditId: null,
   lastAuditForUrl: null,
   targetBrand: '',
+  siteKeywords: [],
+  siteKeywordsForUrl: null,
 };
 
 function readPersisted(): PersistedShape {
@@ -38,6 +44,11 @@ function readPersisted(): PersistedShape {
       lastAuditId: typeof p.lastAuditId === 'string' ? p.lastAuditId : null,
       lastAuditForUrl: typeof p.lastAuditForUrl === 'string' ? p.lastAuditForUrl : null,
       targetBrand: typeof p.targetBrand === 'string' ? p.targetBrand : '',
+      siteKeywords: Array.isArray(p.siteKeywords)
+        ? p.siteKeywords.filter((k): k is string => typeof k === 'string').slice(0, 10)
+        : [],
+      siteKeywordsForUrl:
+        typeof p.siteKeywordsForUrl === 'string' ? p.siteKeywordsForUrl : null,
     };
   } catch {
     return defaultPersisted;
@@ -57,8 +68,17 @@ function hostnameHint(url: string): string {
 type WorkspaceTargetContextValue = PersistedShape & {
   /** Hydration finished — safe to read persisted values in children. */
   hydrated: boolean;
+  /** All terms detected from the site (for chip UI). */
+  siteKeywordSuggestions: string[];
+  siteKeywordsLoading: boolean;
+  siteKeywordsError: string | null;
   setTargetUrl: (v: string) => void;
   setTargetBrand: (v: string) => void;
+  setSiteKeywords: (keywords: string[]) => void;
+  refreshSiteKeywords: () => void;
+  toggleSiteKeyword: (term: string) => void;
+  /** Selected keywords apply to the current workspace URL (after detection). */
+  siteKeywordsReadyForUrl: (rawUrl: string) => boolean;
   /** Call when a GEO audit completes for the current workspace URL. */
   registerCompletedAudit: (auditId: string, auditedRawUrl: string) => void;
   clearLastAudit: () => void;
@@ -74,6 +94,10 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
   const [lastAuditId, setLastAuditId] = useState<string | null>(null);
   const [lastAuditForUrl, setLastAuditForUrl] = useState<string | null>(null);
   const [targetBrand, setTargetBrandState] = useState('');
+  const [siteKeywords, setSiteKeywordsState] = useState<string[]>([]);
+  const [siteKeywordsForUrl, setSiteKeywordsForUrlState] = useState<string | null>(null);
+  const [siteKeywordSuggestions, setSiteKeywordSuggestions] = useState<string[]>([]);
+  const [siteKeywordsError, setSiteKeywordsError] = useState<string | null>(null);
 
   useEffect(() => {
     const p = readPersisted();
@@ -81,8 +105,33 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
     setLastAuditId(p.lastAuditId);
     setLastAuditForUrl(p.lastAuditForUrl);
     setTargetBrandState(p.targetBrand);
+    setSiteKeywordsState(p.siteKeywords);
+    setSiteKeywordsForUrlState(p.siteKeywordsForUrl);
+    setSiteKeywordSuggestions(p.siteKeywords);
     setHydrated(true);
   }, []);
+
+  const onKeywordsDetected = useCallback(
+    (result: { keywords: string[]; forUrl: string } | null) => {
+      if (!result) {
+        setSiteKeywordSuggestions([]);
+        setSiteKeywordsState([]);
+        setSiteKeywordsForUrlState(null);
+        setSiteKeywordsError(null);
+        return;
+      }
+      setSiteKeywordSuggestions(result.keywords);
+      setSiteKeywordsState(result.keywords);
+      setSiteKeywordsForUrlState(result.forUrl);
+      setSiteKeywordsError(
+        result.keywords.length === 0 ? 'No keywords detected — try a page with more text.' : null,
+      );
+    },
+    [],
+  );
+
+  const { loading: siteKeywordsLoading, refreshKeywords: refreshSiteKeywords } =
+    useSiteKeywords(targetUrl, hydrated, onKeywordsDetected);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -91,13 +140,15 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
       lastAuditId,
       lastAuditForUrl,
       targetBrand,
+      siteKeywords,
+      siteKeywordsForUrl,
     };
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch {
       /* quota */
     }
-  }, [targetUrl, lastAuditId, lastAuditForUrl, targetBrand, hydrated]);
+  }, [targetUrl, lastAuditId, lastAuditForUrl, targetBrand, siteKeywords, siteKeywordsForUrl, hydrated]);
 
   const setTargetUrl = useCallback((v: string) => {
     setTargetUrlState(v);
@@ -105,17 +156,21 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
 
   /** When the user finishes editing the URL bar, drop the audit shortcut if the site no longer matches. */
   const commitTargetUrl = useCallback(() => {
-    if (!lastAuditId || !lastAuditForUrl) return;
     const raw = targetUrl.trim();
-    if (!raw) return;
-    try {
-      const u = normalizeWebsiteUrl(raw);
-      if (u !== lastAuditForUrl) {
-        setLastAuditId(null);
-        setLastAuditForUrl(null);
+    if (raw) {
+      try {
+        const u = normalizeWebsiteUrl(raw);
+        if (lastAuditId && lastAuditForUrl && u !== lastAuditForUrl) {
+          setLastAuditId(null);
+          setLastAuditForUrl(null);
+        }
+        setTargetBrandState((prev) => {
+          if (!prev.trim()) return prev;
+          return brandMatchesUrl(prev, u) ? prev : '';
+        });
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
     }
   }, [targetUrl, lastAuditId, lastAuditForUrl]);
 
@@ -132,11 +187,34 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
     setLastAuditForUrl(null);
   }, []);
 
+  const setSiteKeywords = useCallback((keywords: string[]) => {
+    setSiteKeywordsState(keywords.slice(0, 10));
+  }, []);
+
+  const toggleSiteKeyword = useCallback((term: string) => {
+    setSiteKeywordsState((prev) => {
+      const lower = term.toLowerCase();
+      if (prev.some((k) => k.toLowerCase() === lower)) {
+        return prev.filter((k) => k.toLowerCase() !== lower);
+      }
+      return [...prev, term].slice(0, 10);
+    });
+  }, []);
+
+  const siteKeywordsReadyForUrl = useCallback(
+    (rawUrl: string) => siteKeywordsMatchUrl(siteKeywordsForUrl, rawUrl),
+    [siteKeywordsForUrl],
+  );
+
   const clearAll = useCallback(() => {
     setTargetUrlState('');
     setLastAuditId(null);
     setLastAuditForUrl(null);
     setTargetBrandState('');
+    setSiteKeywordsState([]);
+    setSiteKeywordsForUrlState(null);
+    setSiteKeywordSuggestions([]);
+    setSiteKeywordsError(null);
   }, []);
 
   const value = useMemo<WorkspaceTargetContextValue>(
@@ -146,8 +224,17 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
       lastAuditId,
       lastAuditForUrl,
       targetBrand,
+      siteKeywords,
+      siteKeywordsForUrl,
+      siteKeywordSuggestions,
+      siteKeywordsLoading,
+      siteKeywordsError,
       setTargetUrl,
       setTargetBrand: setTargetBrandState,
+      setSiteKeywords,
+      refreshSiteKeywords,
+      toggleSiteKeyword,
+      siteKeywordsReadyForUrl,
       registerCompletedAudit,
       clearLastAudit,
       clearAll,
@@ -159,7 +246,16 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
       lastAuditId,
       lastAuditForUrl,
       targetBrand,
+      siteKeywords,
+      siteKeywordsForUrl,
+      siteKeywordSuggestions,
+      siteKeywordsLoading,
+      siteKeywordsError,
       setTargetUrl,
+      setSiteKeywords,
+      refreshSiteKeywords,
+      toggleSiteKeyword,
+      siteKeywordsReadyForUrl,
       registerCompletedAudit,
       clearLastAudit,
       clearAll,

@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   const parsed = parseZod(RequestSchema, bodyResult.body);
   if (!parsed.ok) return parsed.response;
 
-  return enqueueJob('competitor.compare', parsed.data);
+  return enqueueJob(req, 'competitor.compare', parsed.data);
 }
 
 export async function GET() {

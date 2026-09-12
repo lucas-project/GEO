@@ -17,6 +17,7 @@ export function extractMetadata($: CheerioAPI): PageMetadata {
     description: metaContent($, 'description'),
     canonical: attr($, 'link[rel="canonical"]', 'href'),
     ogTitle: metaContent($, 'og:title', 'property'),
+    ogSiteName: metaContent($, 'og:site_name', 'property'),
     ogDescription: metaContent($, 'og:description', 'property'),
     ogType: metaContent($, 'og:type', 'property'),
     twitterCard: metaContent($, 'twitter:card'),

@@ -1,17 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useMutation } from '@tanstack/react-query';
 import { Loader2, Lightbulb, Copy, Check, ExternalLink, History, X } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { api } from '@/lib/api-client';
+import { JobProgress, resolveJobProgressLabel } from '@/components/geo/job-progress';
+import { CancelRunningJobButton } from '@/components/geo/cancel-running-job-button';
 import type { GeoContentKeyword, GeoContentPack, GeoContentSection } from '@modules/geo-content';
 import { GEO_CONTENT_FORMATS, FORMAT_PROMPT_GUIDE } from '@modules/geo-content';
 import { AuditHelpBlurb, LatestAuditReportLink } from '@/features/workspace/audit-help';
 import { useWorkspaceTarget } from '@/features/workspace/workspace-target-context';
+import { useGeoContentJob } from './geo-content-job-context';
 import { useGeoContentHistory, type GeoContentHistoryEntry } from './geo-content-history';
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -30,13 +31,6 @@ const SOURCE_LABEL: Record<GeoContentKeyword['source'], string> = {
   faq: 'FAQ',
   body: 'Page text',
 };
-
-interface GenerateResponse {
-  auditId: string;
-  url: string;
-  keywords: GeoContentKeyword[];
-  pack: GeoContentPack;
-}
 
 function sortSections(sections: GeoContentSection[]): GeoContentSection[] {
   const rank = new Map(GEO_CONTENT_FORMATS.map((f, i) => [f, i]));
@@ -60,33 +54,45 @@ export function GeoContentWorkspace() {
   const { targetUrl, lastAuditId } = useWorkspaceTarget();
   const [copied, setCopied] = useState(false);
   const { entries: history, hydrated, addEntry, removeEntry, clearHistory } = useGeoContentHistory();
+  const {
+    result,
+    resultError,
+    failedError,
+    isInterrupted,
+    isRunning,
+    jobId,
+    job,
+    jobQuery,
+    progress,
+    enqueueError,
+    startGeneration,
+    cancelGeneration,
+    setResult,
+  } = useGeoContentJob();
 
-  const [view, setView] = useState<{
+  const [viewOverride, setViewOverride] = useState<{
     auditId: string;
     url: string;
     keywords: GeoContentKeyword[];
     pack: GeoContentPack;
   } | null>(null);
 
-  const gen = useMutation({
-    mutationFn: () => api.post<GenerateResponse>('/api/geo-content', { url: targetUrl.trim() }),
-    onSuccess: (data) => {
-      setView({
-        auditId: data.auditId,
-        url: data.url,
-        keywords: data.keywords,
-        pack: data.pack,
-      });
-      addEntry({
-        auditId: data.auditId,
-        url: data.url,
-        keywords: data.keywords,
-        pack: data.pack,
-      });
-    },
-  });
+  const savedToHistoryRef = useRef<string | null>(null);
 
-  const active = view ?? (gen.data ? { ...gen.data } : null);
+  useEffect(() => {
+    if (!result) return;
+    const key = `${result.auditId}:${result.pack.inferredTopic}`;
+    if (savedToHistoryRef.current === key) return;
+    savedToHistoryRef.current = key;
+    addEntry({
+      auditId: result.auditId,
+      url: result.url,
+      keywords: result.keywords,
+      pack: result.pack,
+    });
+  }, [result, addEntry]);
+
+  const active = viewOverride ?? (result ? { ...result } : null);
   const pack = active?.pack;
   const keywords = active?.keywords ?? [];
   const resultAuditId = active?.auditId;
@@ -95,13 +101,18 @@ export function GeoContentWorkspace() {
   const contentSections = pack?.sections ? sortSections(pack.sections) : [];
 
   const loadHistory = (entry: GeoContentHistoryEntry) => {
-    setView({
+    setViewOverride({
       auditId: entry.auditId,
       url: entry.url,
       keywords: entry.keywords,
       pack: entry.pack,
     });
-    gen.reset();
+    setResult({
+      auditId: entry.auditId,
+      url: entry.url,
+      keywords: entry.keywords,
+      pack: entry.pack,
+    });
   };
 
   const copyAll = async () => {
@@ -127,6 +138,27 @@ export function GeoContentWorkspace() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const showJobProgress = Boolean(jobId) || Boolean(failedError);
+  const progressStatus = job?.status ?? (failedError ? 'failed' : undefined);
+  const progressLabel = resolveJobProgressLabel({
+    jobId: showJobProgress ? jobId ?? 'stored' : null,
+    forceShow: Boolean(failedError),
+    status: progressStatus,
+    progress,
+    isQueryPending: jobQuery.isPending,
+    isQueryError: jobQuery.isError,
+    labels: {
+      running: (pct) =>
+        job?.statusMessage ? job.statusMessage : `Generating content ideas… ${pct}%`,
+      completed: result ? 'Ideas ready' : 'Complete — loading results…',
+      failed: isInterrupted ? 'Generation interrupted' : 'Generation failed',
+      cancelled: 'Generation cancelled',
+    },
+  });
+
+  const errorMessage =
+    failedError ?? resultError ?? (enqueueError ? enqueueError.message : null);
+
   return (
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
@@ -149,14 +181,17 @@ export function GeoContentWorkspace() {
             )}
             <p className="text-[13px] text-fg-subtle leading-relaxed">
               Uses the latest completed audit for that site. Finds short keywords, then one prompt list per content
-              type. Prompts only — no answers.
+              type. Prompts only — no answers. You can leave this page while generation runs in the background.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <Button
-                disabled={gen.isPending || !targetUrl.trim()}
-                onClick={() => gen.mutate()}
+                disabled={isRunning || !targetUrl.trim()}
+                onClick={() => {
+                  setViewOverride(null);
+                  startGeneration();
+                }}
               >
-                {gen.isPending ? (
+                {isRunning ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Detecting…
@@ -168,6 +203,9 @@ export function GeoContentWorkspace() {
                   </>
                 )}
               </Button>
+              {isRunning && (
+                <CancelRunningJobButton onCancel={() => void cancelGeneration()} />
+              )}
               {pack && (
                 <Button type="button" variant="outline" size="sm" onClick={() => void copyAll()}>
                   {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -175,9 +213,26 @@ export function GeoContentWorkspace() {
                 </Button>
               )}
             </div>
-            {gen.isError && (
+            {showJobProgress && (
+              <JobProgress
+                jobId={jobId}
+                forceShow={Boolean(failedError)}
+                status={progressStatus}
+                progress={progress}
+                statusMessage={job?.statusMessage}
+                error={failedError ?? undefined}
+                label={progressLabel}
+                failedHint={
+                  isInterrupted
+                    ? 'The server may have restarted. Start a new run when ready.'
+                    : undefined
+                }
+                onCancel={isRunning ? () => void cancelGeneration() : undefined}
+              />
+            )}
+            {errorMessage && (
               <p className="text-sm text-danger" role="alert">
-                {(gen.error as Error).message}
+                {errorMessage}
               </p>
             )}
           </Card>
@@ -303,7 +358,8 @@ export function GeoContentWorkspace() {
             <ul className="space-y-1.5 max-h-[min(70vh,520px)] overflow-y-auto pr-0.5">
               {history.map((entry) => {
                 const isActive =
-                  view?.auditId === entry.auditId && view?.pack.inferredTopic === entry.pack.inferredTopic;
+                  active?.auditId === entry.auditId &&
+                  active?.pack.inferredTopic === entry.pack.inferredTopic;
                 const sectionCount = entry.pack.sections?.length ?? 0;
                 return (
                   <li key={entry.id}>
@@ -328,7 +384,10 @@ export function GeoContentWorkspace() {
                       onClick={(e) => {
                         e.stopPropagation();
                         removeEntry(entry.id);
-                        if (isActive) setView(null);
+                        if (isActive) {
+                          setViewOverride(null);
+                          setResult(null);
+                        }
                       }}
                       className="mt-0.5 ml-auto flex items-center gap-1 text-[12px] text-fg-subtle hover:text-danger px-3"
                     >

@@ -17,7 +17,7 @@ import { Card } from '@/components/ui/card';
 import { ScoreGauge } from '@/components/geo/score-gauge';
 import { MonitoredBadge } from '@/components/geo/monitored-badge';
 import { formatDate } from '@/lib/utils';
-import { ScoreSparkline } from './score-sparkline';
+import { DualTrendSparkline } from './dual-trend-sparkline';
 import type { JobStatus } from '@/lib/jobs';
 
 export interface MonitoredSiteRow {
@@ -36,6 +36,7 @@ export interface MonitoredSiteRow {
   lastMonitorStatus: string | null;
   lastMonitorError: string | null;
   trend: number[];
+  visibilityTrend: number[];
 }
 
 const SCHEDULE_OPTIONS = [
@@ -223,9 +224,14 @@ function MonitoredSiteTableRow({
             />
           </div>
         )}
-        {s.trend.length >= 2 && (
+        {(s.trend.length >= 2 || s.visibilityTrend.length >= 2) && (
           <div className="mt-2 hidden sm:block">
-            <ScoreSparkline scores={s.trend} />
+            <DualTrendSparkline
+              scoreTrend={s.trend}
+              visibilityTrend={s.visibilityTrend}
+              width={200}
+              height={40}
+            />
           </div>
         )}
       </td>

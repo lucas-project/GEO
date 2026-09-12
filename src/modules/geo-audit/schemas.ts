@@ -1,16 +1,21 @@
 /**
  * GEO Audit schemas — the contract every audit returns.
  *
- * Ten dimensions are scored, each 0-100 with reasons. Overall uses a
- * hierarchical pipeline (foundation → understanding → generation → outcome).
+ * Twelve dimensions are scored, each 0-100 with reasons. Overall uses a
+ * hierarchical pipeline (foundation → understanding → presence → generation → outcome).
  */
 
 import { z } from 'zod';
+import { PresenceSignalsSchema } from '@modules/brand-presence';
+import { OffSitePresenceReportSchema } from '@modules/off-site-presence/schemas';
+import { SimulationPromptEntrySchema } from './simulation-prompts';
+import { SiteChecklistSignalsSchema, RefCategoryScoresSchema } from './checklist-schema';
 
 /** AI visibility pipeline layers (causal order). */
 export const SCORE_LAYERS = [
   'foundation',
   'understanding',
+  'presence',
   'generation',
   'outcome',
 ] as const;
@@ -20,6 +25,7 @@ export type ScoreLayer = (typeof SCORE_LAYERS)[number];
 export const LAYER_LABELS: Record<ScoreLayer, string> = {
   foundation: 'Foundation',
   understanding: 'Understanding',
+  presence: 'Presence',
   generation: 'Generation',
   outcome: 'Outcome',
 };
@@ -27,6 +33,7 @@ export const LAYER_LABELS: Record<ScoreLayer, string> = {
 export const LAYER_DESCRIPTIONS: Record<ScoreLayer, string> = {
   foundation: 'Can AI crawl, parse structure, and read markup?',
   understanding: 'Can AI understand entities, chunks, and trust signals?',
+  presence: 'Does AI see your brand beyond this website?',
   generation: 'Can AI extract answers and summarize content?',
   outcome: 'Will AI cite this page as a source?',
 };
@@ -42,6 +49,8 @@ export const DIMENSIONS = [
   'trustSignals',
   'structuredContent',
   'crawlerFriendliness',
+  'offSitePresence',
+  'commercialReadiness',
 ] as const;
 
 export type Dimension = (typeof DIMENSIONS)[number];
@@ -57,6 +66,8 @@ export const DIMENSION_LABELS: Record<Dimension, string> = {
   trustSignals: 'Trust Signals',
   structuredContent: 'Structured Content',
   crawlerFriendliness: 'AI Crawler Friendliness',
+  offSitePresence: 'Off-site Presence',
+  commercialReadiness: 'Commercial Readiness',
 };
 
 export const DIMENSION_DESCRIPTIONS: Record<Dimension, string> = {
@@ -70,6 +81,8 @@ export const DIMENSION_DESCRIPTIONS: Record<Dimension, string> = {
   trustSignals: 'Author / E-E-A-T indicators present.',
   structuredContent: 'JSON-LD schema and structured markup coverage.',
   crawlerFriendliness: 'AI crawler accessibility (robots, llms.txt, JS).',
+  offSitePresence: 'Linked profiles on Reddit, reviews, and social platforms.',
+  commercialReadiness: 'Clear CTAs, pricing, and trust signals for conversion.',
 };
 
 export const DIMENSION_LAYERS: Record<Dimension, ScoreLayer> = {
@@ -80,9 +93,11 @@ export const DIMENSION_LAYERS: Record<Dimension, ScoreLayer> = {
   chunkOptimization: 'understanding',
   aiReadability: 'understanding',
   trustSignals: 'understanding',
+  offSitePresence: 'presence',
   answerExtraction: 'generation',
   summarizationQuality: 'generation',
   citationFriendliness: 'outcome',
+  commercialReadiness: 'outcome',
 };
 
 export const DimensionScoreSchema = z.object({
@@ -107,6 +122,7 @@ export const GateAppliedSchema = z.object({
     'foundation_weak',
     'propagation',
     'answer_extraction_ceiling',
+    'off_site_presence_weak',
     'citation_snapshot',
   ]),
   description: z.string(),
@@ -122,8 +138,84 @@ export const BottleneckSchema = z.object({
 });
 export type Bottleneck = z.infer<typeof BottleneckSchema>;
 
+export const LayerEvidenceItemSchema = z.object({
+  label: z.string(),
+  detail: z.string().optional(),
+  url: z.string().optional(),
+});
+export type LayerEvidenceItem = z.infer<typeof LayerEvidenceItemSchema>;
+
+export const LayerSearchHitSchema = z.object({
+  link: z.string(),
+  snippet: z.string(),
+});
+
+export const LayerSearchQuerySchema = z.object({
+  query: z.string(),
+  resultCount: z.number().int(),
+  topHits: z.array(LayerSearchHitSchema),
+});
+
+export const LayerEvidenceSchema = z.object({
+  layer: z.enum(SCORE_LAYERS),
+  methodology: z.string(),
+  pagesAudited: z.array(z.string()).optional(),
+  searchQueries: z.array(LayerSearchQuerySchema).optional(),
+  crawlFindings: z.array(LayerEvidenceItemSchema),
+  externalFindings: z.array(LayerEvidenceItemSchema),
+  scoreFactors: z.array(z.string()),
+});
+export type LayerEvidence = z.infer<typeof LayerEvidenceSchema>;
+
+/** One saved batch visibility run on an audit. */
+export const SimulationVisibilityCheckSchema = z.object({
+  checkedAt: z.string(),
+  /** Discovery (non-brand) questions only. */
+  promptsTested: z.number().int().min(0),
+  promptsCiting: z.number().int().min(0),
+  averageVisibilityScore: z.number().min(0).max(100),
+  brandPromptsTested: z.number().int().min(0).optional(),
+  brandLeaderboard: z
+    .array(z.object({ brand: z.string(), count: z.number().int().min(1) }))
+    .optional(),
+  domainLeaderboard: z
+    .array(z.object({ domain: z.string(), count: z.number().int().min(1) }))
+    .optional(),
+  results: z.array(
+    z.object({
+      prompt: z.string(),
+      runId: z.string(),
+      questionType: z.enum(['brand', 'discovery']).optional(),
+      visibilityScore: z.number().min(0).max(100),
+      mentionedOnPlatforms: z.array(z.enum(['chatgpt', 'gemini', 'claude', 'perplexity'])),
+      platformDetails: z
+        .array(
+          z.object({
+            platform: z.enum(['chatgpt', 'gemini', 'claude', 'perplexity']),
+            cited: z.boolean(),
+            citationCount: z.number().int().min(0),
+            citedDomains: z.array(z.string()),
+            excerpts: z.array(z.string()).optional(),
+          }),
+        )
+        .optional(),
+      citationHighlights: z
+        .array(
+          z.object({
+            platform: z.enum(['chatgpt', 'gemini', 'claude', 'perplexity']),
+            snippet: z.string(),
+            brand: z.string().optional(),
+            domain: z.string().optional(),
+          }),
+        )
+        .optional(),
+    }),
+  ),
+});
+export type SimulationVisibilityCheck = z.infer<typeof SimulationVisibilityCheckSchema>;
+
 export const ScoringMetaSchema = z.object({
-  modelVersion: z.literal('hierarchical-v1'),
+  modelVersion: z.enum(['hierarchical-v1', 'hierarchical-v2']),
   layers: z.record(z.enum(SCORE_LAYERS), LayerScoreSchema),
   citationProbability: z.number().min(0).max(1),
   bottleneck: BottleneckSchema,
@@ -131,6 +223,44 @@ export const ScoringMetaSchema = z.object({
   overallCap: z.number().int().min(0).max(100).optional(),
   citationSnapshotVisibility: z.number().min(0).max(1).optional(),
   simulationRunCount: z.number().int().optional(),
+  presenceSignals: PresenceSignalsSchema.optional(),
+  checklist: SiteChecklistSignalsSchema.optional(),
+  refCategories: RefCategoryScoresSchema.optional(),
+  auxiliaryScores: z
+    .object({
+      technicalPerformance: z.number().int().min(0).max(100).optional(),
+      topicCoverage: z.number().int().min(0).max(100).optional(),
+    })
+    .optional(),
+  shareOfModel: z.number().min(0).max(1).optional(),
+  presenceProbe: z
+    .object({
+      source: z.enum(['crawl-only', 'serper', 'tavily']),
+      brandName: z.string().optional(),
+      siteDomain: z.string().optional(),
+      redditMentionEstimate: z.number().nullable(),
+      reviewProfilesFound: z.array(z.string()),
+      mediaMentions: z.number(),
+      primarySourceDomains: z.array(z.string()),
+      brandDescriptionSnippet: z.string().nullable(),
+      verifiedPlatforms: z.array(z.string()).optional(),
+      searchQueries: z.array(LayerSearchQuerySchema).optional(),
+    })
+    .optional(),
+  platformWeights: z.record(z.string(), z.number()).optional(),
+  layerEvidence: z.record(z.enum(SCORE_LAYERS), LayerEvidenceSchema).optional(),
+  offSitePresenceReport: OffSitePresenceReportSchema.optional(),
+  offSitePresenceScannedAt: z.string().optional(),
+  /** AI-generated simulation questions tailored to this site's weaknesses. */
+  suggestedSimulationPrompts: z
+    .array(z.union([z.string(), SimulationPromptEntrySchema]))
+    .optional(),
+  /** LLM-inferred competitor domains for pre-populating the comparison page. */
+  suggestedCompetitors: z.array(z.string()).optional(),
+  /** Latest batch AI visibility test (discovery metrics + per-question results). */
+  simulationVisibilityCheck: SimulationVisibilityCheckSchema.optional(),
+  /** Prior batch runs, newest archived first when a new batch completes. */
+  simulationVisibilityHistory: z.array(SimulationVisibilityCheckSchema).optional(),
 });
 export type ScoringMeta = z.infer<typeof ScoringMetaSchema>;
 

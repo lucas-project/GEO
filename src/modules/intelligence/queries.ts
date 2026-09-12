@@ -3,7 +3,7 @@
  */
 
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
-import { ai } from '@shared/ai';
+import { getEmbeddingsAI } from '@shared/ai';
 import type { DimensionScore } from '@modules/geo-audit';
 import type {
   BenchmarkInsight,
@@ -16,6 +16,7 @@ import { PatternStatMetadataSchema } from './schemas';
 import { getEffectiveMinCohortSamples, getMinCohortSamples } from './ingest';
 import { parseRollupSignals, listPatternsFromSignals } from './rollup';
 import { getLatestCitationVisibility } from './citation-snapshot';
+import { decayedScore } from '@/lib/audit-time-decay';
 import { enrichBenchmarkInsight } from './benchmark-copy';
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -50,6 +51,7 @@ function categoryForPattern(patternType: string): BenchmarkInsight['category'] {
     case 'chunk':
     case 'entity':
     case 'table':
+    case 'platform':
       return 'content';
     case 'citation':
       return 'citations';
@@ -72,6 +74,7 @@ export async function getSiteTrend(siteId: string, limit = 30): Promise<SiteTren
     scores: rollups.map((r) => ({
       date: r.createdAt.toISOString(),
       score: r.overallScore,
+      decayedScore: decayedScore(r.overallScore, r.createdAt),
     })),
   };
 }
@@ -358,7 +361,9 @@ export async function findSimilarCohortChunks(
   queryText: string,
   topK = 5,
 ): Promise<Array<{ textPreview: string; score: number; overallScore: number; signalTags: string[] }>> {
-  const { vector: qv } = await ai.generateEmbedding({ text: queryText.slice(0, 4000) });
+  const { vector: qv } = await getEmbeddingsAI().generateEmbedding({
+    text: queryText.slice(0, 4000),
+  });
   const rows = await prisma.patternEmbedding.findMany({
     where: { cohortKey },
     take: 200,

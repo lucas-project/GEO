@@ -8,6 +8,14 @@ import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api-client';
 import { canonicalPageUrl } from '@/lib/website-url';
 import { useAsyncJob } from '@/hooks/use-async-job';
+import {
+  writeBackgroundJobMeta,
+} from '@/features/workspace/background-jobs-context';
+import {
+  BACKGROUND_JOB_KEYS,
+  BACKGROUND_JOB_META_KEYS,
+} from '@/lib/background-job-keys';
+import { useBackgroundJobProgress } from '@/hooks/use-background-job-progress';
 import { JobProgress, resolveJobProgressLabel } from '@/components/geo/job-progress';
 import {
   AuditPagePicker,
@@ -31,16 +39,44 @@ export function AuditMorePages({ auditId, siteUrl, auditedUrls }: AuditMorePages
 
   const auditedKeys = new Set(auditedUrls.map((u) => canonicalPageUrl(u, siteUrl)));
 
-  const { enqueue, jobId, job, isRunning, progress } = useAsyncJob<string[], { auditId?: string }>({
-    queryKeyPrefix: 'audit-extend-report',
-    mutationFn: async (pageUrls) =>
-      api.post<{ jobId: string }>(`/api/geo-audit/${auditId}/extend`, { pageUrls }),
+  const persistKey = BACKGROUND_JOB_KEYS.auditExtend(auditId);
+  const metaKey = BACKGROUND_JOB_META_KEYS.auditExtend(auditId);
+
+  const { enqueue, jobId, job, isRunning, progress: hookProgress, cancelJob } = useAsyncJob<
+    string[],
+    { auditId?: string }
+  >({
+    queryKeyPrefix: `audit-extend-report-${auditId}`,
+    persistKey,
+    background: {
+      label: 'Adding pages to audit',
+      viewHref: `/audit/${auditId}`,
+      hideOnPathPrefix: `/audit/${auditId}`,
+      metaStorageKey: metaKey,
+      etaUnits: 2,
+    },
+    clearJobOnComplete: true,
+    clearJobOnFailed: true,
+    mutationFn: async (pageUrls) => {
+      writeBackgroundJobMeta(metaKey, {
+        viewHref: `/audit/${auditId}`,
+        auditId,
+      });
+      return api.post<{ jobId: string }>(`/api/geo-audit/${auditId}/extend`, { pageUrls });
+    },
     onCompleted: () => {
+      writeBackgroundJobMeta(metaKey, null);
       setSelected(new Set());
       setDiscovered(null);
       void queryClient.invalidateQueries({ queryKey: ['audit', auditId] });
     },
+    onFailed: () => {
+      writeBackgroundJobMeta(metaKey, null);
+    },
   });
+
+  const { progress: bgProgress, etaLabel } = useBackgroundJobProgress(persistKey);
+  const progress = bgProgress ?? hookProgress;
 
   const extendLabel = resolveJobProgressLabel({
     jobId,
@@ -138,11 +174,16 @@ export function AuditMorePages({ auditId, siteUrl, auditedUrls }: AuditMorePages
         )}
 
         <JobProgress
+          active={isRunning}
           jobId={jobId}
           status={job?.status}
           progress={progress}
           error={job?.error}
           label={extendLabel}
+          remainingLabel={etaLabel}
+          remainingIsEstimate
+          cancelLabel="Stop"
+          onCancel={() => void cancelJob()}
         />
       </CardContent>
     </Card>

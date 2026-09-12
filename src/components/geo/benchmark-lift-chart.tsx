@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { Check, TrendingUp } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 
 interface BenchmarkLiftChartProps {
   withScore: number;
@@ -22,10 +22,18 @@ function barColor(score: number): string {
 }
 
 function barHoverColor(score: number): string {
-  if (score >= 80) return 'hover:bg-success/90 hover:shadow-[0_0_12px_rgba(34,197,94,0.35)]';
-  if (score >= 60) return 'hover:bg-warning/90 hover:shadow-[0_0_12px_rgba(245,158,11,0.35)]';
-  return 'hover:bg-danger/90 hover:shadow-[0_0_12px_rgba(239,68,68,0.35)]';
+  if (score >= 80) return 'hover:bg-success/90';
+  if (score >= 60) return 'hover:bg-warning/90';
+  return 'hover:bg-danger/90';
 }
+
+function scoreTextColor(score: number): string {
+  if (score >= 80) return 'text-success';
+  if (score >= 60) return 'text-warning';
+  return 'text-danger';
+}
+
+const BAR_TRACK = { compact: 44, default: 52 } as const;
 
 export function BenchmarkLiftChart({
   withScore,
@@ -38,133 +46,151 @@ export function BenchmarkLiftChart({
   compact,
   className,
 }: BenchmarkLiftChartProps) {
-  const max = Math.max(withScore, withoutScore, yourScore ?? 0, 1);
-  const withH = Math.max(8, Math.round((withScore / max) * 100));
-  const withoutH = Math.max(8, Math.round((withoutScore / max) * 100));
-  const yourH = yourScore != null ? Math.max(8, Math.round((yourScore / max) * 100)) : null;
-  const chartH = compact ? 'h-[80px]' : 'h-[100px]';
+  const trackH = compact ? BAR_TRACK.compact : BAR_TRACK.default;
+  const max = Math.max(withScore, withoutScore, 1);
+  const withH = Math.max(10, Math.round((withScore / max) * 100));
+  const withoutH = Math.max(10, Math.round((withoutScore / max) * 100));
+
+  const youInWithGroup = youHavePattern === true;
+  const youInWithoutGroup = youHavePattern === false;
 
   return (
     <div
       className={cn(
-        'rounded-lg border border-border-subtle bg-bg/60 p-2.5 transition-all duration-200',
-        'hover:border-accent/30 hover:bg-bg-subtle/80 hover:shadow-sm',
+        'flex flex-col gap-2.5 rounded-lg border border-border-subtle bg-bg/60 p-2.5 shrink-0',
+        'transition-all duration-200 hover:border-accent/30 hover:bg-bg-subtle/80 hover:shadow-sm',
         className,
       )}
     >
-      <div className={cn('flex items-end justify-center gap-2 sm:gap-4 mb-2', chartH)}>
-        <BarColumn
-          label="With"
-          score={withScore}
-          heightPct={withH}
-          highlight={youHavePattern === true}
-          tooltip={`Sites with this pattern average ${withScore}/100`}
-        />
-        {liftPoints != null && liftPoints > 0 && (
-          <div
-            className="flex flex-col items-center justify-end pb-4 shrink-0 px-0.5 transition-transform duration-200 hover:scale-105"
-            title={`${liftPoints} point lift${liftPercent != null ? ` (+${liftPercent}%)` : ''}`}
-          >
-            <div className="flex items-center gap-0.5 text-success text-xs font-semibold tabular-nums">
-              <TrendingUp className="w-3.5 h-3.5" />
-              +{liftPoints}
-            </div>
-            {liftPercent != null && (
-              <span className="text-[9px] text-fg-subtle">+{liftPercent}%</span>
-            )}
-          </div>
-        )}
-        <BarColumn
-          label="Without"
-          score={withoutScore}
-          heightPct={withoutH}
-          highlight={youHavePattern === false}
-          muted
-          tooltip={`Sites without this pattern average ${withoutScore}/100`}
-        />
-      </div>
-
-      {yourScore != null && !compact && (
-        <div className="flex items-center gap-2 mb-1.5">
-          <div className="flex-1 h-1 rounded-full bg-bg-muted overflow-hidden max-w-[100px]">
-            <div
-              className={cn(
-                'h-full rounded-full transition-all duration-200',
-                barColor(yourScore),
-                barHoverColor(yourScore),
-              )}
-              style={{ width: `${yourH}%` }}
-              title={`Your GEO score: ${yourScore}`}
-            />
-          </div>
-          <span className="text-[9px] text-fg-muted tabular-nums">
-            You: <strong className="text-fg">{yourScore}</strong>
+      {yourScore != null && (
+        <div className="relative z-10 shrink-0 rounded-md border border-border-subtle bg-bg-elevated px-2 py-1.5 text-center isolate">
+          <span className="block text-[9px] leading-tight text-fg-muted">Your overall GEO score</span>
+          <span className={cn('text-base font-semibold tabular-nums', scoreTextColor(yourScore))}>
+            {yourScore}
           </span>
+          <span className="text-[9px] text-fg-subtle"> / 100</span>
         </div>
       )}
 
-      <p className="text-[9px] text-fg-subtle text-center">{sampleCount} sites compared</p>
+      <div className="shrink-0">
+        <div className="flex items-end justify-center gap-2 sm:gap-3">
+          <BarColumn
+            title="Other sites that have this on their pages"
+            shortLabel="Has this"
+            score={withScore}
+            heightPct={withH}
+            trackH={trackH}
+            isYourGroup={youInWithGroup}
+          />
+          {liftPoints != null && liftPoints > 0 && (
+            <div
+              className="flex shrink-0 flex-col items-center justify-end self-stretch pb-1"
+              title={`Typical advantage when sites add this: +${liftPoints} pts${liftPercent != null ? ` (+${liftPercent}%)` : ''}`}
+            >
+              <div className="flex items-center gap-0.5 text-xs font-semibold tabular-nums text-success">
+                <TrendingUp className="h-3.5 w-3.5" />
+                +{liftPoints}
+              </div>
+              {liftPercent != null && (
+                <span className="text-[9px] text-fg-subtle">+{liftPercent}%</span>
+              )}
+            </div>
+          )}
+          <BarColumn
+            title="Other sites that do not have this on their pages"
+            shortLabel="Missing"
+            score={withoutScore}
+            heightPct={withoutH}
+            trackH={trackH}
+            isYourGroup={youInWithoutGroup}
+            muted
+          />
+        </div>
+
+      </div>
+
+      <div className="shrink-0 space-y-1 border-t border-border-subtle pt-2">
+        <p className="text-center text-[9px] leading-snug text-fg-subtle">
+          Bars = average of {sampleCount} other sites. Not your score.
+        </p>
+        {youHavePattern !== undefined && (
+          <p className="text-center text-[9px] leading-snug text-fg-muted">
+            {youInWithGroup ? (
+              <>
+                Your site <strong className="font-medium text-accent">has</strong> this (left).
+              </>
+            ) : (
+              <>
+                Your site <strong className="font-medium text-accent">lacks</strong> this (right).
+              </>
+            )}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
 
 function BarColumn({
-  label,
+  title,
+  shortLabel,
   score,
   heightPct,
-  highlight,
+  trackH,
+  isYourGroup,
   muted,
-  tooltip,
 }: {
-  label: string;
+  title: string;
+  shortLabel: string;
   score: number;
   heightPct: number;
-  highlight?: boolean;
+  trackH: number;
+  isYourGroup?: boolean;
   muted?: boolean;
-  tooltip: string;
 }) {
+  const barPx = Math.max(8, Math.round((heightPct / 100) * trackH));
+
   return (
     <div
-      className="group/col relative flex flex-col items-center justify-end gap-1 min-w-[48px] flex-1 max-w-[72px] h-full"
+      className={cn(
+        'flex min-w-[48px] max-w-[76px] flex-1 flex-col items-center gap-1',
+        isYourGroup && 'rounded-md bg-accent/5 px-0.5 ring-1 ring-accent/50',
+      )}
     >
       <span
         className={cn(
-          'text-sm font-semibold tabular-nums leading-none transition-transform duration-200 group-hover/col:scale-110',
-          score >= 80 ? 'text-success' : score >= 60 ? 'text-warning' : 'text-danger',
-          muted && !highlight && 'opacity-75',
+          'text-xs font-semibold tabular-nums leading-none',
+          scoreTextColor(score),
+          muted && !isYourGroup && 'opacity-75',
         )}
       >
         {score}
       </span>
-      <div className="flex-1 w-full flex flex-col justify-end min-h-[36px] px-0.5">
+
+      <div
+        className="flex w-full items-end justify-center px-0.5"
+        style={{ height: trackH }}
+        title={title}
+      >
         <div
           className={cn(
-            'w-full rounded-t-md transition-all duration-200 ease-out cursor-default',
-            'group-hover/col:scale-[1.03] group-hover/col:-translate-y-0.5',
+            'w-full cursor-help rounded-t-sm transition-colors duration-200',
             barColor(score),
             barHoverColor(score),
-            muted && !highlight && 'opacity-65 group-hover/col:opacity-90',
-            highlight && 'ring-2 ring-accent ring-offset-1 ring-offset-bg/60',
+            muted && !isYourGroup && 'opacity-65',
           )}
-          style={{ height: `${heightPct}%`, minHeight: 22 }}
+          style={{ height: barPx }}
         />
       </div>
-      <span className="text-[9px] text-fg-muted text-center leading-none">{label}</span>
-      {highlight && (
-        <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-accent">
-          <Check className="w-2.5 h-2.5" />
-          You
-        </span>
-      )}
-      <div
-        className={cn(
-          'pointer-events-none absolute z-10 -top-8 left-1/2 -translate-x-1/2',
-          'opacity-0 group-hover/col:opacity-100 transition-opacity duration-150',
-          'rounded px-1.5 py-0.5 text-[9px] text-fg bg-bg-elevated border border-border shadow-sm whitespace-nowrap',
+
+      <div className="text-center leading-tight">
+        <span className="block text-[8px] font-medium text-fg">{shortLabel}</span>
+        <span className="block text-[7px] text-fg-subtle">avg</span>
+        {isYourGroup && (
+          <span className="block text-[7px] font-semibold uppercase tracking-wide text-accent">
+            You
+          </span>
         )}
-        role="tooltip"
-      >
-        {tooltip}
       </div>
     </div>
   );

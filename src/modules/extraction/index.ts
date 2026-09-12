@@ -5,6 +5,8 @@
 export { extractionService, extractPage } from './service';
 export { extractDiscoveryProbeSignals } from './probe-signals';
 export type { DiscoveryProbeSignals } from './probe-signals';
+export { emptyPageChecklist } from './empty-checklist';
+export type { PageChecklistSignals } from './schemas';
 export type {
   PageExtraction,
   PageMetadata,

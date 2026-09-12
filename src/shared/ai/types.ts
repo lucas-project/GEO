@@ -23,6 +23,8 @@ export interface GenerateTextInput {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  /** Ollama only — keep model loaded (e.g. "15m", "0"). */
+  keepAlive?: string;
 }
 
 export interface GenerateTextResult {
@@ -39,6 +41,7 @@ export interface GenerateStructuredInput<TSchema extends z.ZodTypeAny> {
   schemaName?: string;
   model?: string;
   temperature?: number;
+  maxTokens?: number;
 }
 
 export interface GenerateStructuredResult<T> {

@@ -20,5 +20,5 @@ export async function POST(req: Request) {
   const parsed = parseZod(RequestSchema, bodyResult.body);
   if (!parsed.ok) return parsed.response;
 
-  return enqueueJob('crawl.run', parsed.data);
+  return enqueueJob(req, 'crawl.run', parsed.data);
 }

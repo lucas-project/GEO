@@ -11,8 +11,9 @@ import { randomId } from '@shared/util/id';
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
 import { logger } from '@shared/logger';
 import { runOnAllPlatforms, SIMULATED_PLATFORMS } from '@shared/ai/multi';
-import { findSimilarChunks } from '@modules/embeddings';
-import { extractCitations } from './citation-tracker';
+import { findSimilarChunks, type AuditChunkSearch } from '@modules/embeddings';
+import { extractCitations, extractCitationsForPlatforms } from './citation-tracker';
+import { refineBrandLeaderboard, refineBrandLeaderboardHeuristic } from './brand-leaderboard-refine';
 import { buildMockSimulationResponse, canonicalBrandName, type MockSimPlatform } from './mock-responses';
 import { config } from '@shared/config';
 import {
@@ -65,6 +66,20 @@ export interface RunSimulationInput {
   runsPerPlatform?: number;
   /** Optional GEO audit id — top similar chunks are prepended as retrieval context */
   contextAuditId?: string;
+  /** Reuse loaded chunk vectors across batch prompts (from createAuditChunkSearch). */
+  contextSearch?: AuditChunkSearch;
+  /** How citations are extracted — batch defaults to combined-llm. */
+  citationMode?: 'full' | 'regex' | 'combined-llm';
+  /** @deprecated Use citationMode */
+  citationUseLlm?: boolean;
+  /** Defer citation snapshot until batch completes. */
+  skipCitationSnapshot?: boolean;
+  /** Batch fast path: skip per-question LLM brand refine (landscape refined once at batch end). */
+  skipBrandRefine?: boolean;
+  /** Batch fast path: fewer RAG chunks attached per prompt. */
+  contextTopK?: number;
+  /** Batch fast path: one Ollama model + shorter max tokens. */
+  platformRunOptions?: { singleModel?: boolean; maxTokens?: number };
   onProgress?: (progress: number, message: string) => void;
 }
 
@@ -74,7 +89,19 @@ export async function runSimulation(input: RunSimulationInput): Promise<Simulati
   input.onProgress?.(10, 'Querying simulated AI platforms…');
 
   let effectivePrompt = input.prompt;
-  if (input.contextAuditId) {
+  if (input.contextSearch) {
+    try {
+      const topK = input.contextTopK ?? 5;
+      const similar = await input.contextSearch(input.prompt, topK);
+      if (similar.length) {
+        const block = similar.map((s) => s.textPreview).join('\n---\n');
+        effectivePrompt = `Relevant excerpts from the audited site (retrieved):\n${block}\n\nUser task:\n${input.prompt}`;
+        simLogger.info({ n: similar.length }, 'retrieval context attached (cached search)');
+      }
+    } catch (err) {
+      simLogger.warn({ err: (err as Error).message }, 'retrieval context skipped');
+    }
+  } else if (input.contextAuditId) {
     try {
       const similar = await findSimilarChunks(input.contextAuditId, input.prompt, 5);
       if (similar.length) {
@@ -93,55 +120,69 @@ export async function runSimulation(input: RunSimulationInput): Promise<Simulati
     perPlatformRuns,
     targetBrand: input.targetBrand,
     targetUrl: input.targetUrl,
+    runOptions: input.platformRunOptions,
   });
 
   input.onProgress?.(60, 'Extracting citations…');
 
-  const runs: SimulationRun[] = [];
-  for (let i = 0; i < platformResponses.length; i++) {
-    const r = platformResponses[i];
-    input.onProgress?.(
-      60 + Math.round(((i + 1) / platformResponses.length) * 30),
-      `Analyzing ${r.platform} response…`,
-    );
+  const citationMode =
+    input.citationMode ??
+    (input.citationUseLlm === false
+      ? 'regex'
+      : config.simulation.llmCitationExtraction &&
+          config.simulation.aiProvider !== 'ollama' &&
+          config.ai.provider !== 'mock'
+        ? 'full'
+        : 'regex');
 
-    const { citations, brandMentions } = await extractCitations(r.text);
+  const extracted = await extractCitationsForPlatforms(
+    platformResponses.map((r) => ({ platform: r.platform, text: r.text })),
+    citationMode,
+  );
 
-    const run: SimulationRun = {
-      id: randomId(),
-      platform: r.platform,
-      responseText: r.text,
-      citations,
-      brandMentions,
-      model: r.model,
-      provider: r.provider,
-      tokens: r.tokens,
-    };
+  const runs: SimulationRun[] = await Promise.all(
+    platformResponses.map(async (r, i) => {
+      const { citations, brandMentions } = extracted[i]!;
+      const run: SimulationRun = {
+        id: randomId(),
+        platform: r.platform,
+        responseText: r.text,
+        citations,
+        brandMentions,
+        model: r.model,
+        provider: r.provider,
+        tokens: r.tokens,
+      };
 
-    await prisma.aiSimulation.create({
-      data: {
-        id: run.id,
-        siteId: input.siteId ?? null,
-        prompt: input.prompt,
-        platform: run.platform,
-        runId,
-        targetBrand: input.targetBrand ?? null,
-        responseText: run.responseText,
-        citations: stringifyJson(citations),
-        brandMentions: stringifyJson(brandMentions),
-      },
-    });
+      await prisma.aiSimulation.create({
+        data: {
+          id: run.id,
+          siteId: input.siteId ?? null,
+          prompt: input.prompt,
+          platform: run.platform,
+          runId,
+          targetBrand: input.targetBrand ?? null,
+          responseText: run.responseText,
+          citations: stringifyJson(citations),
+          brandMentions: stringifyJson(brandMentions),
+        },
+      });
 
-    runs.push(run);
-  }
+      return run;
+    }),
+  );
 
-  input.onProgress?.(95, 'Aggregating brand visibility…');
+  input.onProgress?.(85, 'Aggregating visibility…');
+
+  const aggregate = await buildAggregate(runs, input.targetBrand, input.targetUrl, {
+    skipBrandRefine: input.skipBrandRefine,
+  });
 
   const result: SimulationResult = {
     runId,
     prompt: input.prompt,
     runs,
-    aggregate: aggregate(runs, input.targetBrand, input.targetUrl),
+    aggregate,
     createdAt: new Date().toISOString(),
   };
 
@@ -154,7 +195,7 @@ export async function runSimulation(input: RunSimulationInput): Promise<Simulati
     'simulation complete',
   );
 
-  if (input.siteId) {
+  if (input.siteId && !input.skipCitationSnapshot) {
     const { ingestCitationSnapshot } = await import('@modules/intelligence');
     void ingestCitationSnapshot(input.siteId).catch((err) => {
       simLogger.warn({ err: (err as Error).message, siteId: input.siteId }, 'citation snapshot ingest skipped');
@@ -175,13 +216,13 @@ function brandMatchesTarget(brand: string, targetBrand: string, targetHost: stri
   return false;
 }
 
-function aggregate(
+async function buildAggregate(
   runs: SimulationRun[],
   targetBrand?: string,
   targetUrl?: string,
-): SimulationResult['aggregate'] {
+  options?: { skipBrandRefine?: boolean },
+): Promise<SimulationResult['aggregate']> {
   let totalCitations = 0;
-  const brandCounts = new Map<string, number>();
   const domainCounts = new Map<string, number>();
   const brandPlatforms = new Map<string, Set<Platform>>();
 
@@ -190,7 +231,6 @@ function aggregate(
     for (const m of r.brandMentions) {
       if (isJunkBrand(m.brand)) continue;
       const key = m.brand;
-      brandCounts.set(key, (brandCounts.get(key) ?? 0) + m.count);
       if (!brandPlatforms.has(key)) brandPlatforms.set(key, new Set());
       brandPlatforms.get(key)!.add(r.platform);
     }
@@ -202,10 +242,9 @@ function aggregate(
     }
   }
 
-  const brandLeaderboard = [...brandCounts.entries()]
-    .map(([brand, count]) => ({ brand, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 12);
+  const brandLeaderboard = options?.skipBrandRefine
+    ? refineBrandLeaderboardHeuristic(runs)
+    : await refineBrandLeaderboard(runs);
 
   const domainLeaderboard = [...domainCounts.entries()]
     .map(([domain, count]) => ({ domain, count }))
@@ -293,7 +332,7 @@ export async function getSimulation(runId: string): Promise<SimulationResult | n
     runId,
     prompt: rows[0].prompt,
     runs,
-    aggregate: aggregate(runs, targetBrand, undefined),
+    aggregate: await buildAggregate(runs, targetBrand, undefined),
     createdAt: rows[0].createdAt.toISOString(),
   };
 }

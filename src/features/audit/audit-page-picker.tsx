@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, Loader2, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { GEO_PRIORITY_HINT, GeoPriorityBadge } from '@/components/geo/geo-priority-badge';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
@@ -26,10 +27,6 @@ const SOURCE_LABELS: Record<AuditPageEntry['source'], string> = {
   llms: 'llms.txt',
   graph: 'Link graph',
 };
-
-/** Discovery ranking only — not the post-audit GEO score. */
-const DISCOVERY_PRIORITY_HINT =
-  'How strongly we recommend auditing this page first. This is not your site GEO audit score.';
 
 export interface DiscoverResult {
   url: string;
@@ -163,17 +160,8 @@ function CategorySection({
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
-                  {page.geoScore != null && (
-                    <Badge
-                      variant="accent"
-                      className="text-[10px] px-1.5"
-                      title={DISCOVERY_PRIORITY_HINT}
-                    >
-                      Priority {page.geoScore}
-                    </Badge>
-                  )}
-                  {page.probed && (
-                    <span className="text-[10px] text-fg-subtle">Probed</span>
+                  {page.geoScore != null && page.geoScore > 0 && (
+                    <GeoPriorityBadge score={page.geoScore} probed={page.probed} />
                   )}
                   <Badge variant="default" className="text-[10px] px-1.5">
                     {SOURCE_LABELS[page.source]}
@@ -303,9 +291,9 @@ export function AuditPagePicker({
                 </span>
               )}
             </p>
-            <p className="text-[12px] text-fg-muted mt-0.5" title={DISCOVERY_PRIORITY_HINT}>
-              Grouped by page type. Priority scores recommend which pages to audit — not your final
-              GEO score.
+            <p className="text-[12px] text-fg-muted mt-0.5" title={GEO_PRIORITY_HINT}>
+              Grouped by page type. GEO priority recommends which pages to audit — not your final
+              audit score.
             </p>
           </div>
           <div className="flex gap-1.5 shrink-0">

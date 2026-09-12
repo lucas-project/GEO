@@ -12,6 +12,10 @@ import { canonicalPageUrl } from '@/lib/website-url';
 import { buildIssueKey } from '@modules/intelligence';
 import type { CrawlResult, CrawledPage, RobotsInfo } from '@modules/crawling';
 import type { PageExtraction, SchemaBlock } from '@modules/extraction';
+import { PRESENCE_PLATFORMS, PLATFORM_LABELS, type PresenceSignals } from '@modules/brand-presence';
+import type { PresenceProbeResult } from '@modules/brand-presence-probe';
+import type { SiteChecklistSignals } from './checklist-schema';
+import { computeRefCategoryScores, type RefScoreAuxiliary } from './ref-category-scores';
 import {
   DIMENSIONS,
   DIMENSION_LABELS,
@@ -39,6 +43,7 @@ import {
   normalizeReasonText,
   type CanonicalIssueCategory,
 } from './issue-categories';
+import { buildLayerEvidence } from './layer-evidence';
 
 export interface PageExtractionInput {
   page: CrawledPage;
@@ -52,6 +57,15 @@ export interface ScoringContext {
   crawl: CrawlResult;
   /** When set, dimension scores aggregate across all audited pages (homepage 2× weight). */
   pageExtractions?: PageExtractionInput[];
+  /** Crawl-derived off-site footprint (Reddit, reviews, sameAs, CTAs). */
+  presenceSignals?: PresenceSignals;
+  /** Optional Serper/Tavily probe (external footprint). */
+  presenceProbe?: PresenceProbeResult;
+  siteChecklist?: SiteChecklistSignals;
+}
+
+function countLinkedPlatforms(signals: PresenceSignals): number {
+  return PRESENCE_PLATFORMS.filter((p) => signals.platforms[p].linked).length;
 }
 
 function clamp(n: number): number {
@@ -60,6 +74,32 @@ function clamp(n: number): number {
 
 function hasSchemaType(schemas: SchemaBlock[], type: string): boolean {
   return schemas.some((s) => s.type === type);
+}
+
+function allExtractions(ctx: ScoringContext): PageExtraction[] {
+  if (ctx.pageExtractions?.length) {
+    return ctx.pageExtractions.map((p) => p.extraction);
+  }
+  return [ctx.extraction];
+}
+
+const UPDATED_TEXT_PATTERN =
+  /\b(updated|last updated|published|modified)\b.*\b(20\d{2}|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
+
+function schemaHasRecentDate(schemas: SchemaBlock[]): boolean {
+  for (const s of schemas) {
+    if (s.type !== 'Article' && s.type !== 'NewsArticle' && s.type !== 'WebPage') continue;
+    const raw = s.raw as Record<string, unknown>;
+    const dates = [raw.dateModified, raw.datePublished, raw.dateCreated].filter(Boolean);
+    for (const d of dates) {
+      const t = Date.parse(String(d));
+      if (Number.isFinite(t)) {
+        const days = (Date.now() - t) / (1000 * 60 * 60 * 24);
+        if (days <= 90) return true;
+      }
+    }
+  }
+  return false;
 }
 
 // ---------- Dimension scorers ----------
@@ -326,33 +366,243 @@ function scoreSummarizationQuality(ctx: ScoringContext): DimensionScore {
 function scoreTrustSignals(ctx: ScoringContext): DimensionScore {
   let score = 45;
   const reasons: string[] = [];
-  const { extraction } = ctx;
+  const extractions = allExtractions(ctx);
+  const authors = extractions.reduce((n, e) => n + e.authors.length, 0);
+  const schemas = extractions.flatMap((e) => e.schemas);
+  const externalLinks = extractions.reduce(
+    (n, e) => n + e.links.filter((l) => !l.isInternal).length,
+    0,
+  );
 
-  if (extraction.authors.length > 0) {
+  if (authors > 0) {
     score += 18;
-    reasons.push(`Authorship attributed (${extraction.authors.length} signals)`);
+    reasons.push(`Authorship attributed (${authors} signals)`);
   } else {
     score -= 14;
     reasons.push('No author attribution — weakens E-E-A-T');
   }
 
-  if (hasSchemaType(extraction.schemas, 'Organization')) {
+  if (hasSchemaType(schemas, 'Organization')) {
     score += 10;
     reasons.push('Organization schema present');
   }
 
-  if (hasSchemaType(extraction.schemas, 'Article') || hasSchemaType(extraction.schemas, 'NewsArticle')) {
+  if (hasSchemaType(schemas, 'Article') || hasSchemaType(schemas, 'NewsArticle')) {
     score += 10;
     reasons.push('Article/NewsArticle schema enhances trust');
   }
 
-  const externalLinks = extraction.links.filter((l) => !l.isInternal).length;
   if (externalLinks > 2) {
     score += 6;
     reasons.push(`${externalLinks} external citations — supports E-E-A-T`);
   } else if (externalLinks === 0) {
     score -= 6;
     reasons.push('No external citations — trust signals are limited');
+  }
+
+  const allText = extractions.flatMap((e) => e.chunks.map((c) => c.text)).join(' ');
+  const words = allText.split(/\s+/).filter(Boolean).length;
+  const statMatches = allText.match(/\b\d+(\.\d+)?%?\b/g) ?? [];
+  const densityPer200 = words > 0 ? (statMatches.length / words) * 200 : 0;
+  if (densityPer200 >= 1) {
+    score += 10;
+    reasons.push(`Statistics present (~${densityPer200.toFixed(1)} data points per 200 words)`);
+  } else {
+    score -= 8;
+    reasons.push('Few statistics or quantified claims — AI prefers verifiable facts');
+  }
+
+  const hasFreshness =
+    extractions.some((e) => schemaHasRecentDate(e.schemas)) ||
+    extractions.some((e) =>
+      e.chunks.some((c) => UPDATED_TEXT_PATTERN.test(c.text)),
+    );
+  if (hasFreshness) {
+    score += 8;
+    reasons.push('Content freshness signals detected (dates within ~90 days)');
+  } else {
+    score -= 6;
+    reasons.push('No visible last-updated or recent publish date');
+  }
+
+  return { score: clamp(score), reasons };
+}
+
+function scoreOffSitePresence(ctx: ScoringContext): DimensionScore {
+  const signals = ctx.presenceSignals;
+  if (!signals) {
+    return { score: 40, reasons: ['Off-site presence analysis unavailable'] };
+  }
+
+  const linkedCount = countLinkedPlatforms(signals);
+  const probe = ctx.presenceProbe;
+  let score = 0;
+  const reasons: string[] = [];
+
+  const socialCount = PRESENCE_PLATFORMS.filter(
+    (p) =>
+      ['linkedin', 'x', 'youtube', 'facebook', 'instagram', 'github'].includes(p) &&
+      signals.platforms[p].linked,
+  ).length;
+
+  const community =
+    signals.platforms.reddit.linked || signals.platforms.quora.linked;
+  const reviews =
+    signals.platforms.g2.linked ||
+    signals.platforms.capterra.linked ||
+    signals.platforms.trustpilot.linked;
+  const strongOnSiteFootprint = linkedCount >= 3 || socialCount >= 3;
+
+  if (linkedCount > 0) {
+    score += Math.min(50, 10 + linkedCount * 10);
+    reasons.push(
+      `${linkedCount} off-site platform${linkedCount === 1 ? '' : 's'} linked from your site`,
+    );
+  } else {
+    reasons.push('No off-site platform links detected in crawled pages (check footer/nav)');
+  }
+
+  if (community) {
+    score += 12;
+    const names = [
+      signals.platforms.reddit.linked ? 'Reddit' : null,
+      signals.platforms.quora.linked ? 'Quora' : null,
+    ].filter(Boolean);
+    reasons.push(`${names.join(' / ')} profile linked from your site`);
+  } else if ((probe?.redditMentionEstimate ?? 0) > 0) {
+    score += 12;
+    reasons.push('External search found Reddit discussions mentioning your brand');
+  } else if (!strongOnSiteFootprint) {
+    score -= 4;
+    reasons.push('No Reddit or Quora profile linked — AI often cites community discussions');
+  }
+
+  if (reviews) {
+    score += 12;
+    reasons.push('Review platform profile linked (G2, Capterra, or Trustpilot)');
+  } else if (probe?.reviewProfilesFound && probe.reviewProfilesFound.length > 0) {
+    score += 10;
+    reasons.push('Search found review or ratings listings for your brand');
+  } else if (!strongOnSiteFootprint) {
+    score -= 3;
+    reasons.push('No G2, Capterra, or Trustpilot profile linked from your site');
+  }
+
+  if (signals.sameAsCount >= 2) {
+    score += 14;
+    reasons.push(`Organization sameAs lists ${signals.sameAsCount} external profiles`);
+  } else if (signals.sameAsCount === 1) {
+    score += 8;
+    reasons.push('Organization schema includes one sameAs profile URL');
+  } else if (!strongOnSiteFootprint) {
+    score -= 3;
+    reasons.push('No sameAs URLs in Organization schema — harder for AI to link entities');
+  }
+
+  if (socialCount >= 3) {
+    score += 10;
+    reasons.push('Strong social profile coverage linked from your site');
+  } else if (socialCount === 2) {
+    score += 6;
+    reasons.push('Multiple social profiles linked');
+  } else if (socialCount === 1) {
+    score += 3;
+  }
+
+  if (probe?.source === 'serper') {
+    const verified = probe.verifiedPlatforms ?? [];
+    const notOnSite = verified.filter((p) => !signals.platforms[p]?.linked);
+    if (verified.length > 0) {
+      score += Math.min(18, 6 + verified.length * 3);
+      if (notOnSite.length > 0) {
+        reasons.push(
+          `Search-verified off-site profiles: ${notOnSite.map((p) => PLATFORM_LABELS[p]).join(', ')}`,
+        );
+      }
+    }
+    if (probe.mediaMentions > 0) {
+      score += Math.min(12, probe.mediaMentions * 4);
+      reasons.push(`Brand appears in ${probe.mediaMentions} authority media result(s)`);
+    }
+    if (probe.primarySourceDomains.length >= 2) {
+      score += 8;
+      reasons.push('Multiple authoritative news sources mention your brand in search');
+    }
+  } else if (linkedCount === 0 && signals.sameAsCount === 0) {
+    reasons.push(
+      'Crawl-only mode — link profiles in your footer or set SERPER_API_KEY for external verification',
+    );
+  }
+
+  if (linkedCount >= 4 || (linkedCount >= 3 && socialCount >= 2)) {
+    score = Math.max(score, 58);
+  } else if (linkedCount >= 2) {
+    score = Math.max(score, 45);
+  } else if (linkedCount >= 1) {
+    score = Math.max(score, 32);
+  } else if ((probe?.verifiedPlatforms?.length ?? 0) >= 2) {
+    score = Math.max(score, 38);
+  } else if (signals.sameAsCount >= 1) {
+    score = Math.max(score, 28);
+  } else {
+    score = Math.max(score, 18);
+  }
+
+  if (
+    linkedCount === 0 &&
+    !community &&
+    !reviews &&
+    signals.sameAsCount === 0 &&
+    (!probe || probe.source === 'crawl-only')
+  ) {
+    reasons.push(
+      'AI often cites community and review sites — strengthen off-site footprint with profile links',
+    );
+  }
+
+  return { score: clamp(score), reasons };
+}
+
+function scoreCommercialReadiness(ctx: ScoringContext): DimensionScore {
+  const signals = ctx.presenceSignals;
+  if (!signals) {
+    return { score: 45, reasons: ['Commercial readiness signals unavailable'] };
+  }
+
+  let score = 30;
+  const reasons: string[] = [];
+
+  if (signals.hasPricingPage || signals.hasProductOffers) {
+    score += 25;
+    reasons.push(
+      signals.hasProductOffers
+        ? 'Product/pricing schema with offers detected'
+        : 'Dedicated pricing page discovered on site',
+    );
+  } else {
+    score -= 10;
+    reasons.push('No pricing page or Product offers schema — AI struggles to answer cost questions');
+  }
+
+  if (signals.hasPrimaryCta) {
+    score += 25;
+    reasons.push('Clear primary call-to-action on homepage');
+  } else {
+    score -= 12;
+    reasons.push('No obvious CTA on homepage (demo, signup, contact)');
+  }
+
+  if (signals.hasTrustSection) {
+    score += 25;
+    reasons.push('Trust signals present (customers, logos, or certifications)');
+  } else {
+    score -= 8;
+    reasons.push('Limited trust badges or customer proof on audited pages');
+  }
+
+  if (signals.hasComparePage || allExtractions(ctx).some((e) => e.tables.length > 0)) {
+    score += 15;
+    reasons.push('Comparison content detected (table or compare page)');
   }
 
   return { score: clamp(score), reasons };
@@ -422,7 +672,10 @@ function scoreCrawlerFriendliness(robots: RobotsInfo, ctx: ScoringContext): Dime
 
 // ---------- Aggregation ----------
 
-type PageDimension = Exclude<Dimension, 'crawlerFriendliness'>;
+type PageDimension = Exclude<
+  Dimension,
+  'crawlerFriendliness' | 'offSitePresence' | 'commercialReadiness'
+>;
 
 const PAGE_DIMENSION_SCORERS: Record<PageDimension, (ctx: ScoringContext) => DimensionScore> = {
   aiReadability: scoreAiReadability,
@@ -469,9 +722,17 @@ function scoreDimensions(ctx: ScoringContext): Record<Dimension, DimensionScore>
   if (pages && pages.length > 1) {
     const dimensions = {} as Record<Dimension, DimensionScore>;
     dimensions.crawlerFriendliness = scoreCrawlerFriendliness(ctx.crawl.robots, ctx);
+    dimensions.offSitePresence = scoreOffSitePresence(ctx);
+    dimensions.commercialReadiness = scoreCommercialReadiness(ctx);
 
     for (const dim of DIMENSIONS) {
-      if (dim === 'crawlerFriendliness') continue;
+      if (
+        dim === 'crawlerFriendliness' ||
+        dim === 'offSitePresence' ||
+        dim === 'commercialReadiness'
+      ) {
+        continue;
+      }
       const scorer = PAGE_DIMENSION_SCORERS[dim];
       const perPage = pages.map(({ page, extraction }) => {
         const subCtx: ScoringContext = { ...ctx, rootPage: page, extraction };
@@ -493,6 +754,8 @@ function scoreDimensions(ctx: ScoringContext): Record<Dimension, DimensionScore>
     trustSignals: scoreTrustSignals(ctx),
     structuredContent: scoreStructuredContent(ctx),
     crawlerFriendliness: scoreCrawlerFriendliness(ctx.crawl.robots, ctx),
+    offSitePresence: scoreOffSitePresence(ctx),
+    commercialReadiness: scoreCommercialReadiness(ctx),
   };
 }
 
@@ -500,6 +763,73 @@ export interface ScoreAllOptions {
   citationVisibility?: number | null;
   simulationRunCount?: number;
   calibration?: CalibrationWeights;
+  auxiliary?: RefScoreAuxiliary;
+  shareOfModel?: number | null;
+  presenceProbe?: PresenceProbeResult;
+}
+
+function applyChecklistAdjustments(
+  dimensions: Record<Dimension, DimensionScore>,
+  checklist?: SiteChecklistSignals,
+): void {
+  if (!checklist) return;
+
+  const bump = (dim: Dimension, delta: number, reason: string) => {
+    const d = dimensions[dim];
+    d.score = clamp(d.score + delta);
+    if (delta > 0) d.reasons.push(reason);
+    else d.reasons.push(reason);
+  };
+
+  if (checklist.leadHasDefinition) bump('answerExtraction', 6, 'Lead paragraph includes definitional opener');
+  else bump('answerExtraction', -5, 'Lead lacks direct definition in first sentences');
+
+  if (checklist.questionRatio >= 0.4) bump('semanticClarity', 8, '≥40% question-style section headings');
+  else if (checklist.h2h3Count >= 3) bump('semanticClarity', -5, 'Few question-style headings for AI queries');
+
+  if (checklist.skippedHeadingLevels > 0) {
+    bump('semanticClarity', -6, `Heading hierarchy skips levels (${checklist.skippedHeadingLevels})`);
+  }
+
+  if (checklist.imageCount > 0) {
+    const ratio = checklist.imagesWithGoodAlt / checklist.imageCount;
+    if (ratio >= 0.6) bump('citationFriendliness', 5, 'Most images have descriptive alt text');
+    else bump('citationFriendliness', -6, 'Images missing quality alt text');
+  }
+
+  if (checklist.listCount >= 2) bump('citationFriendliness', 4, 'Lists used for scannable content');
+  if (checklist.explicitCitationCount > 0 || checklist.hasAccordingTo) {
+    bump('trustSignals', 8, 'Explicit source citations in copy');
+  }
+  if (checklist.hasCaseStudySection) bump('trustSignals', 8, 'Case study with quantified outcomes');
+  if (checklist.termDefinitionHits >= 2) bump('trustSignals', 5, 'Industry terms defined in copy');
+  if (checklist.authorWithBio) bump('trustSignals', 6, 'Author bio or credentials detected');
+
+  if (checklist.internalLinkCount >= 8 && checklist.anchorDiversity >= 4) {
+    bump('crawlerFriendliness', 6, 'Strong internal link architecture');
+  } else if (checklist.internalLinkCount < 3) {
+    bump('crawlerFriendliness', -5, 'Few internal links between related pages');
+  }
+
+  const defRatio = checklist.sectionsInDefinitionBand / Math.max(checklist.sectionCount, 1);
+  if (defRatio >= 0.4) bump('chunkOptimization', 8, 'Sections use 40–60 word definition bands');
+  else bump('chunkOptimization', -4, 'Sections rarely hit ideal 40–60 word definition length');
+
+  if (checklist.minHopsToPricing != null && checklist.minHopsToPricing <= 2) {
+    bump('commercialReadiness', 8, 'Short path from homepage to pricing/signup');
+  } else if (!checklist.hasPricingLink) {
+    bump('commercialReadiness', -5, 'No clear pricing path within 2 clicks');
+  }
+}
+
+function scoreSchemaStack(ctx: ScoringContext): number {
+  const types = new Set(allExtractions(ctx).flatMap((e) => e.schemas.map((s) => s.type)));
+  let score = 35;
+  if (types.has('FAQPage')) score += 20;
+  if (types.has('Article') || types.has('NewsArticle')) score += 15;
+  if (types.has('ItemList') || types.has('BreadcrumbList')) score += 15;
+  if (types.has('Product') || types.has('SoftwareApplication')) score += 15;
+  return clamp(score);
 }
 
 export function scoreAll(
@@ -511,12 +841,47 @@ export function scoreAll(
   scoringMeta: ScoringMeta;
 } {
   const dimensions = scoreDimensions(ctx);
+  applyChecklistAdjustments(dimensions, ctx.siteChecklist);
+
+  const stackScore = scoreSchemaStack(ctx);
+  const sc = dimensions.structuredContent;
+  dimensions.structuredContent = {
+    score: clamp((sc.score + stackScore) / 2),
+    reasons: [...sc.reasons, `Schema stack completeness score: ${stackScore}/100`],
+  };
 
   const { overallScore, scoringMeta } = computeHierarchicalScore({
     dimensions,
     citationVisibility: options.citationVisibility,
     simulationRunCount: options.simulationRunCount,
     layerWeightMultipliers: options.calibration?.layerMultipliers,
+    presenceSignals: ctx.presenceSignals,
+  });
+
+  const refCategories = computeRefCategoryScores(
+    dimensions,
+    ctx.siteChecklist,
+    options.auxiliary,
+  );
+
+  scoringMeta.checklist = ctx.siteChecklist;
+  scoringMeta.refCategories = refCategories;
+  scoringMeta.auxiliaryScores = options.auxiliary;
+  scoringMeta.shareOfModel = options.shareOfModel ?? undefined;
+  scoringMeta.presenceProbe = options.presenceProbe;
+  scoringMeta.platformWeights = options.calibration?.platformWeights;
+  scoringMeta.layerEvidence = buildLayerEvidence({
+    dimensions,
+    gatesApplied: scoringMeta.gatesApplied,
+    crawl: ctx.crawl,
+    rootUrl: ctx.url,
+    pageExtractions: ctx.pageExtractions,
+    presenceSignals: ctx.presenceSignals,
+    presenceProbe: ctx.presenceProbe,
+    siteChecklist: ctx.siteChecklist,
+    auxiliaryScores: options.auxiliary,
+    citationSnapshotVisibility: options.citationVisibility ?? undefined,
+    shareOfModel: options.shareOfModel ?? undefined,
   });
 
   return { dimensions, overallScore, scoringMeta };
@@ -562,7 +927,7 @@ function llmsTxtUrl(site: string): string | null {
 }
 
 const DIMENSION_RECOMMENDATIONS: Partial<Record<Dimension, string>> = Object.fromEntries(
-  (['aiReadability', 'citationFriendliness', 'semanticClarity', 'entityClarity', 'answerExtraction', 'chunkOptimization', 'summarizationQuality', 'trustSignals', 'structuredContent', 'crawlerFriendliness'] as Dimension[]).map(
+  DIMENSIONS.map(
     (dim) => [dim, plainDimensionRecommendation(dim)],
   ),
 ) as Partial<Record<Dimension, string>>;
@@ -629,6 +994,21 @@ function affectedPagesForDimension(dim: Dimension, ctx: ScoringContext): string[
         break;
       case 'crawlerFriendliness':
         affected.add(u);
+        break;
+      case 'offSitePresence':
+        if (ctx.presenceSignals) {
+          const anyLinked = Object.values(ctx.presenceSignals.platforms).some((p) => p.linked);
+          if (!anyLinked && ctx.presenceSignals.sameAsCount === 0) affected.add(u);
+        }
+        break;
+      case 'commercialReadiness':
+        if (
+          ctx.presenceSignals &&
+          !ctx.presenceSignals.hasPrimaryCta &&
+          !ctx.presenceSignals.hasPricingPage
+        ) {
+          affected.add(u);
+        }
         break;
     }
   }

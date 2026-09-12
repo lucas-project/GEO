@@ -18,6 +18,8 @@ import { extractLinks } from './extractors/links';
 import { extractTables } from './extractors/tables';
 import { extractAuthors } from './extractors/authors';
 import { extractEntities } from './extractors/entities';
+import { extractPageChecklist } from './extractors/checklist';
+import { augmentLinksWithMarkup } from '@modules/brand-presence/collect-markup-links';
 import type { PageExtraction } from './schemas';
 
 const extractionLogger = logger.child({ module: 'extraction' });
@@ -31,8 +33,10 @@ export interface ExtractInput {
 
 export async function extractPage(input: ExtractInput): Promise<PageExtraction> {
   return telemetry.timed('extraction.run', async () => {
-    const $ = cheerio.load(input.html);
+    const $full = cheerio.load(input.html);
+    const links = augmentLinksWithMarkup(extractLinks($full, input.url), $full, input.url);
 
+    const $ = cheerio.load(input.html);
     $('script, style, noscript, nav, footer, aside').remove();
 
     const metadata = extractMetadata(cheerio.load(input.html));
@@ -40,7 +44,6 @@ export async function extractPage(input: ExtractInput): Promise<PageExtraction> 
     const schemas = extractSchemas(cheerio.load(input.html));
     const faqs = extractFaqs($, schemas);
     const chunks = extractChunks($);
-    const links = extractLinks($, input.url);
     const tables = extractTables($);
     const authors = extractAuthors($, schemas);
 
@@ -49,6 +52,7 @@ export async function extractPage(input: ExtractInput): Promise<PageExtraction> 
     const title = metadata.title ?? '';
 
     const entities = await extractEntities({ url: input.url, title, bodyText });
+    const checklist = extractPageChecklist($, headings, bodyText, input.url);
 
     extractionLogger.info(
       {
@@ -72,6 +76,7 @@ export async function extractPage(input: ExtractInput): Promise<PageExtraction> 
       links,
       tables,
       authors,
+      checklist,
     };
   });
 }

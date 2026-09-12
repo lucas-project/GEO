@@ -26,10 +26,28 @@ function hostnameFromUrl(u: string) {
 }
 
 export function CompetitorComparisonResults({ data }: { data: CompetitorComparison }) {
-  const { target, gaps, createdAt } = data;
+  const { target, gaps, failedCompetitors, createdAt } = data;
 
   return (
     <div className="space-y-6">
+      {failedCompetitors && failedCompetitors.length > 0 && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 space-y-2">
+          <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+            {failedCompetitors.length} competitor{failedCompetitors.length === 1 ? '' : 's'} could not
+            be audited (bad URL, blocked, or unreachable). Results below are for the rest.
+          </p>
+          <ul className="space-y-1">
+            {failedCompetitors.map((f) => (
+              <li key={f.url} className="text-[11px] text-fg-muted">
+                <span className="font-mono text-fg">{hostnameFromUrl(f.url)}</span>
+                {' — '}
+                {f.error.split('\n')[0]}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Your site</CardTitle>

@@ -24,7 +24,11 @@ const eslintConfig = [
     },
   },
   {
-    files: ['src/shared/queue/register-handlers.ts', 'src/instrumentation.ts'],
+    files: [
+      'src/shared/queue/register-handlers.ts',
+      'src/instrumentation.ts',
+      'src/modules/*/handlers.ts',
+    ],
     rules: {
       'no-restricted-imports': 'off',
     },

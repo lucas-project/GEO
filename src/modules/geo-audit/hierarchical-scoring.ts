@@ -1,12 +1,13 @@
 /**
  * Hierarchical GEO scoring — AI visibility pipeline with gating.
  *
- * Layers: foundation → understanding → generation → outcome.
+ * Layers: foundation → understanding → presence → generation → outcome.
  * Overall score and citation probability reflect upstream bottlenecks,
  * not a flat average of 10 independent dimensions.
  */
 
 import { config } from '@shared/config';
+import type { PresenceSignals } from '@modules/brand-presence';
 import {
   SCORE_LAYERS,
   DIMENSION_LAYERS,
@@ -140,6 +141,21 @@ export function applyPipelineGates(
     }
   }
 
+  const offSiteScore = dimensions.offSitePresence?.score;
+  if (
+    offSiteScore !== undefined &&
+    offSiteScore < gatesCfg.offSitePresenceWeakThreshold
+  ) {
+    const cap = gatesCfg.offSitePresenceOutcomeCap;
+    citationCeiling =
+      citationCeiling !== undefined ? Math.min(citationCeiling, cap) : cap;
+    gates.push({
+      type: 'off_site_presence_weak',
+      description: `Off-site presence is weak (${offSiteScore}) — outcome capped at ${cap}`,
+      cap,
+    });
+  }
+
   const effective = { ...layers };
   const factor = gatesCfg.propagationFactor;
   const buffer = gatesCfg.layerBuffer;
@@ -159,12 +175,22 @@ export function applyPipelineGates(
     ),
   };
 
+  effective.presence = {
+    ...effective.presence,
+    effectiveScore: clamp(
+      Math.min(
+        effective.presence.rawScore,
+        effective.understanding.effectiveScore * factor + buffer,
+      ),
+    ),
+  };
+
   effective.generation = {
     ...effective.generation,
     effectiveScore: clamp(
       Math.min(
         effective.generation.rawScore,
-        effective.understanding.effectiveScore * factor + buffer,
+        effective.presence.effectiveScore * factor + buffer,
       ),
     ),
   };
@@ -187,6 +213,7 @@ export function applyPipelineGates(
 
   if (
     effective.understanding.effectiveScore < effective.understanding.rawScore ||
+    effective.presence.effectiveScore < effective.presence.rawScore ||
     effective.generation.effectiveScore < effective.generation.rawScore ||
     effective.outcome.effectiveScore < effective.outcome.rawScore
   ) {
@@ -226,6 +253,7 @@ export function computeCitationProbability(
   const product =
     (layers.foundation.effectiveScore / 100) *
     (layers.understanding.effectiveScore / 100) *
+    (layers.presence.effectiveScore / 100) *
     (layers.generation.effectiveScore / 100) *
     (layers.outcome.effectiveScore / 100);
 
@@ -290,6 +318,7 @@ export interface HierarchicalScoreInput {
   citationVisibility?: number | null;
   simulationRunCount?: number;
   layerWeightMultipliers?: Partial<Record<ScoreLayer, number>>;
+  presenceSignals?: PresenceSignals;
 }
 
 export interface HierarchicalScoreResult {
@@ -314,7 +343,7 @@ export function computeHierarchicalScore(input: HierarchicalScoreInput): Hierarc
   const bottleneck = detectBottleneck(gated.layers, input.dimensions);
 
   const scoringMeta: ScoringMeta = {
-    modelVersion: 'hierarchical-v1',
+    modelVersion: 'hierarchical-v2',
     layers: gated.layers,
     citationProbability,
     bottleneck,
@@ -323,6 +352,7 @@ export function computeHierarchicalScore(input: HierarchicalScoreInput): Hierarc
     citationSnapshotVisibility:
       input.citationVisibility != null ? input.citationVisibility : undefined,
     simulationRunCount: input.simulationRunCount,
+    presenceSignals: input.presenceSignals,
   };
 
   return { overallScore, scoringMeta };

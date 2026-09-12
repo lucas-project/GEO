@@ -27,6 +27,7 @@ const AddSchema = z.object({
   monitorIntervalHours: z.number().int().min(1).max(168).optional(),
   monitorSchedulePreset: MonitorSchedulePresetSchema.optional(),
   monitorPageUrls: z.array(z.string().min(3)).optional(),
+  simulationPrompts: z.array(z.string().min(3)).max(8).optional(),
 });
 
 const PatchSchema = z.object({
@@ -73,6 +74,7 @@ export async function POST(req: Request) {
     monitorIntervalHours: parsed.data.monitorIntervalHours,
     monitorSchedulePreset: parsed.data.monitorSchedulePreset,
     monitorPageUrls: normalizeMonitorPageUrls(parsed.data.monitorPageUrls, siteRoot),
+    simulationPrompts: parsed.data.simulationPrompts,
     ownerId: getRequestOwnerId(),
   });
   return NextResponse.json(result, { status: 201 });

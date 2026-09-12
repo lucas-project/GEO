@@ -5,7 +5,7 @@
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
 import { logger } from '@shared/logger';
 import { config } from '@shared/config';
-import { ai } from '@shared/ai';
+import { getEmbeddingsAI } from '@shared/ai';
 import type { DimensionScore, Issue, ScoringMeta } from '@modules/geo-audit';
 import { DIMENSIONS, ScoringMetaSchema } from '@modules/geo-audit';
 import {
@@ -275,7 +275,7 @@ export async function ingestAuditEmbeddings(auditId: string): Promise<void> {
     for (let i = 0; i < chunks.length; i++) {
       const text = chunks[i].text.slice(0, 4000);
       try {
-        const { vector, model } = await ai.generateEmbedding({ text });
+        const { vector, model } = await getEmbeddingsAI().generateEmbedding({ text });
         await prisma.patternEmbedding.create({
           data: {
             siteId: audit.siteId,

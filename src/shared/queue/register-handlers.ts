@@ -1,17 +1,34 @@
 /**
  * Single entry point for registering all queue job handlers.
  * Add one line here when introducing a new async module.
+ *
+ * Handler modules are loaded dynamically so Next.js dev does not bundle
+ * Playwright / stealth (clone-deep) when instrumentation starts.
  */
 
-import { registerGeoAuditHandlers } from '@modules/geo-audit/server';
-import { registerSimulationHandlers } from '@modules/ai-simulation';
-import { registerCompetitorHandlers } from '@modules/competitor-analysis';
-import { registerMonitoringHandlers } from '@modules/monitoring';
-import { registerAgentHandlers } from '@modules/geo-agent';
-import { registerCrawlHandlers } from '@modules/crawling/server';
-import { registerIntelligenceHandlers } from '@modules/intelligence';
+export async function registerAllQueueHandlers(): Promise<void> {
+  const [
+    { registerGeoAuditHandlers },
+    { registerSimulationHandlers },
+    { registerCompetitorHandlers },
+    { registerMonitoringHandlers },
+    { registerAgentHandlers },
+    { registerCrawlHandlers },
+    { registerIntelligenceHandlers },
+    { registerOffSitePresenceHandlers },
+    { registerGeoContentHandlers },
+  ] = await Promise.all([
+    import('@modules/geo-audit/handlers'),
+    import('@modules/ai-simulation/handlers'),
+    import('@modules/competitor-analysis/handlers'),
+    import('@modules/monitoring/handlers'),
+    import('@modules/geo-agent/handlers'),
+    import('@modules/crawling/handlers'),
+    import('@modules/intelligence/handlers'),
+    import('@modules/off-site-presence/handlers'),
+    import('@modules/geo-content/handlers'),
+  ]);
 
-export function registerAllQueueHandlers(): void {
   registerGeoAuditHandlers();
   registerSimulationHandlers();
   registerCompetitorHandlers();
@@ -19,4 +36,6 @@ export function registerAllQueueHandlers(): void {
   registerIntelligenceHandlers();
   registerAgentHandlers();
   registerCrawlHandlers();
+  registerOffSitePresenceHandlers();
+  registerGeoContentHandlers();
 }

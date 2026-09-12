@@ -8,6 +8,8 @@ export {
   getMinCohortSamples,
   getEffectiveMinCohortSamples,
   ingestCitationSnapshot,
+  getCitationVisibilityTrend,
+  getLatestCitationVisibility,
   getBenchmarksForSite,
   getPlaybook,
   getSiteTrend,
@@ -28,5 +30,6 @@ export type {
   InsightKind,
   IntelligenceGraphSummary,
 } from './schemas';
+export { pickBenchmarkForArtifact } from './artifact-benchmark-match';
 export { registerIntelligenceHandlers } from './handlers';
 export type { IntelligenceIngestPayload } from './handlers';

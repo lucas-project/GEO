@@ -25,6 +25,12 @@ export const DimensionGapSchema = z.object({
 });
 export type DimensionGap = z.infer<typeof DimensionGapSchema>;
 
+export const FailedCompetitorSchema = z.object({
+  url: z.string(),
+  error: z.string(),
+});
+export type FailedCompetitor = z.infer<typeof FailedCompetitorSchema>;
+
 export const CompetitorComparisonSchema = z.object({
   id: z.string(),
   target: SiteSummarySchema,
@@ -40,6 +46,7 @@ export const CompetitorComparisonSchema = z.object({
       schemaBehind: z.array(z.string()),
     }),
   ),
+  failedCompetitors: z.array(FailedCompetitorSchema).optional(),
   createdAt: z.string(),
 });
 export type CompetitorComparison = z.infer<typeof CompetitorComparisonSchema>;

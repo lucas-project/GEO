@@ -18,7 +18,7 @@ import { registerAllQueueHandlers } from '@shared/queue/register-handlers';
 async function main() {
   logger.info('starting GEO worker');
 
-  registerAllQueueHandlers();
+  await registerAllQueueHandlers();
 
   await queue.start();
   logger.info('worker ready');

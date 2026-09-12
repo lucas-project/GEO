@@ -23,6 +23,7 @@ import { api } from '@/lib/api-client';
 import { canonicalPageUrl } from '@/lib/website-url';
 import { formatDate } from '@/lib/utils';
 import { discoverSitePages } from '@/features/audit/audit-page-picker';
+import { DualTrendSparkline, summarizeDualTrend } from './dual-trend-sparkline';
 import type { MonitoredSiteDetail } from '@modules/monitoring';
 import type { JobStatus } from '@/lib/jobs';
 import { MonitorRunDetail } from './monitor-run-detail';
@@ -82,6 +83,11 @@ export function MonitorSiteDetailPanel({
     () => detail?.runs.find((r) => r.id === selectedRunId) ?? null,
     [detail, selectedRunId],
   );
+
+  const trendSummary = useMemo(() => {
+    if (!detail) return null;
+    return summarizeDualTrend(detail.trend, detail.visibilityTrend);
+  }, [detail]);
 
   const addPage = (raw: string) => {
     if (!detail || !raw.trim()) return;
@@ -165,6 +171,23 @@ export function MonitorSiteDetailPanel({
               : ''
           }
         />
+
+        {(detail.trend.length >= 2 || detail.visibilityTrend.length >= 2) && (
+          <section>
+            <h3 className="text-[12px] uppercase tracking-wider text-fg-subtle mb-2">
+              Score vs AI citations
+            </h3>
+            <DualTrendSparkline
+              scoreTrend={detail.trend}
+              visibilityTrend={detail.visibilityTrend}
+              width={280}
+              height={44}
+            />
+            {trendSummary && (
+              <p className="mt-2 text-xs text-fg-muted leading-relaxed">{trendSummary}</p>
+            )}
+          </section>
+        )}
 
         <section>
           <h3 className="text-[12px] uppercase tracking-wider text-fg-subtle mb-2">

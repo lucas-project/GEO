@@ -18,6 +18,13 @@ import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api-client';
 import { useWorkspaceTarget } from '@/features/workspace/workspace-target-context';
 import { useAsyncJob } from '@/hooks/use-async-job';
+import {
+  writeBackgroundJobMeta,
+} from '@/features/workspace/background-jobs-context';
+import {
+  BACKGROUND_JOB_KEYS,
+  BACKGROUND_JOB_META_KEYS,
+} from '@/lib/background-job-keys';
 import { formatDate } from '@/lib/utils';
 import { MonitoredSitesList } from './monitored-sites-list';
 import { MonitorSiteDetailPanel } from './monitor-site-detail-panel';
@@ -38,6 +45,7 @@ interface MonitoredSite {
   lastMonitorStatus: string | null;
   lastMonitorError: string | null;
   trend: number[];
+  visibilityTrend: number[];
 }
 
 interface AlertItem {
@@ -98,15 +106,35 @@ export function MonitorWorkspace() {
 
   const monitorRun = useAsyncJob<{ siteId: string }, { runId: string; auditId?: string | null }>({
     queryKeyPrefix: 'monitor-run-job',
-    mutationFn: (payload) => api.post('/api/monitor/run', payload),
+    persistKey: BACKGROUND_JOB_KEYS.monitorRun,
+    background: {
+      label: 'Monitor check running',
+      viewHref: '/monitor',
+      hideOnPathPrefix: '/monitor',
+      metaStorageKey: BACKGROUND_JOB_META_KEYS.monitorRun,
+      etaUnits: 3,
+    },
+    clearJobOnComplete: true,
+    clearJobOnFailed: true,
+    mutationFn: (payload) => {
+      writeBackgroundJobMeta(BACKGROUND_JOB_META_KEYS.monitorRun, {
+        viewHref: '/monitor',
+        siteId: payload.siteId,
+      });
+      return api.post('/api/monitor/run', payload);
+    },
     onCompleted: () => {
+      writeBackgroundJobMeta(BACKGROUND_JOB_META_KEYS.monitorRun, null);
       queryClient.invalidateQueries({ queryKey: ['monitor'] });
       if (selectedSiteId) {
         queryClient.invalidateQueries({ queryKey: ['monitor-site', selectedSiteId] });
       }
       setRunningSiteId(null);
     },
-    onFailed: () => setRunningSiteId(null),
+    onFailed: () => {
+      writeBackgroundJobMeta(BACKGROUND_JOB_META_KEYS.monitorRun, null);
+      setRunningSiteId(null);
+    },
   });
 
   const addSite = useMutation({

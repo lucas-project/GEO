@@ -8,7 +8,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api-client';
 import { useAsyncJob } from '@/hooks/use-async-job';
+import {
+  writeBackgroundJobMeta,
+} from '@/features/workspace/background-jobs-context';
+import {
+  BACKGROUND_JOB_KEYS,
+  BACKGROUND_JOB_META_KEYS,
+} from '@/lib/background-job-keys';
+import { useBackgroundJobProgress } from '@/hooks/use-background-job-progress';
 import { JobProgress, resolveJobProgressLabel } from '@/components/geo/job-progress';
+import { GEO_PRIORITY_HINT, GeoPriorityBadge } from '@/components/geo/geo-priority-badge';
 import type { PageInventory } from '@modules/geo-audit';
 
 interface AuditPagesPanelProps {
@@ -32,15 +41,43 @@ export function AuditPagesPanel({ auditId, inventory }: AuditPagesPanelProps) {
   const unaudited = inventory.pages.filter((p) => !p.audited);
   const unauditedUrls = unaudited.map((p) => p.url);
 
-  const { enqueue, jobId, job, isRunning, progress } = useAsyncJob<string[], { auditId?: string }>({
-    queryKeyPrefix: 'audit-extend',
-    mutationFn: async (pageUrls) =>
-      api.post<{ jobId: string }>(`/api/geo-audit/${auditId}/extend`, { pageUrls }),
+  const persistKey = BACKGROUND_JOB_KEYS.auditExtend(auditId);
+  const metaKey = BACKGROUND_JOB_META_KEYS.auditExtend(auditId);
+
+  const { enqueue, jobId, job, isRunning, progress: hookProgress, cancelJob } = useAsyncJob<
+    string[],
+    { auditId?: string }
+  >({
+    queryKeyPrefix: `audit-extend-${auditId}`,
+    persistKey,
+    background: {
+      label: 'Adding pages to audit',
+      viewHref: `/audit/${auditId}`,
+      hideOnPathPrefix: `/audit/${auditId}`,
+      metaStorageKey: metaKey,
+      etaUnits: 2,
+    },
+    clearJobOnComplete: true,
+    clearJobOnFailed: true,
+    mutationFn: async (pageUrls) => {
+      writeBackgroundJobMeta(metaKey, {
+        viewHref: `/audit/${auditId}`,
+        auditId,
+      });
+      return api.post<{ jobId: string }>(`/api/geo-audit/${auditId}/extend`, { pageUrls });
+    },
     onCompleted: () => {
+      writeBackgroundJobMeta(metaKey, null);
       setSelected(new Set());
       void queryClient.invalidateQueries({ queryKey: ['audit', auditId] });
     },
+    onFailed: () => {
+      writeBackgroundJobMeta(metaKey, null);
+    },
   });
+
+  const { progress: bgProgress, etaLabel } = useBackgroundJobProgress(persistKey);
+  const progress = bgProgress ?? hookProgress;
 
   const toggle = (url: string) => {
     setSelected((prev) => {
@@ -82,9 +119,9 @@ export function AuditPagesPanel({ auditId, inventory }: AuditPagesPanelProps) {
       >
         <div>
           <p className="text-sm font-medium text-fg">Pages on this site</p>
-          <p className="text-xs text-fg-muted mt-0.5">
+          <p className="text-xs text-fg-muted mt-0.5" title={GEO_PRIORITY_HINT}>
             {inventory.discoveredCount} discovered · {inventory.auditedCount} audited with Playwright.
-            Discovered URLs appear in issues only after you audit them.
+            GEO priority recommends which unaudited pages to add next — not your audit score.
           </p>
         </div>
         <ChevronDown className={cn('h-4 w-4 text-fg-muted shrink-0 transition-transform', open && 'rotate-180')} />
@@ -119,6 +156,9 @@ export function AuditPagesPanel({ auditId, inventory }: AuditPagesPanelProps) {
                   {page.error ? <p className="text-danger mt-0.5">{page.error}</p> : null}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
+                  {page.geoScore != null && page.geoScore > 0 && (
+                    <GeoPriorityBadge score={page.geoScore} probed={page.probed} />
+                  )}
                   {page.audited ? (
                     <Badge variant="success">Audited</Badge>
                   ) : (
@@ -170,11 +210,16 @@ export function AuditPagesPanel({ auditId, inventory }: AuditPagesPanelProps) {
                 )}
               </Button>
               <JobProgress
+                active={isRunning}
                 jobId={jobId}
                 status={job?.status}
                 progress={progress}
                 error={job?.error}
                 label={extendLabel}
+                remainingLabel={etaLabel}
+                remainingIsEstimate
+                cancelLabel="Stop"
+                onCancel={() => void cancelJob()}
               />
             </div>
           )}

@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   if (!parsed.ok) return parsed.response;
 
   if (parsed.data.siteId) {
-    return enqueueJob('monitoring.run', { siteId: parsed.data.siteId });
+    return enqueueJob(req, 'monitoring.run', { siteId: parsed.data.siteId });
   }
-  return enqueueJob('monitoring.sweep', {});
+  return enqueueJob(req, 'monitoring.sweep', {});
 }

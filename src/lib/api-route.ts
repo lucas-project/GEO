@@ -4,7 +4,21 @@
 
 import { NextResponse } from 'next/server';
 import type { ZodError, ZodSchema } from 'zod';
+import { config } from '@shared/config';
 import { queue } from '@shared/queue';
+
+/** Route-level auth when middleware is unavailable; mirrors src/middleware.ts. */
+export function assertApiAuth(req: Request): NextResponse | null {
+  const secret = config.apiSecret;
+  if (!secret) return null;
+
+  const auth = req.headers.get('authorization');
+  const headerKey = req.headers.get('x-geo-api-key');
+  const bearer = auth?.startsWith('Bearer ') ? auth.slice(7).trim() : null;
+  if (bearer === secret || headerKey === secret) return null;
+
+  return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+}
 
 export async function parseJsonBody(
   req: Request,
@@ -47,7 +61,17 @@ export function parseZod<T>(
   return { ok: true, data: parsed.data };
 }
 
-export async function enqueueJob(jobType: string, payload: unknown): Promise<NextResponse> {
-  const jobId = await queue.enqueue(jobType, payload);
+export async function enqueueJobId(jobType: string, payload: unknown): Promise<string> {
+  return queue.enqueue(jobType, payload);
+}
+
+export async function enqueueJob(
+  req: Request,
+  jobType: string,
+  payload: unknown,
+): Promise<NextResponse> {
+  const authFail = assertApiAuth(req);
+  if (authFail) return authFail;
+  const jobId = await enqueueJobId(jobType, payload);
   return NextResponse.json({ jobId }, { status: 202 });
 }

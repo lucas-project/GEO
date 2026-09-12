@@ -18,6 +18,7 @@ export interface QueueJob<TPayload = unknown> {
   payload: TPayload;
   status: JobStatus;
   progress: number;
+  statusMessage?: string;
   result?: unknown;
   error?: string;
   createdAt: Date;
@@ -27,7 +28,7 @@ export interface QueueJob<TPayload = unknown> {
 
 export interface JobContext<TPayload = unknown> {
   job: QueueJob<TPayload>;
-  reportProgress: (progress: number) => Promise<void>;
+  reportProgress: (progress: number, message?: string) => Promise<void>;
   log: (message: string, extra?: Record<string, unknown>) => void;
 }
 
@@ -42,4 +43,6 @@ export interface Queue {
   cancel(jobId: string): Promise<void>;
   start(): Promise<void>;
   stop(): Promise<void>;
+  /** Restart the poll loop if it stalled (e.g. after Next.js HMR). */
+  ensureActive(): void;
 }

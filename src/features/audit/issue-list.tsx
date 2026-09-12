@@ -55,7 +55,7 @@ export function IssueList({
         const impactedPages = details.impactedPages ?? [];
 
         return (
-          <div key={issue.id} className="rounded-lg border border-border overflow-hidden">
+          <div key={issue.id} id={`issue-${issue.id}`} className="rounded-lg border border-border overflow-hidden scroll-mt-24">
             <button
               type="button"
               onClick={() => setOpenId(isOpen ? null : issue.id)}

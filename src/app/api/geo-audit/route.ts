@@ -5,14 +5,36 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { listRecentAudits, listRecentAuditSiteGroups } from '@modules/geo-audit/server';
+import { listRecentAudits, listRecentAuditSiteGroups, findLatestCompletedAuditForUrl } from '@modules/geo-audit/server';
 import { normalizeWebsiteUrl } from '@/lib/website-url';
 import { enqueueJob, parseJsonBody, parseZod } from '@/lib/api-route';
+
+const PageRankingSchema = z.object({
+  url: z.string().min(3),
+  geoScore: z.number().int().min(0).max(100),
+  archetype: z
+    .enum([
+      'homepage',
+      'faq',
+      'qa',
+      'glossary',
+      'comparison',
+      'documentation',
+      'product',
+      'blog',
+      'content',
+      'utility',
+    ])
+    .optional(),
+  signals: z.array(z.string()).optional(),
+  probed: z.boolean().optional(),
+});
 
 const RequestSchema = z.object({
   url: z.string().min(3).transform((s) => normalizeWebsiteUrl(s.trim())),
   pageUrls: z.array(z.string().min(3)).optional(),
   maxPages: z.number().int().min(1).max(100).optional(),
+  pageRankings: z.array(PageRankingSchema).optional(),
 });
 
 export async function POST(req: Request) {
@@ -22,15 +44,22 @@ export async function POST(req: Request) {
   const parsed = parseZod(RequestSchema, bodyResult.body);
   if (!parsed.ok) return parsed.response;
 
-  return enqueueJob('geo-audit.run', {
+  return enqueueJob(req, 'geo-audit.run', {
     url: parsed.data.url,
     pageUrls: parsed.data.pageUrls,
     maxPages: parsed.data.maxPages,
+    pageRankings: parsed.data.pageRankings,
   });
 }
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
+  const urlParam = searchParams.get('url')?.trim();
+  if (urlParam) {
+    const auditId = await findLatestCompletedAuditForUrl(urlParam);
+    return NextResponse.json({ auditId });
+  }
+
   const grouped =
     searchParams.get('grouped') === '1' || searchParams.get('grouped') === 'true';
 

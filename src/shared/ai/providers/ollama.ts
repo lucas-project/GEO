@@ -41,6 +41,7 @@ export class OllamaProvider implements AIProvider {
         model,
         messages,
         stream: false,
+        ...(input.keepAlive ? { keep_alive: input.keepAlive } : {}),
         options: { temperature: input.temperature ?? 0.2, num_predict: input.maxTokens ?? 1024 },
       }),
     });

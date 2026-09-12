@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Wand2, Copy, Check, FileCode, FileText, Globe, Edit3, Package, Settings } from 'lucide-react';
@@ -10,7 +11,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api-client';
 import { AuditHelpBlurb, AuditReportIdFieldHelp } from '@/features/workspace/audit-help';
+import { AuditFirstGate } from '@/features/workspace/audit-first-gate';
 import { useWorkspaceTarget } from '@/features/workspace/workspace-target-context';
+import { CohortMotivationCard } from '@/components/geo/cohort-motivation-card';
+import { pickBenchmarkForArtifact } from '@modules/intelligence/client';
+import {
+  plainDimensionLabel,
+  type Dimension,
+  type GeoAuditResult,
+} from '@modules/geo-audit';
+import type { BenchmarkInsight } from '@modules/intelligence/client';
 
 const ARTIFACT_TYPES = [
   { id: 'faq-schema', label: 'FAQPage JSON-LD', icon: FileCode, desc: 'Schema.org FAQPage markup ready for <head>' },
@@ -86,8 +96,69 @@ export function OptimizeWorkspace() {
   const typeLabel =
     ARTIFACT_TYPES.find((t) => t.id === selectedType)?.label ?? selectedType;
 
+  const bypassAuditId = search.get('auditId');
+
+  const { data: auditData } = useQuery<{ audit: GeoAuditResult }>({
+    queryKey: ['optimize-audit', auditId.trim()],
+    enabled: Boolean(auditId.trim()),
+    queryFn: () => api.get(`/api/geo-audit/${auditId.trim()}`),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const audit = auditData?.audit;
+  const siteId = audit?.siteId ?? null;
+
+  const { data: benchmarkData } = useQuery<{ benchmarks: BenchmarkInsight[] }>({
+    queryKey: ['optimize-benchmarks', siteId],
+    enabled: Boolean(siteId),
+    queryFn: () => api.get(`/api/intelligence/benchmarks?siteId=${siteId}`),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const cohortInsight = useMemo(
+    () =>
+      benchmarkData?.benchmarks
+        ? pickBenchmarkForArtifact(selectedType, benchmarkData.benchmarks)
+        : null,
+    [benchmarkData, selectedType],
+  );
+
+  const matchingFix = audit?.topFixes.find((f) => f.artifactType === selectedType);
+  const targetDimension = (matchingFix?.dimension ??
+    audit?.scoringMeta?.bottleneck.dimension) as Dimension | undefined;
+  const matchingIssue = audit?.topIssues.find(
+    (i) =>
+      i.dimension === targetDimension && ['critical', 'high'].includes(i.severity),
+  );
+
   return (
+    <AuditFirstGate featureName="fix generation" bypassAuditId={bypassAuditId}>
     <div className="space-y-6">
+      {audit && targetDimension && bypassAuditId && (
+        <Card className="border-accent/20 bg-accent/5 p-4">
+          <p className="text-sm text-fg leading-relaxed">
+            This addresses{' '}
+            <span className="font-medium">
+              {plainDimensionLabel(targetDimension)}
+            </span>
+            {audit.scoringMeta?.bottleneck.dimension === targetDimension && (
+              <span className="text-fg-muted"> — your weakest area on the last audit</span>
+            )}
+            .
+          </p>
+          {matchingIssue && (
+            <Link
+              href={`/audit/${audit.id}#issue-${matchingIssue.id}`}
+              className="inline-flex mt-2 text-xs text-accent hover:underline"
+            >
+              See issue on your audit report →
+            </Link>
+          )}
+        </Card>
+      )}
+
+      {cohortInsight && <CohortMotivationCard insight={cohortInsight} />}
+
       <Card className="p-5 space-y-4">
         <p className="text-[13px] text-fg-subtle leading-relaxed">
           This does <strong className="font-medium text-fg-muted">not</strong> edit your website automatically.
@@ -197,6 +268,7 @@ export function OptimizeWorkspace() {
         </Card>
       )}
     </div>
+    </AuditFirstGate>
   );
 }
 

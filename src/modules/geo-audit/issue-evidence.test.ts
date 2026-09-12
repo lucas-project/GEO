@@ -7,6 +7,7 @@ import {
 } from './issue-evidence';
 import type { CrawledPage } from '@modules/crawling';
 import type { PageExtraction } from '@modules/extraction';
+import { emptyPageChecklist } from '@modules/extraction';
 
 const stubPage: CrawledPage = {
   url: 'https://example.com/page',
@@ -31,6 +32,7 @@ function extraction(partial: Partial<PageExtraction>): PageExtraction {
       description: 'Short',
       canonical: null,
       ogTitle: null,
+      ogSiteName: null,
       ogDescription: null,
       ogType: null,
       twitterCard: null,
@@ -59,6 +61,7 @@ function extraction(partial: Partial<PageExtraction>): PageExtraction {
     links: [],
     tables: [],
     authors: [],
+    checklist: emptyPageChecklist(),
     ...partial,
   };
 }

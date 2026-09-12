@@ -2,9 +2,10 @@
  * Queue handlers for standalone crawl jobs (used by POST /api/crawl).
  */
 
+import 'server-only';
+
 import { randomId } from '@shared/util/id';
 import { queue } from '@shared/queue';
-import { crawlingService } from './service';
 
 export type CrawlJobPayload = {
   url: string;
@@ -31,6 +32,7 @@ export type CrawlJobResult = {
 
 export function registerCrawlHandlers(): void {
   queue.process<CrawlJobPayload, CrawlJobResult>('crawl.run', async (ctx) => {
+    const { crawlingService } = await import('./service');
     const auditId = randomId();
     const result = await crawlingService.crawl({
       url: ctx.job.payload.url,

@@ -11,7 +11,7 @@ import { logger } from '@shared/logger';
 import { normalizeWebsiteUrl } from '@/lib/website-url';
 import { runAudit } from '@modules/geo-audit/server';
 import { type DimensionScore, DIMENSIONS } from '@modules/geo-audit';
-import type { SiteSummary, CompetitorComparison, DimensionGap } from './schemas';
+import type { SiteSummary, CompetitorComparison, DimensionGap, FailedCompetitor } from './schemas';
 
 const compLogger = logger.child({ module: 'competitor-analysis' });
 
@@ -103,11 +103,26 @@ export async function runComparison(input: RunComparisonInput): Promise<Competit
   const target = await auditAsSummary(targetUrl);
 
   const competitors: SiteSummary[] = [];
+  const failedCompetitors: FailedCompetitor[] = [];
   const step = 90 / Math.max(1, competitorUrls.length);
   for (let i = 0; i < competitorUrls.length; i++) {
-    const url = competitorUrls[i];
+    const url = competitorUrls[i]!;
     input.onProgress?.(10 + Math.round(step * i), `Auditing competitor ${url}…`);
-    competitors.push(await auditAsSummary(url));
+    try {
+      competitors.push(await auditAsSummary(url));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      compLogger.warn({ url, err: message }, 'competitor audit failed');
+      failedCompetitors.push({ url, error: message });
+    }
+  }
+
+  if (competitors.length === 0) {
+    const summary =
+      failedCompetitors.length === 1
+        ? failedCompetitors[0]!.error
+        : `All ${failedCompetitors.length} competitor audits failed. ${failedCompetitors[0]!.error}`;
+    throw new Error(summary);
   }
 
   const gaps = competitors.map((c) => computeGap(target, c));
@@ -117,6 +132,7 @@ export async function runComparison(input: RunComparisonInput): Promise<Competit
     target,
     competitors,
     gaps,
+    ...(failedCompetitors.length > 0 ? { failedCompetitors } : {}),
     createdAt: new Date().toISOString(),
   };
 

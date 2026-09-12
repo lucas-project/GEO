@@ -8,11 +8,18 @@ export class ApiError extends Error {
   }
 }
 
+function apiAuthHeaders(): Record<string, string> {
+  const key = process.env.NEXT_PUBLIC_GEO_API_KEY?.trim();
+  if (!key) return {};
+  return { Authorization: `Bearer ${key}` };
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...apiAuthHeaders(),
       ...(init?.headers ?? {}),
     },
   });

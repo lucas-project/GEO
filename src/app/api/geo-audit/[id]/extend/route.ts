@@ -17,7 +17,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const parsed = parseZod(RequestSchema, bodyResult.body);
   if (!parsed.ok) return parsed.response;
 
-  return enqueueJob('geo-audit.extend', {
+  return enqueueJob(req, 'geo-audit.extend', {
     auditId: id,
     pageUrls: parsed.data.pageUrls,
   });

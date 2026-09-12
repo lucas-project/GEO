@@ -1,7 +1,18 @@
+import dynamic from 'next/dynamic';
 import { AuditEntry } from '@/features/audit/audit-entry';
-import { RecentAudits } from '@/features/audit/recent-audits';
+import { AuditResumeBanner } from '@/features/audit/audit-resume-banner';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export const dynamic = 'force-dynamic';
+const RecentAudits = dynamic(
+  () => import('@/features/audit/recent-audits').then((m) => ({ default: m.RecentAudits })),
+  {
+    loading: () => (
+      <div className="rounded-lg border border-border-subtle bg-bg-elevated/40 px-3 py-2.5">
+        <Skeleton className="h-4 w-40" />
+      </div>
+    ),
+  },
+);
 
 export default function AuditPage() {
   return (
@@ -14,13 +25,11 @@ export default function AuditPage() {
         </p>
       </div>
 
+      <AuditResumeBanner />
+
       <AuditEntry />
 
-      <div className="mt-12">
-        <h2 className="text-lg font-semibold mb-1">Recent audits</h2>
-        <p className="text-sm text-fg-muted mb-4">
-          Grouped by site (10 per page). Use Next to see more audited sites.
-        </p>
+      <div className="mt-8">
         <RecentAudits />
       </div>
     </div>

@@ -8,20 +8,26 @@ export async function collectLlmsUrls(siteUrl: string): Promise<string[]> {
   const root = normalizeWebsiteUrl(siteUrl);
   const found: string[] = [];
 
-  for (const path of LLMS_PATHS) {
-    const url = new URL(path, root).toString();
-    try {
-      const res = await fetch(url, {
-        headers: { 'user-agent': config.crawl.userAgent },
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!res.ok) continue;
-      const text = await res.text();
-      for (const link of parseLlmsLinks(text, root)) {
-        if (!found.includes(link)) found.push(link);
+  const batches = await Promise.all(
+    LLMS_PATHS.map(async (path) => {
+      const url = new URL(path, root).toString();
+      try {
+        const res = await fetch(url, {
+          headers: { 'user-agent': config.crawl.userAgent },
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (!res.ok) return [] as string[];
+        const text = await res.text();
+        return parseLlmsLinks(text, root);
+      } catch {
+        return [] as string[];
       }
-    } catch {
-      /* ignore */
+    }),
+  );
+
+  for (const links of batches) {
+    for (const link of links) {
+      if (!found.includes(link)) found.push(link);
     }
   }
 

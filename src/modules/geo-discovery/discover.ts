@@ -6,18 +6,26 @@
 
 import { config } from '@shared/config';
 import { crawlLogger } from '@shared/logger';
+import { mapPool } from '@/lib/map-pool';
 import { canonicalPageUrl, normalizeWebsiteUrl } from '@/lib/website-url';
 import {
-  crawlSinglePage,
   discoverSitemaps,
   fetchRobots,
   fetchSitemapRecursive,
+  isAccessDeniedBySite,
+  isParkedDomainPage,
+  parkedDomainMessage,
+  walledGardenDiscoverMessage,
 } from '@modules/crawling';
+import { crawlSinglePage } from '@modules/crawling/server';
 import { mergeCandidates } from './collectors/candidates';
 import { collectLlmsUrls } from './collectors/llms';
 import { discoverNavLinks } from './collectors/nav';
-import { probeCandidates } from './probe-batch';
+import { probeCandidates, type PrefetchedProbePage } from './probe-batch';
 import type { DiscoverGeoPagesResult, DiscoveryProgressCallback } from './types';
+
+const probeTimeout = () => config.discovery.probeTimeoutMs;
+const hubTimeout = () => Math.min(config.crawl.timeoutMs, 20_000);
 
 export async function discoverGeoPages(
   rawUrl: string,
@@ -27,6 +35,7 @@ export async function discoverGeoPages(
   const url = normalizeWebsiteUrl(rawUrl);
   const maxSelectable = config.crawl.maxPages;
   const deadline = started + config.discovery.timeoutMs;
+  const prefetched = new Map<string, PrefetchedProbePage>();
 
   const checkDeadline = () => {
     if (Date.now() > deadline) {
@@ -34,11 +43,43 @@ export async function discoverGeoPages(
     }
   };
 
-  onProgress?.('Fetching robots.txt and sitemaps…');
-  const robots = await fetchRobots(url);
+  onProgress?.('Fetching robots.txt and rendering homepage…');
+  const [robots, rootPage] = await Promise.all([
+    fetchRobots(url),
+    crawlSinglePage(url, {
+      timeoutMs: hubTimeout(),
+      screenshot: false,
+      auditId: 'geo-discover',
+      profile: 'hub',
+    }),
+  ]);
+
+  const rootFinal = canonicalPageUrl(rootPage.finalUrl || url, url);
+  const rootHtml = rootPage.renderedHtml ?? rootPage.html ?? '';
+  if (
+    isAccessDeniedBySite({
+      statusCode: rootPage.statusCode,
+      html: rootHtml || rootPage.html,
+      title: rootPage.title,
+    })
+  ) {
+    throw new Error(walledGardenDiscoverMessage(url));
+  }
+  if (isParkedDomainPage({ html: rootHtml || rootPage.html, title: rootPage.title })) {
+    throw new Error(parkedDomainMessage(url));
+  }
+  if (rootHtml) {
+    prefetched.set(rootFinal, {
+      html: rootHtml,
+      title: rootPage.title,
+      signals: null,
+    });
+  }
+
   let sitemapRoots = robots.sitemaps;
   if (sitemapRoots.length === 0) sitemapRoots = await discoverSitemaps(url);
 
+  onProgress?.('Reading sitemaps and llms.txt…');
   const [sitemap, llmsUrls] = await Promise.all([
     fetchSitemapRecursive(sitemapRoots, {
       maxFiles: config.discovery.maxSitemapFiles,
@@ -49,44 +90,41 @@ export async function discoverGeoPages(
   ]);
 
   checkDeadline();
-  onProgress?.('Rendering homepage…');
-  const rootPage = await crawlSinglePage(url, {
-    timeoutMs: config.crawl.timeoutMs,
-    screenshot: false,
-    auditId: 'geo-discover',
-  });
-
-  const rootFinal = canonicalPageUrl(rootPage.finalUrl || url, url);
-  const rootHtml = rootPage.renderedHtml ?? rootPage.html ?? '';
 
   const navLinks = rootHtml ? discoverNavLinks(rootHtml, url, 120) : [];
 
-  const graphLinks: ReturnType<typeof discoverNavLinks> = [];
+  const graphLinkMap = new Map<string, ReturnType<typeof discoverNavLinks>[number]>();
   const bfsTargets = navLinks
     .filter((l) => l.url !== rootFinal)
     .slice(0, config.discovery.linkGraphMaxPages);
 
   if (bfsTargets.length > 0 && Date.now() < deadline) {
     onProgress?.(`Exploring ${bfsTargets.length} navigation hubs…`);
-    for (const target of bfsTargets) {
-      if (Date.now() > deadline) break;
-      try {
-        const page = await crawlSinglePage(target.url, {
-          timeoutMs: config.crawl.timeoutMs,
-          screenshot: false,
-          auditId: 'geo-discover-graph',
-        });
-        const html = page.renderedHtml ?? page.html;
-        if (html) {
-          const childLinks = discoverNavLinks(html, url, 40);
-          for (const hit of childLinks) {
-            if (!graphLinks.some((g) => g.url === hit.url)) graphLinks.push(hit);
+    await mapPool(
+      bfsTargets,
+      config.discovery.linkGraphConcurrency,
+      async (target) => {
+        if (Date.now() > deadline) return;
+        try {
+          const page = await crawlSinglePage(target.url, {
+            timeoutMs: hubTimeout(),
+            screenshot: false,
+            auditId: 'geo-discover-graph',
+            profile: 'hub',
+          });
+          const html = page.renderedHtml ?? page.html;
+          if (html) {
+            const canon = canonicalPageUrl(page.finalUrl || target.url, url);
+            prefetched.set(canon, { html, title: page.title, signals: null });
+            for (const hit of discoverNavLinks(html, url, 40)) {
+              graphLinkMap.set(hit.url, hit);
+            }
           }
+        } catch {
+          /* skip failed BFS node */
         }
-      } catch {
-        /* skip failed BFS node */
-      }
-    }
+      },
+    );
   }
 
   const candidateMap = mergeCandidates(
@@ -96,7 +134,7 @@ export async function discoverGeoPages(
       sitemap,
       navLinks,
       llmsUrls,
-      graphUrls: graphLinks,
+      graphUrls: [...graphLinkMap.values()],
     },
     config.discovery.maxCandidates,
   );
@@ -109,7 +147,10 @@ export async function discoverGeoPages(
   checkDeadline();
   onProgress?.(`Ranking ${candidateMap.size} discovered pages…`);
 
-  const rankedPages = await probeCandidates(url, [...candidateMap.values()], onProgress);
+  const rankedPages = await probeCandidates(url, [...candidateMap.values()], onProgress, {
+    prefetched,
+    probeTimeoutMs: probeTimeout(),
+  });
 
   rankedPages.sort((a, b) => {
     const aHome = a.url === rootFinal ? 1 : 0;

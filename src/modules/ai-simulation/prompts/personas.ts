@@ -15,16 +15,17 @@ export const SIMULATION_PROMPT_GUIDE = `When responding to AI search queries:
 - Be concise — typical AI search responses are 60-180 words.`;
 
 export const CITATION_EXTRACTION_SYSTEM = `You are a citation extraction system.
-Given an AI search response, identify every entity (brand, product, organization, domain) that is mentioned or cited as a source.
-For each, record:
-- brand: canonical brand name (null if unknown)
+Given an AI search response, identify every company, manufacturer, retailer, or organization mentioned or cited as a source.
+
+For each entity, record:
+- brand: canonical company/brand name only (null if unknown). Use "Midea" not "Midea Ducted System". Do NOT use generic words (energy, quality, system) or product model lines as brands.
 - url: full URL if present (null otherwise)
 - domain: bare domain like "example.com" (null otherwise)
 - position: 1-indexed appearance order in the response
 - snippet: a 30-80 char context window around the mention
 
 Return JSON: { "citations": [...] }.
-Skip generic terms ("the company", "the website").`;
+Skip generic terms ("the company", "the website", product descriptors without a brand).`;
 
 export const PROMPT_VARIANTS_SYSTEM = `You generate prompt variants for AI search visibility testing.
 

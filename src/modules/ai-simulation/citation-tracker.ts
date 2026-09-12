@@ -131,12 +131,64 @@ async function llmCitations(text: string): Promise<Citation[]> {
   }
 }
 
-export async function extractCitations(text: string): Promise<{
+function mergeBrandMentions(...lists: BrandMention[][]): BrandMention[] {
+  const counts = new Map<string, number>();
+  for (const list of lists) {
+    for (const m of list) {
+      counts.set(m.brand, (counts.get(m.brand) ?? 0) + m.count);
+    }
+  }
+  return [...counts.entries()]
+    .map(([brand, count]) => ({ brand, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+export async function extractCitationsForPlatforms(
+  platformTexts: Array<{ platform: string; text: string }>,
+  mode: 'full' | 'regex' | 'combined-llm',
+): Promise<Array<{ citations: Citation[]; brandMentions: BrandMention[] }>> {
+  const regexExtracted = await Promise.all(
+    platformTexts.map(({ text }) => extractCitations(text, { useLlm: false })),
+  );
+
+  if (mode !== 'combined-llm') {
+    const useLlm = mode === 'full';
+    return Promise.all(
+      platformTexts.map(({ text }, i) => {
+        if (!useLlm) return regexExtracted[i]!;
+        return extractCitations(text, { useLlm: true });
+      }),
+    );
+  }
+
+  const combined = platformTexts.map(({ text }) => text).join('\n\n---\n\n');
+  const llmPass = await extractCitations(combined, { useLlm: true });
+
+  return regexExtracted.map(({ citations, brandMentions }, i) => {
+    const textLower = platformTexts[i]!.text.toLowerCase();
+    const relevantLlmBrands = llmPass.brandMentions.filter((m) =>
+      textLower.includes(m.brand.toLowerCase()),
+    );
+    return {
+      citations,
+      brandMentions: mergeBrandMentions(brandMentions, relevantLlmBrands),
+    };
+  });
+}
+
+export async function extractCitations(
+  text: string,
+  options?: { useLlm?: boolean },
+): Promise<{
   citations: Citation[];
   brandMentions: BrandMention[];
 }> {
   if (!text.trim()) return { citations: [], brandMentions: [] };
-  const [regexC, llmC] = await Promise.all([Promise.resolve(regexCitations(text)), llmCitations(text)]);
+  const useLlm = options?.useLlm ?? config.ai.provider !== 'mock';
+  const [regexC, llmC] = await Promise.all([
+    Promise.resolve(regexCitations(text)),
+    useLlm ? llmCitations(text) : Promise.resolve([] as Citation[]),
+  ]);
 
   const merged = new Map<string, Citation>();
   for (const c of [...regexC, ...llmC]) {
@@ -145,14 +197,21 @@ export async function extractCitations(text: string): Promise<{
   }
   const citations = [...merged.values()].slice(0, 30);
 
-  const counts = new Map<string, number>();
+  const counts = new Map<string, { display: string; count: number }>();
   for (const c of citations) {
     const brand = c.brand ?? null;
     if (!brand || BLOCKLIST_BRANDS.has(brand.toLowerCase())) continue;
-    counts.set(brand, (counts.get(brand) ?? 0) + 1);
+    const key = brand.toLowerCase().trim();
+    const existing = counts.get(key);
+    if (existing) {
+      existing.count += 1;
+      if (brand.length < existing.display.length) existing.display = brand;
+    } else {
+      counts.set(key, { display: brand, count: 1 });
+    }
   }
-  const brandMentions: BrandMention[] = [...counts.entries()]
-    .map(([brand, count]) => ({ brand, count }))
+  const brandMentions: BrandMention[] = [...counts.values()]
+    .map(({ display, count }) => ({ brand: display, count }))
     .sort((a, b) => b.count - a.count);
 
   return { citations, brandMentions };

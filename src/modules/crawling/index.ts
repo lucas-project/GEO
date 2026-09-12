@@ -5,7 +5,15 @@
  * considered part of the contract (blueprint Section 6: Strong Boundary Rules).
  */
 
-export { crawlingService, crawl, crawlSinglePage } from './service';
+export {
+  detectBlockedPage,
+  detectParkedDomain,
+  isAccessDeniedBySite,
+  isParkedDomainPage,
+  blockedPageErrorMessage,
+  parkedDomainMessage,
+  walledGardenDiscoverMessage,
+} from './blocked-page';
 export { fetchRobots } from './robots';
 export {
   fetchSitemap,

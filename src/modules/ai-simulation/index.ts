@@ -8,6 +8,8 @@ export {
   getSimulation,
   listRecentSimulations,
 } from './service';
+export { runSimulationBatch } from './batch';
+export type { SimulationBatchResult, SimulationBatchResultItem } from './batch';
 export { registerSimulationHandlers } from './handlers';
 export { PLATFORMS } from './schemas';
 export { PLATFORM_DISPLAY_NAMES } from './prompts/personas';

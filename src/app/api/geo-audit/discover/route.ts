@@ -19,6 +19,11 @@ export async function POST(req: Request) {
   const parsed = parseZod(RequestSchema, bodyResult.body);
   if (!parsed.ok) return parsed.response;
 
-  const result = await discoverAuditPages(parsed.data.url);
-  return NextResponse.json(result);
+  try {
+    const result = await discoverAuditPages(parsed.data.url);
+    return NextResponse.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Could not discover pages';
+    return NextResponse.json({ error: message }, { status: 422 });
+  }
 }

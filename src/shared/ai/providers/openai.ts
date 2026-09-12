@@ -28,12 +28,19 @@ export class OpenAIProvider implements AIProvider {
   private clientPromise: Promise<OpenAIClient> | null = null;
 
   private async client(): Promise<OpenAIClient> {
-    if (!config.ai.openai.apiKey) {
+    const baseURL = config.ai.openai.baseUrl || undefined;
+    if (!config.ai.openai.apiKey && !baseURL) {
       throw new AIProviderError('OPENAI_API_KEY not set', this.name);
     }
     if (!this.clientPromise) {
       this.clientPromise = import('openai')
-        .then((mod) => new mod.default({ apiKey: config.ai.openai.apiKey }))
+        .then((mod) => {
+          const baseURL = config.ai.openai.baseUrl || undefined;
+          return new mod.default({
+            apiKey: config.ai.openai.apiKey || (baseURL ? 'local-gateway' : ''),
+            baseURL,
+          });
+        })
         .catch((err) => {
           throw new AIProviderError('openai SDK not installed; run `npm install openai`', this.name, err);
         });

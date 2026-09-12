@@ -16,7 +16,15 @@ export function extractAuthors($: CheerioAPI, schemas: SchemaBlock[]): AuthorSig
 
   $('.byline, [itemprop="author"]').each((_, el) => {
     const name = $(el).text().replace(/\s+/g, ' ').trim();
-    if (name && name.length < 120) out.push({ source: 'byline', name });
+    if (name && name.length < 120) {
+      const bio = $(el).closest('article, .post, main').find('.author-bio, [class*="author"]').first();
+      const bioSnippet = bio.text().replace(/\s+/g, ' ').trim().slice(0, 200);
+      out.push({
+        source: 'byline',
+        name,
+        bioSnippet: bioSnippet.length > name.length + 10 ? bioSnippet : undefined,
+      });
+    }
   });
 
   for (const block of schemas) {

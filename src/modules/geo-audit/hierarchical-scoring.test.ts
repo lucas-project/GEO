@@ -23,6 +23,8 @@ function allDims(overrides: Partial<Record<Dimension, number>>): Record<Dimensio
     trustSignals: 80,
     structuredContent: 80,
     crawlerFriendliness: 80,
+    offSitePresence: 80,
+    commercialReadiness: 80,
     ...overrides,
   };
   return Object.fromEntries(
@@ -63,8 +65,20 @@ describe('hierarchical-scoring', () => {
   it('produces reasonable heuristic probability for strong pages', () => {
     const dimensions = allDims({});
     const { scoringMeta } = computeHierarchicalScore({ dimensions });
-    expect(scoringMeta.citationProbability).toBeGreaterThan(0.4);
-    expect(scoringMeta.modelVersion).toBe('hierarchical-v1');
+    expect(scoringMeta.citationProbability).toBeGreaterThan(0.3);
+    expect(scoringMeta.modelVersion).toBe('hierarchical-v2');
+  });
+
+  it('caps outcome when off-site presence is weak', () => {
+    const dimensions = allDims({
+      offSitePresence: 20,
+      citationFriendliness: 90,
+      commercialReadiness: 90,
+    });
+    const layers = computeLayerScores(dimensions);
+    const gated = applyPipelineGates(layers, dimensions);
+    expect(gated.layers.outcome.effectiveScore).toBeLessThanOrEqual(65);
+    expect(gated.gatesApplied.some((g) => g.type === 'off_site_presence_weak')).toBe(true);
   });
 
   it('applyCitationSnapshotCap respects margin', () => {

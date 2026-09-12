@@ -17,7 +17,7 @@ Do **not** add Redux/Zustand or a separate `services/` layer. React Query + one 
 
 - Import modules only through `@modules/<name>` (their `index.ts`).
 - LLM calls only via `@shared/ai`.
-- Playwright only under `src/modules/crawling/browser/`.
+- Playwright only under `src/modules/crawling/browser/`. Off-site presence probes default to **CloakBrowser** (`PRESENCE_PROBE_BROWSER=cloak`); run `npm run cloak:install` once to cache the stealth Chromium binary.
 - Env only via `@shared/config`.
 
 ## Adding an async feature (checklist)

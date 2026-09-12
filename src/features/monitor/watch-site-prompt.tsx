@@ -8,7 +8,10 @@ import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api-client';
 import { canonicalPageUrl } from '@/lib/website-url';
 import { pageSelectionKey } from '@/features/audit/audit-page-picker';
+import { useWorkspaceTarget } from '@/features/workspace/workspace-target-context';
 import type { SiteMonitorStatus } from '@modules/monitoring';
+import type { GeoAuditResult } from '@modules/geo-audit';
+import { normalizeSimulationPrompts } from '@modules/geo-audit';
 
 interface WatchSitePromptProps {
   siteId: string;
@@ -25,6 +28,7 @@ function defaultSelection(siteUrl: string, pageUrls: string[]): Set<string> {
 
 export function WatchSitePrompt({ siteId, url, defaultPageUrls = [] }: WatchSitePromptProps) {
   const queryClient = useQueryClient();
+  const { lastAuditId } = useWorkspaceTarget();
   const [dismissed, setDismissed] = useState(false);
   const [showPages, setShowPages] = useState(false);
 
@@ -60,6 +64,17 @@ export function WatchSitePrompt({ siteId, url, defaultPageUrls = [] }: WatchSite
     queryFn: () => api.get(`/api/monitor/status?siteId=${encodeURIComponent(siteId)}`),
   });
 
+  // Fetch simulation prompts from the current audit to pass into the monitor
+  const { data: auditData } = useQuery<{ audit: GeoAuditResult }>({
+    queryKey: ['watch-audit-prompts', lastAuditId],
+    enabled: Boolean(lastAuditId),
+    queryFn: () => api.get(`/api/geo-audit/${lastAuditId}`),
+    staleTime: 5 * 60 * 1000,
+  });
+  const simulationPrompts = normalizeSimulationPrompts(
+    auditData?.audit?.scoringMeta?.suggestedSimulationPrompts,
+  ).map((e) => e.prompt);
+
   const addMonitor = useMutation({
     mutationFn: (pageUrls: string[]) =>
       api.post('/api/monitor', {
@@ -68,6 +83,7 @@ export function WatchSitePrompt({ siteId, url, defaultPageUrls = [] }: WatchSite
         monitorSchedulePreset: 'daily',
         monitorIntervalHours: 24,
         monitorPageUrls: pageUrls,
+        ...(simulationPrompts.length > 0 ? { simulationPrompts } : {}),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['monitor'] });
@@ -109,6 +125,11 @@ export function WatchSitePrompt({ siteId, url, defaultPageUrls = [] }: WatchSite
             <p className="text-xs text-fg-muted mt-0.5">
               Enable daily monitoring to catch GEO score drops, schema loss, and new issues
               automatically.
+              {simulationPrompts.length > 0 && (
+                <span className="ml-1 text-accent/80">
+                  Will also re-run {simulationPrompts.length} AI visibility {simulationPrompts.length === 1 ? 'query' : 'queries'} each cycle.
+                </span>
+              )}
             </p>
           </div>
         </div>

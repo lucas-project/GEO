@@ -4,7 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { config } from '@shared/config';
-import { enqueueJob } from '@/lib/api-route';
+import { enqueueJobId } from '@/lib/api-route';
 
 function authorized(req: Request): boolean {
   const secret = config.monitoring.cronSecret;
@@ -18,6 +18,6 @@ export async function POST(req: Request) {
   if (!authorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const jobId = await enqueueJob('intelligence.backfill', {});
+  const jobId = await enqueueJobId('intelligence.backfill', {});
   return NextResponse.json({ jobId, enqueued: true });
 }

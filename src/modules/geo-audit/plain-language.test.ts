@@ -3,6 +3,7 @@ import {
   expandReason,
   isNegativeReason,
   plainDimensionLabel,
+  plainGateExplanation,
   plainIssueSummary,
   issueIdForReason,
 } from './plain-language';
@@ -33,5 +34,16 @@ describe('plain-language', () => {
     const summary = plainIssueSummary('semanticClarity', 'Missing H1', 42);
     expect(summary).toMatch(/42\/100/);
     expect(summary).toMatch(/Clear page structure/i);
+  });
+
+  it('explains crawler weak gates without raw-score jargon', () => {
+    const text = plainGateExplanation({
+      type: 'crawler_weak',
+      description: 'AI crawler access is limited (crawler score 45)',
+      cap: 60,
+    });
+    expect(text).toMatch(/cannot go above 60\/100/i);
+    expect(text).not.toMatch(/\braw score\b/i);
+    expect(text).not.toMatch(/downstream/i);
   });
 });

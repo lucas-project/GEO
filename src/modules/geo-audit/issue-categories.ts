@@ -108,6 +108,70 @@ export const CANONICAL_ISSUE_CATEGORIES: CanonicalIssueCategory[] = [
     primaryDimension: 'summarizationQuality',
     test: (r) => /lead paragraph/i.test(r) && /\b(thin|weak|short)\b/i.test(r),
   },
+  {
+    id: 'missing-reddit-quora',
+    title: 'No Reddit or Quora profile linked',
+    primaryDimension: 'offSitePresence',
+    test: (r) => /reddit|quora/i.test(r) && /\b(no |not |missing|does not link)\b/i.test(r),
+  },
+  {
+    id: 'missing-review-profiles',
+    title: 'No review platform profiles linked',
+    primaryDimension: 'offSitePresence',
+    test: (r) => /g2|capterra|trustpilot|review platform/i.test(r) && /\b(no |not |missing)\b/i.test(r),
+  },
+  {
+    id: 'weak-off-site-presence',
+    title: 'Weak off-site brand footprint',
+    primaryDimension: 'offSitePresence',
+    test: (r) =>
+      /off-site|community and review|sameAs|does not link to any detected/i.test(r) &&
+      /\b(no |not |missing|weak|few)\b/i.test(r),
+  },
+  {
+    id: 'weak-commercial-readiness',
+    title: 'Weak conversion and pricing signals',
+    primaryDimension: 'commercialReadiness',
+    test: (r) =>
+      /pricing|cta|call-to-action|trust badge|customer proof/i.test(r) &&
+      /\b(no |not |missing|limited|obvious)\b/i.test(r),
+  },
+  {
+    id: 'weak-alt-text',
+    title: 'Images missing descriptive alt text',
+    primaryDimension: 'semanticClarity',
+    test: (r) => /alt text|images lack/i.test(r) && /\b(few|missing|weak|lack)\b/i.test(r),
+  },
+  {
+    id: 'few-question-headings',
+    title: 'Few question-style section headings',
+    primaryDimension: 'semanticClarity',
+    test: (r) => /question-style/i.test(r) && /\b(few|not |missing|weak)\b/i.test(r),
+  },
+  {
+    id: 'missing-definitional-lead',
+    title: 'Opening lacks a direct definition',
+    primaryDimension: 'answerExtraction',
+    test: (r) => /definitional opener|definition opener/i.test(r) && /\b(no |not |missing|lack)\b/i.test(r),
+  },
+  {
+    id: 'missing-case-study',
+    title: 'No quantified case study',
+    primaryDimension: 'trustSignals',
+    test: (r) => /case study/i.test(r) && /\b(no |not |missing|without)\b/i.test(r),
+  },
+  {
+    id: 'weak-internal-links',
+    title: 'Weak internal linking',
+    primaryDimension: 'crawlerFriendliness',
+    test: (r) => /internal link/i.test(r) && /\b(few|not |missing|weak)\b/i.test(r),
+  },
+  {
+    id: 'missing-citation-phrases',
+    title: 'Few explicit source citations',
+    primaryDimension: 'trustSignals',
+    test: (r) => /citation phrase|according to|source:/i.test(r) && /\b(few|not |missing|no )\b/i.test(r),
+  },
 ];
 
 export function canonicalCategoryForReason(reason: string): CanonicalIssueCategory | null {

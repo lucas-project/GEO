@@ -13,6 +13,7 @@ export {
   getAuditPageSource,
   listRecentAudits,
   listRecentAuditSiteGroups,
+  findLatestCompletedAuditForUrl,
 } from './service';
 export { registerGeoAuditHandlers } from './handlers';
 export { discoverAuditPages } from './discover-pages';

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PageExtraction } from '@modules/extraction';
+import { emptyPageChecklist } from '@modules/extraction';
 import { extractRollupSignals, listPatternsFromSignals, legacyFieldsFromSignals } from './rollup';
 
 function page(partial: Partial<PageExtraction>): PageExtraction {
@@ -10,6 +11,7 @@ function page(partial: Partial<PageExtraction>): PageExtraction {
       description: null,
       canonical: null,
       ogTitle: null,
+      ogSiteName: null,
       ogDescription: null,
       ogType: null,
       twitterCard: null,
@@ -25,6 +27,7 @@ function page(partial: Partial<PageExtraction>): PageExtraction {
     links: [],
     tables: [],
     authors: [],
+    checklist: emptyPageChecklist(),
     ...partial,
   };
 }

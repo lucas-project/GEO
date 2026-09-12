@@ -10,6 +10,7 @@ export const PatternTypeSchema = z.enum([
   'table',
   'readability',
   'citation',
+  'platform',
 ]);
 export type PatternType = z.infer<typeof PatternTypeSchema>;
 
@@ -53,6 +54,24 @@ export const RollupSignalsSchema = z.object({
     count: z.number().int(),
     hasByline: z.boolean(),
   }),
+  presence: z
+    .object({
+      linkedPlatforms: z.array(z.string()),
+      sameAsCount: z.number().int(),
+      hasPricingPage: z.boolean(),
+      hasPrimaryCta: z.boolean(),
+    })
+    .optional(),
+  checklist: z
+    .object({
+      avgQuestionRatio: z.number().nullable(),
+      altTextRatio: z.number().nullable(),
+      pagesWithLeadDefinition: z.number().int(),
+      pagesWithCaseStudy: z.number().int(),
+      totalInternalLinks: z.number().int(),
+      citationPhraseHits: z.number().int(),
+    })
+    .optional(),
   pipeline: z
     .object({
       citationProbability: z.number().min(0).max(1).optional(),
@@ -134,7 +153,13 @@ export type PlaybookEntry = z.infer<typeof PlaybookEntrySchema>;
 
 export const SiteTrendSchema = z.object({
   siteId: z.string(),
-  scores: z.array(z.object({ date: z.string(), score: z.number() })),
+  scores: z.array(
+    z.object({
+      date: z.string(),
+      score: z.number(),
+      decayedScore: z.number().optional(),
+    }),
+  ),
 });
 export type SiteTrend = z.infer<typeof SiteTrendSchema>;
 

@@ -12,6 +12,7 @@ import { randomId } from '@shared/util/id';
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
 import { config } from '@shared/config';
 import { queueLogger } from '@shared/logger';
+import { reapOrphanedRunningJobs } from '../reap-orphaned-jobs';
 import type { JobContext, JobHandler, Queue, QueueJob } from '../types';
 
 const QUEUE_NAME = 'geo-jobs';
@@ -67,6 +68,7 @@ export class BullmqQueue implements Queue {
       payload: parseJson(row.payload, null),
       status: row.status as QueueJob['status'],
       progress: row.progress,
+      statusMessage: row.statusMessage ?? undefined,
       result: row.result ? parseJson(row.result, null) : undefined,
       error: row.error ?? undefined,
       createdAt: row.createdAt,
@@ -91,6 +93,7 @@ export class BullmqQueue implements Queue {
       return;
     }
     this.running = true;
+    await reapOrphanedRunningJobs();
     this.workerConnection = this.connection.duplicate();
     this.worker = new Worker(
       QUEUE_NAME,
@@ -133,10 +136,13 @@ export class BullmqQueue implements Queue {
             progress: 0,
             createdAt: row.createdAt,
           },
-          reportProgress: async (progress: number) => {
+          reportProgress: async (progress: number, message?: string) => {
             await prisma.job.update({
               where: { id: row.id },
-              data: { progress: Math.max(0, Math.min(100, Math.round(progress))) },
+              data: {
+                progress: Math.max(0, Math.min(100, Math.round(progress))),
+                ...(message !== undefined ? { statusMessage: message } : {}),
+              },
             });
           },
           log: (message, extra) => log.info(extra ?? {}, message),
@@ -155,6 +161,14 @@ export class BullmqQueue implements Queue {
           });
           log.info('job completed');
         } catch (err) {
+          const current = await prisma.job.findUnique({
+            where: { id: row.id },
+            select: { status: true },
+          });
+          if (current?.status === 'cancelled') {
+            log.info('job cancelled');
+            return;
+          }
           const message = err instanceof Error ? err.message : String(err);
           const stack = err instanceof Error ? err.stack : undefined;
           log.error({ err: message, stack }, 'job failed');
@@ -202,5 +216,9 @@ export class BullmqQueue implements Queue {
       this.workerConnection = null;
     }
     queueLogger.info('BullMQ worker stopped');
+  }
+
+  ensureActive(): void {
+    // BullMQ worker is managed by the separate worker process.
   }
 }

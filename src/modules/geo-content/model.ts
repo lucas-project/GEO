@@ -11,6 +11,8 @@ export function resolveGeoContentModel(providerName: string): string | undefined
       return config.geoContent.ollamaModel;
     case 'anthropic':
       return config.geoContent.anthropicModel;
+    case 'minimax':
+      return config.geoContent.minimaxModel;
     default:
       return undefined;
   }

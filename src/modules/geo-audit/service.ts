@@ -7,7 +7,7 @@ import 'server-only';
  *   1. Create GeoAudit row (status="running")
  *   2. Crawl with Playwright (modules/crawling)
  *   3. Extract structured representation (modules/extraction)
- *   4. Score across 10 dimensions (./scoring)
+ *   4. Score across 12 dimensions (./scoring)
  *   5. Derive issues + fixes
  *   6. Generate LLM narrative
  *   7. Persist results + return
@@ -26,24 +26,45 @@ import {
 } from '@/lib/website-url';
 import { logger } from '@shared/logger';
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
-import { crawlingService, crawlSinglePage, fetchRobots, discoverSitemaps, fetchSitemap } from '@modules/crawling';
-import { discoverInternalLinks } from '@modules/crawling';
+import {
+  fetchRobots,
+  discoverSitemaps,
+  fetchSitemap,
+  detectBlockedPage,
+  blockedPageErrorMessage,
+  isParkedDomainPage,
+  parkedDomainMessage,
+  discoverInternalLinks,
+} from '@modules/crawling';
+import { crawlingService, crawlSinglePage } from '@modules/crawling/server';
 import type { CrawledPage, CrawlResult } from '@modules/crawling';
 import type { PageExtraction } from '@modules/extraction';
 import { extractionService } from '@modules/extraction';
 import { embeddingsService } from '@modules/embeddings';
 import { ingestAuditSync } from '@modules/intelligence';
-import { getLatestCitationVisibility } from '@modules/intelligence/citation-snapshot';
+import { parseExtractionRow } from '@modules/intelligence/rollup';
+import { getLatestCitationSnapshot } from '@modules/intelligence/citation-snapshot';
 import { queue } from '@shared/queue';
+import { analyzePresenceSignals } from '@modules/brand-presence';
+import { runPresenceProbe } from '@modules/brand-presence-probe';
+import { mapPool } from '@/lib/map-pool';
+import { aggregateChecklist } from './aggregate-checklist';
+import { scoreTechnicalPerformance, scoreTopicCoverage } from './auxiliary-scores';
 import { getCalibrationWeights } from './calibration';
 import { deriveScoringMetaFromDimensions } from './hierarchical-scoring';
+import { parseScoringMeta, readSimulationVisibilityCheck } from './parse-scoring-meta';
 import { scoreAll, deriveIssuesAndFixes, type PageExtractionInput } from './scoring';
+import {
+  deriveSiteKeywordsFromExtraction,
+  generateAuditSuggestions,
+} from './suggestion-generators';
 import { buildImpactedPagesFromExtractionRow } from './issue-evidence';
 import { attachRangesToHighlights } from './locate-in-source';
 import type { SourceRange } from './schemas';
-import { buildPageInventory } from './page-inventory';
+import { applyGeoPriorityToInventory, buildPageInventory, type PagePriorityHint } from './page-inventory';
 import { NARRATIVE_SYSTEM, buildNarrativePrompt } from './prompts/narrative';
 import {
+  DIMENSIONS,
   DIMENSION_LABELS,
   type Dimension,
   type DimensionScore,
@@ -53,6 +74,7 @@ import {
   type Fix,
   type PageInventory,
   ScoringMetaSchema,
+  DimensionScoreSchema,
 } from './schemas';
 import type { LinkInfo } from '@modules/extraction';
 import { groupAuditsBySite, type SiteAuditGroup } from './group-by-site';
@@ -73,6 +95,8 @@ export interface RunAuditInput {
   maxPages?: number;
   /** User-selected same-origin URLs to crawl (homepage always included). */
   pageUrls?: string[];
+  /** Discovery rankings from the page picker (preserves probed scores). */
+  pageRankings?: PagePriorityHint[];
   onProgress?: (progress: number, message: string) => void;
 }
 
@@ -156,27 +180,50 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
       throw new Error(reason);
     }
     if (!fp?.renderedHtml) {
+      const blocked = detectBlockedPage({
+        statusCode: fp?.statusCode ?? 0,
+        html: fp?.html,
+        title: fp?.title,
+      });
+      if (blocked.blocked || fp?.error) {
+        throw new Error(
+          blockedPageErrorMessage(normalizedUrl, fp?.error ?? blocked.reason, {
+            stealthTried: config.crawl.useStealth,
+            systemChromeTried: config.crawl.retryHeadedOnBlock && config.crawl.headless,
+          }),
+        );
+      }
       throw new Error(
         `Playwright did not return rendered HTML (${fp?.error ?? 'unknown'}). Install browsers: npx playwright install chromium`,
       );
     }
 
-    // Persist crawl results
-    for (const page of crawl.pages) {
-      await prisma.crawlResult.create({
-        data: {
-          auditId: audit.id,
-          url: page.url,
-          statusCode: page.statusCode,
-          html: page.html?.slice(0, 200_000),
-          renderedHtml: page.renderedHtml?.slice(0, 400_000),
-          screenshotPath: page.screenshotPath,
-          contentType: page.contentType,
-          durationMs: page.durationMs,
-          error: page.error,
-        },
-      });
+    if (
+      isParkedDomainPage({
+        html: fp.renderedHtml ?? fp.html,
+        title: fp.title,
+      })
+    ) {
+      throw new Error(parkedDomainMessage(normalizedUrl));
     }
+
+    await Promise.all(
+      crawl.pages.map((page) =>
+        prisma.crawlResult.create({
+          data: {
+            auditId: audit.id,
+            url: page.url,
+            statusCode: page.statusCode,
+            html: page.html?.slice(0, 200_000),
+            renderedHtml: page.renderedHtml?.slice(0, 400_000),
+            screenshotPath: page.screenshotPath,
+            contentType: page.contentType,
+            durationMs: page.durationMs,
+            error: page.error,
+          },
+        }),
+      ),
+    );
 
     const rootPage = crawl.pages[0];
     const internalLinks =
@@ -184,16 +231,18 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
         ? discoverInternalLinks(rootPage.renderedHtml, normalizedUrl, 80)
         : [];
 
-    const pageExtractions: PageExtractionInput[] = [];
     const auditedUrls = new Set<string>();
     const pagesToExtract = crawl.pages.filter((p) => p.renderedHtml);
 
     input.onProgress?.(50, `Extracting ${pagesToExtract.length} page(s)…`);
-    for (let i = 0; i < pagesToExtract.length; i++) {
-      const page = pagesToExtract[i];
+    const extractConcurrency = config.crawl.extractionConcurrency;
+    let extractDone = 0;
+
+    const extracted = await mapPool(pagesToExtract, extractConcurrency, async (page) => {
       const pageUrl = canonicalPageUrl(page.finalUrl || page.url, normalizedUrl);
+      extractDone++;
       input.onProgress?.(
-        50 + Math.round(((i + 1) / pagesToExtract.length) * 25),
+        50 + Math.round((extractDone / pagesToExtract.length) * 25),
         `Extracting ${pageUrl}`,
       );
 
@@ -215,11 +264,17 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
           links: stringifyJson(extraction.links),
           tables: stringifyJson(extraction.tables),
           authors: stringifyJson(extraction.authors),
+          checklist: stringifyJson(extraction.checklist),
         },
       });
 
-      auditedUrls.add(pageUrl);
-      pageExtractions.push({ page, extraction });
+      return { page, extraction, pageUrl };
+    });
+
+    const pageExtractions: PageExtractionInput[] = [];
+    for (const row of extracted) {
+      auditedUrls.add(row.pageUrl);
+      pageExtractions.push({ page: row.page, extraction: row.extraction });
     }
 
     const extraction = pageExtractions[0]?.extraction;
@@ -227,16 +282,54 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
       throw new Error('No pages could be extracted for scoring.');
     }
 
-    await embeddingsService.indexChunksForAudit(audit.id, extraction).catch((err) => {
-      auditLogger.warn({ err: (err as Error).message, auditId: audit.id }, 'chunk embeddings skipped');
+    const pageInventory = applyGeoPriorityToInventory(
+      buildPageInventory({
+        rootUrl: normalizedUrl,
+        crawl,
+        internalLinks,
+        auditedUrls,
+      }),
+      normalizedUrl,
+      input.pageRankings,
+    );
+
+    const extractionsForChecklist = pageExtractions.map(({ extraction: ext }) => ext);
+    const siteChecklist = aggregateChecklist(extractionsForChecklist, normalizedUrl);
+
+    const presenceSignals = analyzePresenceSignals({
+      rootUrl: normalizedUrl,
+      pageExtractions: pageExtractions.map(({ page, extraction: ext }) => ({
+        url: page.finalUrl || page.url,
+        extraction: ext,
+      })),
+      inventoryUrls: pageInventory.pages.map((p) => p.url),
     });
 
-    const pageInventory = buildPageInventory({
-      rootUrl: normalizedUrl,
-      crawl,
-      internalLinks,
-      auditedUrls,
-    });
+    const brandName =
+      extraction.metadata.title?.split(/[|\-–]/)[0]?.trim() ??
+      new URL(normalizedUrl).hostname.replace(/^www\./, '');
+
+    input.onProgress?.(76, 'Indexing and off-site checks…');
+    const technicalPerformance = scoreTechnicalPerformance(rootPage);
+
+    const [presenceProbe, , citationSnap, calibration, simulationRunCount] = await Promise.all([
+      runPresenceProbe({
+        brandName,
+        siteUrl: normalizedUrl,
+        presenceSignals,
+      }).catch(() => null),
+      embeddingsService.indexChunksForAudit(audit.id, extraction).catch((err) => {
+        auditLogger.warn({ err: (err as Error).message, auditId: audit.id }, 'chunk embeddings skipped');
+      }),
+      getLatestCitationSnapshot(site.id),
+      getCalibrationWeights(site.id),
+      prisma.aiSimulation.count({ where: { siteId: site.id } }),
+    ]);
+
+    const topicCoverage = await scoreTopicCoverage(
+      audit.id,
+      extraction.metadata.title ?? '',
+    ).catch(() => null);
 
     input.onProgress?.(80, 'Scoring AI visibility pipeline…');
     const scoringCtx = {
@@ -245,27 +338,49 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
       extraction,
       crawl,
       pageExtractions: pageExtractions.length > 1 ? pageExtractions : undefined,
+      presenceSignals,
+      presenceProbe: presenceProbe ?? undefined,
+      siteChecklist,
     };
-    const [citationVisibility, calibration, simulationRunCount] = await Promise.all([
-      getLatestCitationVisibility(site.id),
-      getCalibrationWeights(site.id),
-      prisma.aiSimulation.count({ where: { siteId: site.id } }),
-    ]);
+    const citationVisibility = citationSnap?.targetVisibilityScore ?? null;
     const { dimensions, overallScore, scoringMeta } = scoreAll(scoringCtx, {
       citationVisibility,
       simulationRunCount,
       calibration,
+      auxiliary: {
+        technicalPerformance,
+        topicCoverage: topicCoverage ?? undefined,
+      },
+      shareOfModel: citationSnap?.shareOfModel ?? null,
+      presenceProbe: presenceProbe ?? undefined,
     });
     const { issues, fixes } = deriveIssuesAndFixes(dimensions, scoringCtx, scoringMeta);
 
-    input.onProgress?.(90, 'Generating narrative…');
-    const narrative = await generateNarrative({
-      url: normalizedUrl,
-      overallScore,
-      dimensions,
-      scoringMeta,
-      siteId: site.id,
-    });
+    input.onProgress?.(90, 'Generating narrative and AI questions…');
+    const siteKeywords = deriveSiteKeywordsFromExtraction(extraction);
+    const [narrative, auditSuggestions] = await Promise.all([
+      generateNarrative({
+        url: normalizedUrl,
+        overallScore,
+        dimensions,
+        scoringMeta,
+        siteId: site.id,
+      }),
+      generateAuditSuggestions({
+        url: normalizedUrl,
+        brandName,
+        dimensions,
+        siteKeywords,
+      }),
+    ]);
+    const suggestedSimulationPrompts = auditSuggestions.prompts;
+    const suggestedCompetitors = auditSuggestions.competitors;
+
+    const enrichedScoringMeta: ScoringMeta = {
+      ...scoringMeta,
+      ...(suggestedSimulationPrompts.length > 0 ? { suggestedSimulationPrompts } : {}),
+      ...(suggestedCompetitors.length > 0 ? { suggestedCompetitors } : {}),
+    };
 
     input.onProgress?.(97, 'Saving report…');
     await prisma.geoAudit.update({
@@ -283,7 +398,7 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
 
     await prisma.$executeRawUnsafe(
       `UPDATE "GeoAudit" SET "scoringMeta" = ? WHERE "id" = ?`,
-      stringifyJson(scoringMeta),
+      stringifyJson(enrichedScoringMeta),
       audit.id,
     ).catch((err) => {
       auditLogger.warn({ err: (err as Error).message, auditId: audit.id }, 'scoringMeta save skipped');
@@ -315,7 +430,7 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
       url: normalizedUrl,
       overallScore,
       dimensions,
-      scoringMeta,
+      scoringMeta: enrichedScoringMeta,
       narrative,
       topIssues: issues,
       topFixes: fixes,
@@ -385,10 +500,21 @@ export async function getAudit(auditId: string): Promise<GeoAuditResult | null> 
     pageInventory = await getAuditPageInventoryFallback(auditId);
   }
 
-  const dimensions = parseJson(row.dimensions, {} as Record<Dimension, DimensionScore>);
+  const dimensions = normalizeDimensions(
+    parseJson(row.dimensions, {} as Partial<Record<Dimension, DimensionScore>>),
+  );
   const storedMeta = parseScoringMeta(rawCols?.scoringMeta ?? null);
-  const scoringMeta =
+  let scoringMeta =
     storedMeta ?? (Object.keys(dimensions).length > 0 ? deriveScoringMetaFromDimensions(dimensions) : null);
+  const visibilityFallback = readSimulationVisibilityCheck(rawCols?.scoringMeta ?? null);
+  if (scoringMeta && visibilityFallback && !scoringMeta.simulationVisibilityCheck) {
+    scoringMeta = { ...scoringMeta, simulationVisibilityCheck: visibilityFallback };
+  } else if (!scoringMeta && visibilityFallback) {
+    scoringMeta = {
+      ...deriveScoringMetaFromDimensions(dimensions),
+      simulationVisibilityCheck: visibilityFallback,
+    };
+  }
   const { issues: derivedIssues } = deriveIssuesAndFixes(dimensions, undefined, scoringMeta);
   const topIssues = await enrichIssuesFromStoredPages(
     auditId,
@@ -674,6 +800,23 @@ export async function getAuditPageInventoryFallback(auditId: string): Promise<Pa
   };
 }
 
+/** Latest completed audit id for a site URL (hostname + TLD aware). */
+export async function findLatestCompletedAuditForUrl(rawUrl: string): Promise<string | null> {
+  let normalized: string;
+  try {
+    normalized = normalizeWebsiteUrl(rawUrl.trim());
+  } catch {
+    return null;
+  }
+
+  const audits = await listRecentAudits(60);
+  for (const audit of audits) {
+    if (audit.status !== 'completed') continue;
+    if (sameTargetSite(audit.url, normalized)) return audit.id;
+  }
+  return null;
+}
+
 export async function listRecentAudits(limit = 20): Promise<Array<{
   id: string;
   url: string;
@@ -767,41 +910,10 @@ export async function listRecentAuditSiteGroups(
   };
 }
 
-function extractionFromDbRow(row: {
-  url: string;
-  metadata: string;
-  headings: string;
-  schemas: string;
-  faqs: string;
-  entities: string;
-  chunks: string;
-  links: string;
-  tables: string;
-  authors: string;
-}): PageExtraction {
-  return {
-    url: row.url,
-    metadata: parseJson(row.metadata, {
-      title: null,
-      description: null,
-      canonical: null,
-      ogTitle: null,
-      ogDescription: null,
-      ogType: null,
-      twitterCard: null,
-      language: null,
-      charset: null,
-      robots: null,
-    }),
-    headings: parseJson(row.headings, []),
-    schemas: parseJson(row.schemas, []),
-    faqs: parseJson(row.faqs, []),
-    entities: parseJson(row.entities, []),
-    chunks: parseJson(row.chunks, []),
-    links: parseJson(row.links, []),
-    tables: parseJson(row.tables, []),
-    authors: parseJson(row.authors, []),
-  };
+function extractionFromDbRow(
+  row: Parameters<typeof parseExtractionRow>[0],
+): PageExtraction {
+  return parseExtractionRow(row);
 }
 
 /** Crawl and score additional pages on an existing audit. */
@@ -876,6 +988,7 @@ export async function extendAudit(
           links: stringifyJson(extraction.links),
           tables: stringifyJson(extraction.tables),
           authors: stringifyJson(extraction.authors),
+          checklist: stringifyJson(extraction.checklist),
         },
       });
     }
@@ -945,32 +1058,69 @@ export async function extendAudit(
     extractionRows.map((r) => canonicalPageUrl(r.url, normalizedUrl)),
   );
 
-  const pageInventory = buildPageInventory({
-    rootUrl: normalizedUrl,
-    crawl,
-    internalLinks,
-    auditedUrls,
-  });
+  const pageInventory = applyGeoPriorityToInventory(
+    buildPageInventory({
+      rootUrl: normalizedUrl,
+      crawl,
+      internalLinks,
+      auditedUrls,
+    }),
+    normalizedUrl,
+  );
 
   const extraction = pageExtractions[0]!.extraction;
+  const extractionsForChecklist = pageExtractions.map(({ extraction: ext }) => ext);
+  const siteChecklist = aggregateChecklist(extractionsForChecklist, normalizedUrl);
+  const presenceSignals = analyzePresenceSignals({
+    rootUrl: normalizedUrl,
+    pageExtractions: pageExtractions.map(({ page, extraction: ext }) => ({
+      url: page.finalUrl || page.url,
+      extraction: ext,
+    })),
+    inventoryUrls: pageInventory.pages.map((p) => p.url),
+  });
+  const brandName =
+    extraction.metadata.title?.split(/[|\-–]/)[0]?.trim() ??
+    new URL(normalizedUrl).hostname.replace(/^www\./, '');
+  const presenceProbe = await runPresenceProbe({
+    brandName,
+    siteUrl: normalizedUrl,
+    presenceSignals,
+  }).catch(() => null);
+  const technicalPerformance = scoreTechnicalPerformance(rootPage);
+  const topicCoverage = await scoreTopicCoverage(
+    auditId,
+    extraction.metadata.title ?? '',
+  ).catch(() => null);
+
   const scoringCtx = {
     url: normalizedUrl,
     rootPage,
     extraction,
     crawl,
     pageExtractions: pageExtractions.length > 1 ? pageExtractions : undefined,
+    presenceSignals,
+    presenceProbe: presenceProbe ?? undefined,
+    siteChecklist,
   };
 
   const siteId = audit.siteId;
-  const [citationVisibility, calibration, simulationRunCount] = await Promise.all([
-    siteId ? getLatestCitationVisibility(siteId) : Promise.resolve(null),
+  const [citationSnap, calibration, simulationRunCount] = await Promise.all([
+    siteId ? getLatestCitationSnapshot(siteId) : Promise.resolve(null),
     getCalibrationWeights(siteId),
     siteId ? prisma.aiSimulation.count({ where: { siteId } }) : Promise.resolve(0),
   ]);
+  const citationVisibility = citationSnap?.targetVisibilityScore ?? null;
   const { dimensions, overallScore, scoringMeta } = scoreAll(scoringCtx, {
     citationVisibility,
     simulationRunCount,
     calibration,
+    auxiliary: {
+      technicalPerformance,
+      topicCoverage: topicCoverage ?? undefined,
+    },
+    shareOfModel: citationSnap?.shareOfModel ?? null,
+    presenceProbe: presenceProbe ?? undefined,
   });
   const { issues, fixes } = deriveIssuesAndFixes(dimensions, scoringCtx, scoringMeta);
 
@@ -1029,12 +1179,15 @@ export async function extendAudit(
   };
 }
 
-function parseScoringMeta(json: string | null | undefined): ScoringMeta | null {
-  if (!json || json === '{}') return null;
-  const parsed = parseJson<unknown>(json, null);
-  if (!parsed) return null;
-  const result = ScoringMetaSchema.safeParse(parsed);
-  return result.success ? result.data : null;
+function normalizeDimensions(
+  raw: Partial<Record<Dimension, DimensionScore>>,
+): Record<Dimension, DimensionScore> {
+  const out = {} as Record<Dimension, DimensionScore>;
+  for (const d of DIMENSIONS) {
+    const parsed = DimensionScoreSchema.safeParse(raw[d]);
+    out[d] = parsed.success ? parsed.data : { score: 0, reasons: [] };
+  }
+  return out;
 }
 
 export const geoAuditService = {

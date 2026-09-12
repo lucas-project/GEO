@@ -11,8 +11,12 @@ import {
   Bot,
   FileText,
   Lightbulb,
+  Globe,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CancelRunningJobButton } from '@/components/geo/cancel-running-job-button';
+import { useBackgroundJobs } from '@/features/workspace/background-jobs-context';
+import { useGeoAuditJobOptional } from '@/features/audit/geo-audit-job-context';
 
 const NAV_GROUPS: Array<{
   label: string;
@@ -24,7 +28,10 @@ const NAV_GROUPS: Array<{
   },
   {
     label: 'Audit',
-    items: [{ href: '/audit', label: 'Audit', icon: FileText }],
+    items: [
+      { href: '/audit', label: 'Audit', icon: FileText },
+      { href: '/presence', label: 'Presence', icon: Globe },
+    ],
   },
   {
     label: 'Intel',
@@ -50,8 +57,47 @@ const NAV_GROUPS: Array<{
   },
 ];
 
+function navJobsForHref(
+  href: string,
+  jobs: ReturnType<typeof useBackgroundJobs>,
+) {
+  return jobs.filter(
+    (job) =>
+      job.viewHref === href ||
+      job.viewHref?.startsWith(`${href}?`) ||
+      job.viewHref?.startsWith(`${href}/`) ||
+      job.hideOnPathPrefix === href ||
+      job.hideOnPathPrefix?.startsWith(`${href}/`),
+  );
+}
+
+function navProgressForHref(
+  href: string,
+  jobs: ReturnType<typeof useBackgroundJobs>,
+  auditJobProgress: number | null,
+): { progress: number; onCancel?: () => void | Promise<void> } | null {
+  const matched = navJobsForHref(href, jobs);
+  if (matched.length > 0) {
+    const progress = Math.max(...matched.map((job) => job.progress));
+    const onCancel = matched.length === 1
+      ? matched[0]?.onCancel
+      : () => {
+          for (const job of matched) void job.onCancel?.();
+        };
+    return { progress, onCancel };
+  }
+  if (href === '/audit' && auditJobProgress != null) {
+    return { progress: auditJobProgress, onCancel: undefined };
+  }
+  return null;
+}
+
 export function Sidebar() {
   const pathname = usePathname();
+  const backgroundJobs = useBackgroundJobs();
+  const geoAuditJob = useGeoAuditJobOptional();
+  const auditDiscovering = Boolean(geoAuditJob?.discovering && !geoAuditJob?.isRunning);
+  const auditJobProgress = geoAuditJob?.isRunning ? geoAuditJob.progress : null;
 
   return (
     <aside className="w-64 shrink-0 border-r border-border bg-bg-elevated/60 backdrop-blur-sm flex flex-col">
@@ -78,6 +124,12 @@ export function Sidebar() {
                 const active =
                   pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
                 const Icon = item.icon;
+                const navStatus = navProgressForHref(item.href, backgroundJobs, auditJobProgress);
+                const cancelNav =
+                  navStatus?.onCancel ??
+                  (item.href === '/audit' && geoAuditJob?.isRunning
+                    ? () => geoAuditJob.cancelAudit()
+                    : undefined);
                 return (
                   <Link
                     key={item.href}
@@ -87,10 +139,27 @@ export function Sidebar() {
                       active
                         ? 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/20'
                         : 'text-fg-muted hover:text-fg hover:bg-bg-muted',
+                      navStatus != null && 'pr-1.5',
                     )}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
                     <span className="flex-1 truncate">{item.label}</span>
+                    {navStatus != null && (
+                      <span className="flex items-center gap-0.5 shrink-0">
+                        <span
+                          className="text-[11px] font-semibold tabular-nums text-accent bg-accent/10 px-1.5 py-0.5 rounded min-w-[2.5rem] text-center"
+                          aria-label={`${navStatus.progress}% complete`}
+                        >
+                          {navStatus.progress}%
+                        </span>
+                        {cancelNav && <CancelRunningJobButton onCancel={() => void cancelNav()} />}
+                      </span>
+                    )}
+                    {item.href === '/audit' && auditDiscovering && (
+                      <span className="text-[11px] font-medium text-accent bg-accent/10 px-1.5 py-0.5 rounded animate-pulse">
+                        Finding pages
+                      </span>
+                    )}
                     {item.badge && (
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-accent bg-accent/10 px-1.5 py-0.5 rounded">
                         {item.badge}

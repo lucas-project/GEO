@@ -31,7 +31,7 @@ interface BrandMentionRow {
 export async function ingestCitationSnapshot(
   siteId: string,
   auditId?: string | null,
-): Promise<{ targetVisibilityScore: number; platformHits: string[] } | null> {
+): Promise<{ targetVisibilityScore: number; platformHits: string[]; shareOfModel: number } | null> {
   const rows = await prisma.aiSimulation.findMany({
     where: { siteId },
     orderBy: { createdAt: 'desc' },
@@ -79,6 +79,19 @@ export async function ingestCitationSnapshot(
   }
 
   const targetVisibilityScore = rows.length > 0 ? targetCitedRuns / rows.length : 0;
+  let totalCitations = 0;
+  let targetCitations = 0;
+  for (const row of rows) {
+    const citations = parseJson<CitationRow[]>(row.citations, []);
+    totalCitations += citations.length;
+    if (targetBrand) {
+      targetCitations += citations.filter((c) =>
+        (c.domain ?? '').toLowerCase().includes(targetBrand.replace(/\s+/g, '')),
+      ).length;
+    }
+  }
+  const shareOfModel =
+    totalCitations > 0 ? Math.min(1, targetCitations / totalCitations) : targetVisibilityScore;
 
   await prisma.citationSnapshot.create({
     data: {
@@ -91,16 +104,40 @@ export async function ingestCitationSnapshot(
   });
 
   snapLogger.debug({ siteId, targetVisibilityScore, runs: rows.length }, 'citation snapshot stored');
-  return { targetVisibilityScore, platformHits: [...platformHits] };
+  return { targetVisibilityScore, platformHits: [...platformHits], shareOfModel };
 }
 
 export async function getLatestCitationVisibility(siteId: string): Promise<number | null> {
+  const snap = await getLatestCitationSnapshot(siteId);
+  return snap?.targetVisibilityScore ?? null;
+}
+
+export async function getLatestCitationSnapshot(
+  siteId: string,
+): Promise<{ targetVisibilityScore: number; shareOfModel: number } | null> {
   const snap = await prisma.citationSnapshot.findFirst({
     where: { siteId },
     orderBy: { createdAt: 'desc' },
+    select: { targetVisibilityScore: true, citedDomains: true },
+  });
+  if (!snap) return null;
+  const domains = parseJson<string[]>(snap.citedDomains, []);
+  const shareOfModel =
+    domains.length > 0
+      ? Math.min(1, snap.targetVisibilityScore)
+      : snap.targetVisibilityScore;
+  return { targetVisibilityScore: snap.targetVisibilityScore, shareOfModel };
+}
+
+/** Historical AI citation visibility (0–100) from monitor simulation snapshots. */
+export async function getCitationVisibilityTrend(siteId: string, limit = 30): Promise<number[]> {
+  const snaps = await prisma.citationSnapshot.findMany({
+    where: { siteId },
+    orderBy: { createdAt: 'asc' },
+    take: limit,
     select: { targetVisibilityScore: true },
   });
-  return snap?.targetVisibilityScore ?? null;
+  return snaps.map((s) => Math.round(s.targetVisibilityScore * 100));
 }
 
 export function parsePlatformBreakdown(json: string): PlatformBreakdown {

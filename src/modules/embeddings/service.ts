@@ -2,7 +2,7 @@
  * Chunk embeddings — stores vectors as JSON for SQLite; swap to pgvector in prod.
  */
 
-import { ai } from '@shared/ai';
+import { getEmbeddingsAI } from '@shared/ai';
 import { config } from '@shared/config';
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
 import { logger } from '@shared/logger';
@@ -35,7 +35,7 @@ export async function indexChunksForAudit(auditId: string, extraction: PageExtra
   for (let i = 0; i < chunks.length; i++) {
     const text = chunks[i].text.slice(0, 8000);
     try {
-      const { vector, model } = await ai.generateEmbedding({ text });
+      const { vector, model } = await getEmbeddingsAI().generateEmbedding({ text });
       embedModel = model;
       await prisma.chunkEmbedding.create({
         data: {
@@ -59,20 +59,38 @@ export async function findSimilarChunks(
   queryText: string,
   topK = 8,
 ): Promise<Array<{ chunkIndex: number; textPreview: string; score: number }>> {
-  const { vector: qv } = await ai.generateEmbedding({ text: queryText.slice(0, 8000) });
+  const search = await createAuditChunkSearch(auditId);
+  return search(queryText, topK);
+}
+
+export type AuditChunkSearch = (
+  queryText: string,
+  topK?: number,
+) => Promise<Array<{ chunkIndex: number; textPreview: string; score: number }>>;
+
+/** Load audit chunk vectors once — reuse across batch simulation prompts. */
+export async function createAuditChunkSearch(auditId: string): Promise<AuditChunkSearch> {
   const rows = await prisma.chunkEmbedding.findMany({ where: { auditId } });
-  const scored = rows
-    .map((r) => {
-      const v = parseJson<number[]>(r.vector, []);
-      return {
+  const indexed = rows.map((r) => ({
+    chunkIndex: r.chunkIndex,
+    textPreview: r.textPreview,
+    vector: parseJson<number[]>(r.vector, []),
+  }));
+
+  return async (queryText: string, topK = 8) => {
+    if (indexed.length === 0) return [];
+    const { vector: qv } = await getEmbeddingsAI().generateEmbedding({
+      text: queryText.slice(0, 8000),
+    });
+    return indexed
+      .map((r) => ({
         chunkIndex: r.chunkIndex,
         textPreview: r.textPreview,
-        score: cosineSimilarity(qv, v),
-      };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topK);
-  return scored;
+        score: cosineSimilarity(qv, r.vector),
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, topK);
+  };
 }
 
 export const embeddingsService = {

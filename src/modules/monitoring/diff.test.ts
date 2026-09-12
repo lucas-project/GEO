@@ -18,6 +18,8 @@ const baseDims = stringifyJson({
   trustSignals: { score: 70, reasons: [] },
   structuredContent: { score: 70, reasons: [] },
   crawlerFriendliness: { score: 70, reasons: [] },
+  offSitePresence: { score: 70, reasons: [] },
+  commercialReadiness: { score: 70, reasons: [] },
 });
 
 describe('signalsFromExtractions', () => {

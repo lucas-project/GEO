@@ -256,6 +256,117 @@ export class MockAIProvider implements AIProvider {
       };
     }
 
+    if (input.schemaName === 'SearchPlan') {
+      const automotive = /ferrari|automotive|car manufacturer|luxury car/i.test(input.prompt);
+      const b2b = /saas|software|b2b/i.test(input.prompt);
+      const domainMatch = /Website domain:\s*(\S+)/.exec(input.prompt);
+      const domain = domainMatch?.[1]?.replace(/^www\./, '') ?? 'example.com';
+      const data = automotive
+        ? {
+            category: 'automotive' as const,
+            rationale: 'mock automotive brand',
+            probePlatforms: ['reddit', 'quora', 'trustpilot', 'site_search'] as const,
+            searchTargets: ['reddit', 'quora', 'trustpilot', 'general', 'news', 'social'],
+            skipPlatforms: [
+              { id: 'g2', reason: 'B2B SaaS reviews not relevant' },
+              { id: 'capterra', reason: 'B2B SaaS reviews not relevant' },
+            ],
+            customQueries: [`"Brand" automotive news -site:${domain}`],
+          }
+        : b2b
+          ? {
+              category: 'b2b_saas' as const,
+              rationale: 'mock b2b saas brand',
+              probePlatforms: [
+                'reddit',
+                'quora',
+                'g2',
+                'capterra',
+                'trustpilot',
+                'site_search',
+              ] as const,
+              searchTargets: [
+                'reddit',
+                'quora',
+                'g2',
+                'capterra',
+                'trustpilot',
+                'general',
+                'news',
+                'social',
+              ],
+              skipPlatforms: [],
+              customQueries: [],
+            }
+          : {
+              category: 'generic' as const,
+              rationale: 'mock generic brand',
+              probePlatforms: [
+                'reddit',
+                'quora',
+                'g2',
+                'capterra',
+                'trustpilot',
+                'site_search',
+              ] as const,
+              searchTargets: [
+                'reddit',
+                'quora',
+                'g2',
+                'capterra',
+                'trustpilot',
+                'general',
+                'news',
+                'social',
+              ],
+              skipPlatforms: [],
+              customQueries: [],
+            };
+      const parsed = input.schema.safeParse(data);
+      if (!parsed.success) {
+        throw new AIProviderError(
+          `mock SearchPlan did not match schema: ${parsed.error.message}`,
+          this.name,
+        );
+      }
+      const inputTokens = tokenCount(input.prompt);
+      const outputTokens = tokenCount(JSON.stringify(parsed.data));
+      return {
+        data: parsed.data,
+        tokens: { input: inputTokens, output: outputTokens, total: inputTokens + outputTokens },
+        model: 'mock-search-plan-v1',
+        provider: this.name,
+      };
+    }
+
+    if (input.schemaName === 'SearchOrchestration') {
+      const missingG2 = /Missing probed platforms[^:]*:\s*g2/i.test(input.prompt);
+      const domainMatch = /Website domain:\s*(\S+)/.exec(input.prompt);
+      const domain = domainMatch?.[1] ?? 'example.com';
+      const data = {
+        stop: !missingG2,
+        reason: missingG2 ? 'mock follow-up for g2' : 'mock gaps filled',
+        nextQueries: missingG2
+          ? [`site:g2.com "Brand" -site:${domain.replace(/^www\./, '')}`]
+          : [],
+      } as z.infer<TSchema>;
+      const parsed = input.schema.safeParse(data);
+      if (!parsed.success) {
+        throw new AIProviderError(
+          `mock SearchOrchestration did not match schema: ${parsed.error.message}`,
+          this.name,
+        );
+      }
+      const inputTokens = tokenCount(input.prompt);
+      const outputTokens = tokenCount(JSON.stringify(parsed.data));
+      return {
+        data: parsed.data,
+        tokens: { input: inputTokens, output: outputTokens, total: inputTokens + outputTokens },
+        model: 'mock-search-orchestration-v1',
+        provider: this.name,
+      };
+    }
+
     if (input.schemaName === 'GeoContentPack') {
       const { buildMockGeoContentPack } = await import('@modules/geo-content/mock-pack');
       const data = buildMockGeoContentPack(input.prompt) as z.infer<TSchema>;

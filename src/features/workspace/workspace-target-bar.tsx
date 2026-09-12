@@ -27,7 +27,7 @@ export function WorkspaceTargetBar() {
     <div className="shrink-0 border-b border-border bg-bg-elevated/80 backdrop-blur-sm px-4 py-2.5">
       <div className="max-w-6xl mx-auto flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
         <div className="flex-1 min-w-0">
-          <label className="text-[12px] uppercase tracking-wider text-fg-subtle font-medium flex items-center gap-1.5 mb-1">
+          <label className="text-[10px] uppercase tracking-wider text-fg-subtle font-medium flex items-center gap-1.5 mb-1">
             <Globe className="w-3 h-3" />
             Your website (used in every phase)
           </label>
@@ -38,13 +38,13 @@ export function WorkspaceTargetBar() {
             placeholder="example.com"
             className="text-sm"
           />
-          <p className="text-[12px] text-fg-subtle mt-1">
-            Enter once here — Audit, Content ideas, Optimize, and others reuse this URL.
+          <p className="text-[10px] text-fg-subtle mt-1">
+            Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:pb-0.5">
           {lastAuditId && (
-            <Badge variant="accent" className="text-[12px] font-normal">
+            <Badge variant="accent" className="text-[10px] font-normal">
               <Link
                 href={`/audit/${lastAuditId}`}
                 className="hover:underline"
@@ -55,7 +55,7 @@ export function WorkspaceTargetBar() {
             </Badge>
           )}
           <div className="flex items-center gap-1.5 min-w-[8rem]">
-            <span className="text-[12px] text-fg-subtle whitespace-nowrap">Brand name</span>
+            <span className="text-[10px] text-fg-subtle whitespace-nowrap">Brand name</span>
             <Input
               value={targetBrand}
               onChange={(e) => setTargetBrand(e.target.value)}

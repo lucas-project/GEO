@@ -15,7 +15,7 @@ import {
   presetToHours,
 } from '@shared/scheduler/monitor-due';
 import { runAudit } from '@modules/geo-audit/server';
-import { verifyPendingFixOutcomes, ingestCitationSnapshot } from '@modules/intelligence';
+import { verifyPendingFixOutcomes, ingestCitationSnapshot, getCitationVisibilityTrend } from '@modules/intelligence';
 import { runSimulation } from '@modules/ai-simulation';
 import {
   diffAudits,
@@ -44,6 +44,8 @@ export interface AddMonitorOpts {
   monitorEnabled?: boolean;
   /** Same-origin URLs to include in each scheduled re-audit. */
   monitorPageUrls?: string[];
+  /** AI-generated simulation questions to re-run each monitor cycle. */
+  simulationPrompts?: string[];
   ownerId?: string;
 }
 
@@ -59,6 +61,12 @@ function parseMonitorPageUrls(raw: string | null | undefined): string[] {
   if (!raw) return [];
   const parsed = parseJson<string[]>(raw, []);
   return Array.isArray(parsed) ? parsed.filter((u) => typeof u === 'string' && u.length > 0) : [];
+}
+
+function parseMonitorSimulationPrompts(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  const parsed = parseJson<string[]>(raw, []);
+  return Array.isArray(parsed) ? parsed.filter((p) => typeof p === 'string' && p.length > 0) : [];
 }
 
 export async function getSiteMonitorStatus(siteId: string): Promise<SiteMonitorStatus | null> {
@@ -91,6 +99,10 @@ export async function addMonitoredSite(
     opts?.monitorIntervalHours ?? resolveHoursFromPreset(preset, opts?.monitorIntervalHours);
   const pageUrlsJson =
     opts?.monitorPageUrls !== undefined ? stringifyJson(opts.monitorPageUrls) : undefined;
+  const simulationPromptsJson =
+    opts?.simulationPrompts !== undefined && opts.simulationPrompts.length > 0
+      ? stringifyJson(opts.simulationPrompts.slice(0, 8))
+      : undefined;
 
   const site = await prisma.site.upsert({
     where: { url: canonical },
@@ -104,6 +116,9 @@ export async function addMonitoredSite(
       nextRunAt: computeNextRunAt(interval),
       webhookUrl: opts?.webhookUrl ?? null,
       ...(pageUrlsJson !== undefined ? { monitorPageUrls: pageUrlsJson } : {}),
+      ...(simulationPromptsJson !== undefined
+        ? { monitorSimulationPrompts: simulationPromptsJson, monitorSimulation: true }
+        : {}),
     },
     update: {
       monitored: true,
@@ -119,6 +134,9 @@ export async function addMonitoredSite(
         : {}),
       ...(opts?.webhookUrl !== undefined ? { webhookUrl: opts.webhookUrl } : {}),
       ...(pageUrlsJson !== undefined ? { monitorPageUrls: pageUrlsJson } : {}),
+      ...(simulationPromptsJson !== undefined
+        ? { monitorSimulationPrompts: simulationPromptsJson, monitorSimulation: true }
+        : {}),
     },
   });
   monLogger.info({ siteId: site.id, url: site.url, preset }, 'site added to monitoring');
@@ -184,6 +202,7 @@ export async function listMonitoredSites(ownerId?: string): Promise<
     lastMonitorStatus: string | null;
     lastMonitorError: string | null;
     trend: number[];
+    visibilityTrend: number[];
     dimensionTrend: Record<string, number[]>;
   }>
 > {
@@ -216,6 +235,8 @@ export async function listMonitoredSites(ownerId?: string): Promise<
       }
     }
 
+    const visibilityTrend = await getCitationVisibilityTrend(s.id, 30);
+
     result.push({
       id: s.id,
       url: s.url,
@@ -232,6 +253,7 @@ export async function listMonitoredSites(ownerId?: string): Promise<
       lastMonitorStatus: s.lastMonitorStatus,
       lastMonitorError: s.lastMonitorError,
       trend: rollups.map((r) => r.overallScore),
+      visibilityTrend,
       dimensionTrend,
     });
   }
@@ -314,6 +336,8 @@ export interface MonitoredSiteDetail {
   nextRunAt: string | null;
   lastMonitorStatus: string | null;
   lastMonitorError: string | null;
+  trend: number[];
+  visibilityTrend: number[];
   runs: Array<{
     id: string;
     runAt: string;
@@ -337,6 +361,18 @@ export async function getMonitoredSiteDetail(siteId: string): Promise<MonitoredS
     },
   });
 
+  const rollups = await prisma.auditRollup.findMany({
+    where: { siteId },
+    orderBy: { createdAt: 'asc' },
+    take: 30,
+    select: { overallScore: true },
+  });
+
+  const [trend, visibilityTrend] = await Promise.all([
+    Promise.resolve(rollups.map((r) => r.overallScore)),
+    getCitationVisibilityTrend(siteId, 30),
+  ]);
+
   return {
     id: site.id,
     url: site.url,
@@ -348,6 +384,8 @@ export async function getMonitoredSiteDetail(siteId: string): Promise<MonitoredS
     nextRunAt: site.nextRunAt?.toISOString() ?? null,
     lastMonitorStatus: site.lastMonitorStatus,
     lastMonitorError: site.lastMonitorError,
+    trend,
+    visibilityTrend,
     runs: runs.map((r) => {
       const diff = r.diff
         ? parseJson<{ scores?: { overallDelta?: number } }>(r.diff, {})
@@ -446,11 +484,24 @@ export async function runMonitoringFor(
 
     if (site.monitorSimulation) {
       try {
-        await runSimulation({
-          prompt: `What is ${site.url} known for?`,
-          targetBrand: new URL(site.url).hostname.replace(/^www\./, ''),
-          siteId: site.id,
-        });
+        const storedPrompts = parseMonitorSimulationPrompts(site.monitorSimulationPrompts);
+        const hostname = new URL(site.url).hostname.replace(/^www\./, '');
+        const targetBrand = hostname.split('.')[0] ?? hostname;
+        // Run the top 3 stored prompts; fall back to a generic brand query if none stored
+        const promptsToRun =
+          storedPrompts.length > 0
+            ? storedPrompts.slice(0, 3)
+            : [`What is ${hostname} known for?`];
+
+        for (const prompt of promptsToRun) {
+          await runSimulation({
+            prompt,
+            targetBrand,
+            siteId: site.id,
+          }).catch((err) => {
+            monLogger.warn({ err: (err as Error).message, siteId, prompt }, 'monitor simulation prompt skipped');
+          });
+        }
         await ingestCitationSnapshot(siteId, auditResult.id);
       } catch (err) {
         monLogger.warn({ err: (err as Error).message, siteId }, 'monitor simulation skipped');
