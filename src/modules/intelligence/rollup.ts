@@ -63,6 +63,7 @@ export function extractRollupSignals(
     }
     for (const h of ext.headings) headings.push({ level: h.level });
     for (const e of ext.entities) {
+      if (e.source !== 'schema' && e.source !== 'page_text') continue;
       const key = `${e.kind}:${e.name.toLowerCase()}`;
       if (!entityMap.has(key)) {
         entityMap.set(key, { name: e.name, kind: e.kind });

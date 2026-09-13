@@ -38,7 +38,22 @@ function envSecret(value: string | undefined): string {
   return t;
 }
 
+const resolvedRunMode = runMode(process.env.GEO_RUN_MODE);
 const resolvedAiProvider = (process.env.AI_PROVIDER as AIProviderName) ?? 'mock';
+const configuredSimulationAiProvider =
+  (process.env.SIMULATION_AI_PROVIDER as InheritedAIProvider) === 'inherit' ||
+  !process.env.SIMULATION_AI_PROVIDER
+    ? resolvedAiProvider
+    : ((process.env.SIMULATION_AI_PROVIDER as AIProviderName) ?? resolvedAiProvider);
+/**
+ * A module-specific env var must not bypass the selected runtime mode. In the
+ * two zero-cost modes, simulation uses only its deterministic mock identity;
+ * the capability layer decides whether that identity may be executed.
+ */
+const resolvedSimulationAiProvider: AIProviderName =
+  resolvedRunMode === 'free-deterministic' || resolvedRunMode === 'demo'
+    ? 'mock'
+    : configuredSimulationAiProvider;
 /** When a real AI provider is configured, presence LLM search steps default on (override with =0). */
 const presenceLlmSearchDefault = resolvedAiProvider !== 'mock';
 /** MiniMax has no embeddings API — default to mock unless EMBEDDINGS_AI_PROVIDER is set. */
@@ -81,7 +96,7 @@ export const config = {
 
   runtime: {
     /** Free deterministic is the safe default; paid capabilities require an explicit opt-in. */
-    mode: runMode(process.env.GEO_RUN_MODE),
+    mode: resolvedRunMode,
   },
 
   wordpress: {
@@ -224,11 +239,10 @@ export const config = {
    * Set SIMULATION_AI_PROVIDER=ollama to run four local models without cloud API keys.
    */
   simulation: {
-    aiProvider:
-      (process.env.SIMULATION_AI_PROVIDER as InheritedAIProvider) === 'inherit' ||
-      !process.env.SIMULATION_AI_PROVIDER
-        ? resolvedAiProvider
-        : ((process.env.SIMULATION_AI_PROVIDER as AIProviderName) ?? resolvedAiProvider),
+    /** Provider requested by the environment, retained for diagnostics only. */
+    configuredAiProvider: configuredSimulationAiProvider,
+    /** Provider after applying the runtime-mode safety boundary. */
+    aiProvider: resolvedSimulationAiProvider,
     /** One Ollama model per platform slot (used when simulation.aiProvider=ollama). */
     ollamaModels: {
       chatgpt: process.env.SIMULATION_OLLAMA_CHATGPT ?? 'llama3.2',
@@ -247,10 +261,7 @@ export const config = {
     /** Batch: one local model + personas for all slots (much faster than 4 models). Default on when simulation uses Ollama. */
     batchSingleModel: bool(
       process.env.SIMULATION_BATCH_SINGLE_MODEL,
-      ((process.env.SIMULATION_AI_PROVIDER as InheritedAIProvider) === 'inherit' ||
-      !process.env.SIMULATION_AI_PROVIDER
-        ? resolvedAiProvider
-        : (process.env.SIMULATION_AI_PROVIDER as AIProviderName)) === 'ollama',
+      resolvedSimulationAiProvider === 'ollama',
     ),
     /** Shorter answers during batch runs (Ollama num_predict). */
     batchMaxTokens: int(process.env.SIMULATION_BATCH_MAX_TOKENS, 384),

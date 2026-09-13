@@ -39,4 +39,20 @@ describe('buildSiteProfile', () => {
     expect(result.confirmationState).toBe('needs_review');
     expect(result.evidenceIds).toEqual([]);
   });
+
+  it('does not turn synthetic entities into offerings or a product role', () => {
+    const result = buildSiteProfile({
+      siteUrl: 'https://unknown.example',
+      pages: [{
+        pageUrl: 'https://unknown.example',
+        extraction: page({
+          metadata: { ...page().metadata, title: null, ogSiteName: null },
+          schemas: [],
+          entities: [{ name: 'Fictional Vendor', kind: 'product', count: 1, relevance: 0.9, source: 'synthetic' }],
+        }),
+      }],
+    });
+    expect(result.offerings).toEqual([]);
+    expect(result.primaryEntity.role).toBe('unknown');
+  });
 });

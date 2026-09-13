@@ -53,14 +53,17 @@ export function buildSiteProfile(input: {
           const raw = schema.raw as Record<string, unknown>;
           return typeof raw.name === 'string' ? raw.name : '';
         }),
-      ...page.entities.filter((entity) => ['product', 'concept'].includes(entity.kind)).map((entity) => entity.name),
+      ...page.entities
+        .filter((entity) => ['schema', 'page_text'].includes(entity.source ?? ''))
+        .filter((entity) => ['product', 'concept'].includes(entity.kind))
+        .map((entity) => entity.name),
     ]),
   ).slice(0, 20);
 
   const languages = unique(all.map((page) => page.metadata.language ?? '')).slice(0, 8);
-  const aliases = unique(
-    all.flatMap((page) => [page.metadata.ogSiteName ?? '', page.metadata.title?.split(/[|\-–]/)[0] ?? '']),
-  ).filter((alias) => alias.toLowerCase() !== name.toLowerCase()).slice(0, 10);
+  const aliases = unique(all.map((page) => page.metadata.ogSiteName ?? ''))
+    .filter((alias) => alias.toLowerCase() !== name.toLowerCase())
+    .slice(0, 10);
 
   const hasService = all.some((page) =>
     page.schemas.some((schema) => schema.type === 'LocalBusiness' || schema.type === 'Service'),

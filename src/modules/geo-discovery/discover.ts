@@ -30,10 +30,12 @@ const hubTimeout = () => Math.min(config.crawl.timeoutMs, 20_000);
 export async function discoverGeoPages(
   rawUrl: string,
   onProgress?: DiscoveryProgressCallback,
+  options?: { maxPages?: number },
 ): Promise<DiscoverGeoPagesResult> {
   const started = Date.now();
   const url = normalizeWebsiteUrl(rawUrl);
-  const maxSelectable = config.crawl.maxPages;
+  const maxSelectable = Math.min(config.crawl.maxPages, Math.max(1, options?.maxPages ?? config.crawl.maxPages));
+  const budgetPages = Math.max(1, options?.maxPages ?? config.crawl.maxPages);
   const deadline = started + config.discovery.timeoutMs;
   const prefetched = new Map<string, PrefetchedProbePage>();
 
@@ -85,8 +87,8 @@ export async function discoverGeoPages(
   onProgress?.('Reading sitemaps and llms.txt…');
   const [sitemap, llmsUrls] = await Promise.all([
     fetchSitemapRecursive(sitemapRoots, {
-      maxFiles: config.discovery.maxSitemapFiles,
-      maxUrls: config.discovery.maxSitemapUrls,
+      maxFiles: Math.min(config.discovery.maxSitemapFiles, Math.max(2, budgetPages)),
+      maxUrls: Math.min(config.discovery.maxSitemapUrls, Math.max(50, budgetPages * 20)),
       maxDepth: 3,
     }),
     collectLlmsUrls(url),
@@ -140,7 +142,7 @@ export async function discoverGeoPages(
       llmsUrls,
       graphUrls: [...graphLinkMap.values()],
     },
-    config.discovery.maxCandidates,
+    Math.min(config.discovery.maxCandidates, Math.max(20, budgetPages * 6)),
   );
 
   const seedCandidate = candidateMap.get(rootFinal);

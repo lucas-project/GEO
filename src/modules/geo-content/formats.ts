@@ -26,9 +26,9 @@ export const FORMAT_PROMPT_GUIDE: Record<GeoContentFormat, string> = {
   step_by_step:
     'How-to or process questions / step titles someone would search for (e.g. "How do I choose the right size?"). No full steps or answers.',
   comparison:
-    'Specific comparison angles (e.g. "Model A vs Model B", "ducted vs split", "large outdoor unit vs compact unit"). Pairings only — no verdict write-up.',
+    'Specific comparison angles using only site-evidenced terms (e.g. "Option A vs Option B"). Pairings only — no verdict write-up.',
   definition:
-    'Definition-style questions for terms in this topic (e.g. "What is a split system?", "What is climate control?"). Questions only — not full definitions.',
+    'Definition-style questions for terms evidenced by this site. Questions only — not full definitions.',
   concise_answer:
     'Short, direct questions that deserve a 1–3 sentence answer (voice/search snippets). Questions only.',
   professional_explanation:

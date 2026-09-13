@@ -202,6 +202,8 @@ export function SimulationRunner() {
   const hasPastRuns = allVisibilityRuns.length > 0;
   const auditIdForGenerate = batchAuditId ?? lastAuditId;
   const { data: simPlatformConfig } = useSimulationPlatformConfig();
+  const simulationAvailable = simPlatformConfig?.availability?.available ?? false;
+  const simulationUnavailableMessage = simPlatformConfig?.availability?.message;
   const platformLabels = useMemo(
     () => platformLabelsFromConfig(simPlatformConfig),
     [simPlatformConfig],
@@ -327,6 +329,7 @@ export function SimulationRunner() {
   }, [singleRunId]);
 
   const startSimulation = () => {
+    if (!simulationAvailable) return;
     setActiveRunId(null);
     setSingleRunId(null);
     queryClient.removeQueries({ queryKey: ['sim-result'] });
@@ -341,6 +344,7 @@ export function SimulationRunner() {
   const isRunning = isSingleRunning;
 
   const startBatch = () => {
+    if (!simulationAvailable) return;
     if (!batchAuditId) return;
     if (enabledBatchPrompts.length === 0) return;
     clearCompleteSummary();
@@ -424,7 +428,7 @@ export function SimulationRunner() {
               <Button
                 variant="secondary"
                 size="sm"
-                disabled={anyRunning || enabledBatchPrompts.length === 0}
+                disabled={anyRunning || enabledBatchPrompts.length === 0 || !simulationAvailable}
                 onClick={startBatch}
               >
                 {batchRunning ? (
@@ -551,7 +555,7 @@ export function SimulationRunner() {
           </details>
 
           <div className="flex justify-end">
-            <Button size="sm" disabled={!prompt.trim() || anyRunning} onClick={startSimulation}>
+            <Button size="sm" disabled={!prompt.trim() || anyRunning || !simulationAvailable} onClick={startSimulation}>
               {isRunning ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -567,6 +571,12 @@ export function SimulationRunner() {
           </div>
         </div>
       </SimulateCollapsibleSection>
+
+      {!simulationAvailable && simulationUnavailableMessage && (
+        <p className="text-xs text-fg-muted rounded-lg border border-border-subtle bg-bg-muted/40 px-3 py-2">
+          Simulation unavailable: {simulationUnavailableMessage}
+        </p>
+      )}
 
       {batchRunning && (
         <JobProgress

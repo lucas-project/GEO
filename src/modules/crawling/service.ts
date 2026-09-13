@@ -19,6 +19,7 @@ import { crawlLogger } from '@shared/logger';
 import { telemetry } from '@shared/telemetry';
 import { fetchRobotsPolicy } from './robots';
 import { fetchSitemapRecursive, discoverSitemaps } from './sitemap';
+import { isAuditablePageUrl } from './url-filters';
 import { discoverInternalLinks } from './discover-links';
 import { mapPool } from '@/lib/map-pool';
 // Focused helper import avoids introducing unrelated barrel dependencies.
@@ -213,8 +214,8 @@ export async function crawl(opts: CrawlServiceOptions): Promise<CrawlResult> {
     if (sitemapUrls.length === 0) sitemapUrls = await discoverSitemaps(parsed.url);
 
     const sitemap = await fetchSitemapRecursive(sitemapUrls, {
-      maxFiles: config.discovery.maxSitemapFiles,
-      maxUrls: config.discovery.maxSitemapUrls,
+      maxFiles: Math.min(config.discovery.maxSitemapFiles, Math.max(2, parsed.maxPages)),
+      maxUrls: Math.min(config.discovery.maxSitemapUrls, Math.max(50, parsed.maxPages * 20)),
       maxDepth: 3,
     });
 
@@ -255,20 +256,22 @@ export async function crawl(opts: CrawlServiceOptions): Promise<CrawlResult> {
         const norm = canonicalPageUrl(raw, parsed.url);
         if (seen.has(norm)) continue;
         seen.add(norm);
-        additional.push(norm);
+        if (isAuditablePageUrl(norm)) additional.push(norm);
       }
     } else if (parsed.maxPages <= 1) {
       additional = [];
     } else {
       opts.onProgress?.(18, 'GEO discovery — ranking pages…');
       const { discoverGeoPages } = await import('@modules/geo-discovery/server');
-      const discovery = await discoverGeoPages(parsed.url, (msg) => opts.onProgress?.(20, msg));
+      const discovery = await discoverGeoPages(parsed.url, (msg) => opts.onProgress?.(20, msg), {
+        maxPages: parsed.maxPages,
+      });
       const suggested = discovery.suggestedUrls.filter((u) => u !== rootNorm);
       const candidates = [
         ...sitemap.map((e) => e.loc),
         ...internalLinks,
         ...discovery.pages.map((p) => p.url),
-      ];
+      ].filter(isAuditablePageUrl);
       additional = prioritizePresenceUrls(
         suggested,
         candidates,

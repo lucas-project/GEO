@@ -14,6 +14,7 @@ export type {
   SchemaBlock,
   FaqEntry,
   Entity,
+  EntitySource,
   SemanticChunk,
   LinkInfo,
   ComparisonTable,

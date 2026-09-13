@@ -30,7 +30,8 @@ async function auditAsSummary(url: string): Promise<SiteSummary> {
   });
   const extraction = audit ? selectAuditRootPage(audit.extractionResults, result.url) : null;
   const entities = extraction
-    ? safeParse<Array<{ name: string; kind: string; relevance: number }>>(extraction.entities, [])
+    ? safeParse<Array<{ name: string; kind: string; relevance: number; source?: string }>>(extraction.entities, [])
+        .filter((entity) => entity.source === 'schema' || entity.source === 'page_text')
     : [];
   const schemas = extraction
     ? safeParse<Array<{ type: string }>>(extraction.schemas, [])

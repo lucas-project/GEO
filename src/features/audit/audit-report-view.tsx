@@ -92,6 +92,22 @@ function AuditReportContent({ audit }: { audit: GeoAuditResult }) {
         Back to audits
       </Link>
 
+      {audit.status === 'partial' || audit.scoringMeta?.completion === 'partial' ? (
+        <div className="mb-6 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100" role="status">
+          <div className="font-medium">Partial audit result</div>
+          <div className="mt-1 text-xs text-amber-100/75">
+            The crawl stopped before the requested sample was complete
+            {audit.scoringMeta?.stopReason ? ` (${audit.scoringMeta.stopReason})` : ''}. Treat this report as directional and rerun it for full coverage.
+          </div>
+        </div>
+      ) : null}
+
+      {audit.scoringMeta?.sampleCoverageStatus && audit.scoringMeta.sampleCoverageStatus !== 'ready' ? (
+        <div className="mb-6 rounded-lg border border-fg-subtle/20 bg-bg-subtle/30 px-4 py-3 text-sm text-fg-muted" role="note">
+          Page sample coverage is {Math.round((audit.scoringMeta.sampleCoverage ?? 0) * 100)}% ({audit.scoringMeta.auditedPages ?? 0}/{audit.scoringMeta.requestedPages ?? 0} requested pages audited). Some findings may be incomplete.
+        </div>
+      ) : null}
+
       <div className="flex items-start justify-between gap-6 mb-8">
         <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-wider text-fg-subtle mb-1">GEO Report</div>

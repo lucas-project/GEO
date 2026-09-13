@@ -17,6 +17,7 @@ import { extractCitations, extractCitationsForPlatforms } from './citation-track
 import { refineBrandLeaderboard, refineBrandLeaderboardHeuristic } from './brand-leaderboard-refine';
 import { buildMockSimulationResponse, canonicalBrandName, type MockSimPlatform } from './mock-responses';
 import { config } from '@shared/config';
+import { assertCapabilityAvailable } from '@shared/ai';
 import {
   PLATFORMS,
   type Platform,
@@ -91,6 +92,7 @@ export interface RunSimulationInput {
 }
 
 export async function runSimulation(input: RunSimulationInput): Promise<SimulationResult> {
+  assertCapabilityAvailable('simulation');
   if (input.targetUrl) {
     const profile = await confirmedProfileForUrl(input.targetUrl);
     if (profile) input = { ...input, targetBrand: profile.primaryEntity.name };

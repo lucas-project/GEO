@@ -23,6 +23,7 @@ export {
   parseSitemapXmlDetailed,
 } from './sitemap';
 export { discoverInternalLinks, buildCrawlQueue } from './discover-links';
+export { isAuditablePageUrl } from './url-filters';
 export type {
   CrawlOptions,
   CrawlResult,

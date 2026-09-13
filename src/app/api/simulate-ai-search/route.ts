@@ -6,7 +6,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { listRecentSimulations, getSimulation } from '@modules/ai-simulation';
-import { enqueueJob, parseJsonBody, parseZod } from '@/lib/api-route';
+import { getCapabilityAvailability } from '@shared/ai';
+import { assertApiAuth, enqueueJob, parseJsonBody, parseZod } from '@/lib/api-route';
 
 const RequestSchema = z.object({
   prompt: z.string().min(3).max(800),
@@ -17,6 +18,12 @@ const RequestSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const authFail = assertApiAuth(req);
+  if (authFail) return authFail;
+  const availability = getCapabilityAvailability('simulation');
+  if (!availability.available) {
+    return NextResponse.json({ error: 'simulation_unavailable', availability }, { status: 409 });
+  }
   const bodyResult = await parseJsonBody(req);
   if (!bodyResult.ok) return bodyResult.response;
 

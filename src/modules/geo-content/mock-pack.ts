@@ -7,8 +7,9 @@ export function buildMockGeoContentPack(prompt: string) {
   const url = urlMatch?.[1]?.trim() ?? 'https://example.com';
   const title = titleMatch?.[1]?.trim() ?? '';
 
+  const keywordBlock = prompt.match(/BEGIN_SITE_KEYWORDS\s*\n([\s\S]*?)\nEND_SITE_KEYWORDS/);
   const terms: string[] = [];
-  for (const m of prompt.matchAll(/^- (.+)$/gm)) {
+  for (const m of (keywordBlock?.[1] ?? '').matchAll(/^- (.+)$/gm)) {
     const t = trimToKeyword(m[1]?.trim() ?? '');
     if (t && isValidKeywordTerm(t) && !terms.includes(t)) terms.push(t);
   }
@@ -22,6 +23,6 @@ export function buildMockGeoContentPack(prompt: string) {
   return packFromFallback({
     url,
     title,
-    keywords: keywords.length > 0 ? keywords : [{ term: 'HVAC', relevance: 0.9, source: 'body' }],
+    keywords: keywords.length > 0 ? keywords : [{ term: 'this topic', relevance: 0.5, source: 'body' }],
   });
 }

@@ -72,6 +72,13 @@ const STOP = new Set([
   'read',
   'get',
   'see',
+  'whether',
+  'expect',
+  'started',
+  'youre',
+  'you’d',
+  'you\'d',
+  're',
   'new',
   'best',
   'top',
@@ -86,11 +93,11 @@ const STOP = new Set([
 export function isValidKeywordTerm(term: string): boolean {
   const t = term.trim();
   if (!t || t.length < 2 || t.length > MAX_KEYWORD_CHARS) return false;
-  if (/[｜|@#]/.test(t)) return false;
+  if (/[｜|@#'’“”!?]/.test(t)) return false;
   if (/https?:\/\//i.test(t)) return false;
   const words = t.split(/\s+/).filter(Boolean);
   if (words.length === 0 || words.length > MAX_KEYWORD_WORDS) return false;
-  if (words.every((w) => STOP.has(w.toLowerCase()))) return false;
+  if (words.some((w) => STOP.has(w.toLowerCase()))) return false;
   return true;
 }
 

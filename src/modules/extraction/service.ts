@@ -53,7 +53,7 @@ export async function extractPage(input: ExtractInput): Promise<PageExtraction> 
       input.textContent ?? $('body').text().replace(/\s+/g, ' ').trim().slice(0, 12_000);
     const title = metadata.title ?? '';
 
-    const entities = await extractEntities({ url: input.url, title, bodyText });
+    const entities = await extractEntities({ url: input.url, title, bodyText, schemas });
     const checklist = extractPageChecklist($, headings, bodyText, input.url);
 
     extractionLogger.info(

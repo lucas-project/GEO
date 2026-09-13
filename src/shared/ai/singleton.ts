@@ -2,6 +2,7 @@ import { config } from '@shared/config';
 import { aiLogger } from '@shared/logger';
 import { telemetry } from '@shared/telemetry';
 import { createAIProvider } from './provider-factory';
+import { capabilityBoundProvider } from './capabilities';
 import type { AIProvider } from './types';
 
 declare global {
@@ -9,7 +10,7 @@ declare global {
 }
 
 function pickProvider(): AIProvider {
-  const provider = createAIProvider(config.ai.provider);
+  const provider = capabilityBoundProvider(createAIProvider(config.ai.provider), 'remote_ai');
   return {
     name: provider.name,
     async generateText(input) {

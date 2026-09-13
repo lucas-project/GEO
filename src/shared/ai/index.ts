@@ -23,8 +23,15 @@ export { mockSampleBrands, mockSampleDomains } from './providers/mock';
 export { OllamaProvider } from './providers/ollama';
 export { MinimaxProvider } from './providers/minimax';
 export { createAIProvider } from './provider-factory';
-export { allowsCapability, isFreeDeterministicMode } from './capabilities';
-export type { RuntimeCapability } from './capabilities';
+export {
+  allowsCapability,
+  isFreeDeterministicMode,
+  getCapabilityAvailability,
+  assertCapabilityAvailable,
+  capabilityBoundProvider,
+  CapabilityUnavailableError,
+} from './capabilities';
+export type { RuntimeCapability, CapabilityAvailability, CapabilityUnavailableReason } from './capabilities';
 export {
   getSiteKeywordsAI,
   resolvedSiteKeywordsProviderName,

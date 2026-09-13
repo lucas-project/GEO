@@ -308,3 +308,15 @@ Python.org 实测还将安装包、压缩包等非 HTML URL 送入 Playwright，
 当前系统的工程骨架是成立的：路由、异步队列、抓取、抽取、评分、报告和竞品流程都能贯通，真实站点也能得到可查看的结果。但产品最核心的承诺不是“任务能完成”，而是“结果可信、可追溯、可行动”。本次实测暴露的 synthetic 实体污染、领域模板污染、partial 被展示为 ready，以及 free 模式仍调用独立 provider，都会直接破坏这一承诺。
 
 因此当前评价是：**流程可演示，结论不可依赖；优先完成 P0 后再做下一轮验收。**
+## 8. 2026-09-13 修复后验收记录
+
+- CodeGraph 已安装并完成项目索引。
+- 全量测试：107 个测试文件、319 个测试通过。
+- `npm.cmd run typecheck`：通过。
+- `npm.cmd run lint`：通过。
+- `npm.cmd run build`：通过，38 个静态页面生成完成。
+- 审计报告已支持 partial 状态、停止原因、页面采样 coverage 和 UI 提示。
+- 发现阶段已按 `maxPages` 收敛 sitemap/candidate 预算，并过滤明显非 HTML 下载链接。
+- free-deterministic + mock 运行回归已验证：无模型 token 消耗，Python.org 内容关键词不再出现 HVAC 领域污染模板。
+
+结论：本轮 P0/P1 修复和构建级验收通过；真实站点的长期稳定性、浏览器 UI 交互和外部搜索供应商效果仍需在部署环境持续观察，不能仅凭本地 mock 结果宣称全部生产场景通过。

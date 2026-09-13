@@ -80,7 +80,7 @@ describe('extractRollupSignals', () => {
           { level: 1, text: 'Title' },
           { level: 2, text: 'Sub' },
         ],
-        entities: [{ name: 'Acme Corp', kind: 'organization', count: 1, relevance: 0.9 }],
+        entities: [{ name: 'Acme Corp', kind: 'organization', count: 1, relevance: 0.9, source: 'schema' }],
         tables: [{ caption: null, headers: ['A', 'B'], rows: [['1', '2']] }],
       }),
     ]);

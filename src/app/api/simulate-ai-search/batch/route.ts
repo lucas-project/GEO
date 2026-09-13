@@ -3,7 +3,9 @@
  */
 
 import { z } from 'zod';
-import { enqueueJob, parseJsonBody, parseZod } from '@/lib/api-route';
+import { NextResponse } from 'next/server';
+import { getCapabilityAvailability } from '@shared/ai';
+import { assertApiAuth, enqueueJob, parseJsonBody, parseZod } from '@/lib/api-route';
 
 const PromptEntrySchema = z.object({
   text: z.string().min(3).max(800),
@@ -26,6 +28,12 @@ const RequestSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const authFail = assertApiAuth(req);
+  if (authFail) return authFail;
+  const availability = getCapabilityAvailability('simulation');
+  if (!availability.available) {
+    return NextResponse.json({ error: 'simulation_unavailable', availability }, { status: 409 });
+  }
   const bodyResult = await parseJsonBody(req);
   if (!bodyResult.ok) return bodyResult.response;
 

@@ -32,6 +32,18 @@ export function registerGeoAuditHandlers(): void {
         await ctx.reportProgress(p);
       },
     });
+    if (ctx.budget?.stopReason) {
+      const { prisma, parseJson, stringifyJson } = await import('@shared/database/client');
+      const audit = await prisma.geoAudit.findUnique({ where: { id: result.id }, select: { scoringMeta: true } });
+      const current = parseJson<Record<string, unknown>>(audit?.scoringMeta ?? '{}', {});
+      await prisma.geoAudit.update({
+        where: { id: result.id },
+        data: {
+          status: 'partial',
+          scoringMeta: stringifyJson({ ...current, completion: 'partial', stopReason: ctx.budget.stopReason }),
+        },
+      });
+    }
     if (ctx.job.payload.recheckOptimizationId) {
       const { prisma } = await import('@shared/database/client');
       await prisma.optimizationSuggestion.update({ where: { id: ctx.job.payload.recheckOptimizationId },

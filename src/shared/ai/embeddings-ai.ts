@@ -1,6 +1,7 @@
 import { config } from '@shared/config';
 import { createAIProvider } from './provider-factory';
 import { ai } from './singleton';
+import { capabilityBoundProvider } from './capabilities';
 import type { AIProvider } from './types';
 
 let embeddingsProvider: AIProvider | null = null;
@@ -22,7 +23,7 @@ export function getEmbeddingsAI(): AIProvider {
     return embeddingsProvider;
   }
 
-  embeddingsProvider = createAIProvider(override);
+  embeddingsProvider = capabilityBoundProvider(createAIProvider(override), 'embeddings');
   embeddingsProviderKey = cacheKey;
   return embeddingsProvider;
 }

@@ -38,11 +38,25 @@ export const SchemaBlockSchema = z.object({
 });
 export type SchemaBlock = z.infer<typeof SchemaBlockSchema>;
 
+export const EntitySourceSchema = z.enum(['schema', 'page_text', 'model', 'synthetic']);
+export type EntitySource = z.infer<typeof EntitySourceSchema>;
+
+/**
+ * Entity facts must declare how they were obtained. Legacy rows have no source
+ * and are deliberately excluded from downstream comparative/intelligence use.
+ */
 export const EntitySchema = z.object({
   name: z.string(),
   kind: z.enum(['organization', 'product', 'person', 'place', 'date', 'concept', 'other']),
   count: z.number().int().min(1),
   relevance: z.number().min(0).max(1),
+  source: EntitySourceSchema.optional(),
+  evidence: z
+    .object({
+      url: z.string(),
+      text: z.string(),
+    })
+    .optional(),
 });
 export type Entity = z.infer<typeof EntitySchema>;
 

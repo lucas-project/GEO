@@ -12,6 +12,7 @@
 import { config } from '@shared/config';
 import { meteredProvider } from './usage';
 import { ai } from './index';
+import { assertCapabilityAvailable } from './capabilities';
 import { AnthropicProvider } from './providers/anthropic';
 import { GeminiProvider } from './providers/gemini';
 import { OllamaProvider } from './providers/ollama';
@@ -143,6 +144,7 @@ export function simulationPlatformDisplayLabel(
 
 export function getSimulationPlatformConfig(): {
   defaultProvider: string;
+  configuredSimulationProvider: string;
   simulationProvider: string;
   localMultiModel: boolean;
   platforms: SimulationPlatformConfigEntry[];
@@ -150,6 +152,7 @@ export function getSimulationPlatformConfig(): {
   const localMultiModel = usesOllamaForSimulation();
   return {
     defaultProvider: config.ai.provider,
+    configuredSimulationProvider: config.simulation.configuredAiProvider,
     simulationProvider: config.simulation.aiProvider,
     localMultiModel,
     platforms: SIMULATED_PLATFORMS.map((platform) => {
@@ -188,6 +191,7 @@ export async function runOnAllPlatforms(input: {
   targetUrl?: string;
   runOptions?: PlatformRunOptions;
 }): Promise<PlatformResponse[]> {
+  assertCapabilityAvailable('simulation');
   const runs = input.perPlatformRuns ?? 1;
   const runOptions = input.runOptions;
   const tasks: Array<() => Promise<PlatformResponse>> = [];

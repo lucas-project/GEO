@@ -1,5 +1,5 @@
 /**
- * Use a lightweight model to merge keyword candidates — keep phrases like "split system" intact.
+ * Use a lightweight model to merge keyword candidates while preserving meaningful phrases.
  */
 
 import { z } from 'zod';
@@ -20,8 +20,8 @@ const REFINE_SYSTEM = `You refine SEO/GEO keyword candidates extracted from a we
 
 Rules:
 - Return 5–12 keywords, each 1–3 words only.
-- KEEP meaningful multi-word phrases intact (e.g. "split system", "air conditioning", "climate control").
-- DROP meaningless fragments split from a phrase (e.g. if "split system" exists, do NOT also return "split" and "system" alone).
+- KEEP meaningful multi-word phrases intact (e.g. "data types", "customer support").
+- DROP meaningless fragments split from a phrase (e.g. if "data types" exists, do NOT also return "data" and "types" alone).
 - DROP brand names, page titles, taglines, and generic words (home, page, contact).
 - Prefer industry/product terms a customer would search for.
 - Only return terms that fit the site's topic.`;

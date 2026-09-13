@@ -16,8 +16,14 @@ export interface SimulationPlatformConfigEntry {
 
 export interface SimulationConfigResponse {
   defaultProvider: string;
+  configuredSimulationProvider: string;
   simulationProvider: string;
   localMultiModel: boolean;
+  availability: {
+    available: boolean;
+    reason?: string;
+    message?: string;
+  };
   platforms: SimulationPlatformConfigEntry[];
   ollama?: {
     enabled: boolean;

@@ -420,6 +420,21 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
 
     const enrichedScoringMeta: ScoringMeta = {
       ...evidenceScoringMeta,
+      requestedPages: maxPages,
+      auditedPages: pageInventory.auditedCount,
+      discoveredPages: pageInventory.discoveredCount,
+      sampleCoverage: maxPages > 0 ? Math.min(1, pageInventory.auditedCount / maxPages) : 1,
+      discoveryCoverage:
+        pageInventory.discoveredCount > 0
+          ? Math.min(1, pageInventory.auditedCount / pageInventory.discoveredCount)
+          : 0,
+      sampleCoverageStatus:
+        pageInventory.auditedCount >= Math.min(maxPages, pageInventory.discoveredCount)
+          ? 'ready'
+          : pageInventory.auditedCount > 0
+            ? 'partial'
+            : 'insufficient_evidence',
+      completion: 'complete',
       ...(suggestedSimulationPrompts.length > 0 ? { suggestedSimulationPrompts } : {}),
       ...(suggestedCompetitors.length > 0 ? { suggestedCompetitors } : {}),
     };

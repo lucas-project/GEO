@@ -1,6 +1,7 @@
 import { config } from '@shared/config';
 import { createAIProvider } from './provider-factory';
 import { ai } from './singleton';
+import { capabilityBoundProvider } from './capabilities';
 import type { AIProvider } from './types';
 
 let siteKeywordsProvider: AIProvider | null = null;
@@ -22,7 +23,7 @@ export function getSiteKeywordsAI(): AIProvider {
     return siteKeywordsProvider;
   }
 
-  siteKeywordsProvider = createAIProvider(override);
+  siteKeywordsProvider = capabilityBoundProvider(createAIProvider(override), 'remote_ai');
   siteKeywordsProviderKey = cacheKey;
   return siteKeywordsProvider;
 }

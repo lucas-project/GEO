@@ -197,6 +197,21 @@ export class MockAIProvider implements AIProvider {
   async generateStructuredOutput<TSchema extends z.ZodTypeAny>(
     input: GenerateStructuredInput<TSchema>,
   ): Promise<GenerateStructuredResult<z.infer<TSchema>>> {
+    // Generic schema synthesis chooses canned brands. Entity extraction is a
+    // factual pipeline, so never let mock fixture data masquerade as a page fact.
+    if (input.schemaName === 'EntityExtraction') {
+      const parsed = input.schema.safeParse({ entities: [] });
+      if (!parsed.success) {
+        throw new AIProviderError(`mock EntityExtraction did not match schema: ${parsed.error.message}`, this.name);
+      }
+      return {
+        data: parsed.data,
+        tokens: { input: tokenCount(input.prompt), output: tokenCount(JSON.stringify(parsed.data)), total: tokenCount(input.prompt) + tokenCount(JSON.stringify(parsed.data)) },
+        model: 'mock-entity-extraction-empty-v1',
+        provider: this.name,
+      };
+    }
+
     if (input.schemaName === 'GeoAgentPlan') {
       const { buildMockAgentPlan } = await import('@modules/geo-agent/mock-plan');
       const goalMatch = input.prompt.match(/User goal: "([^"]+)"/);

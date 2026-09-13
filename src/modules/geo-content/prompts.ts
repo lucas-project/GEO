@@ -12,8 +12,8 @@ Rules:
 - Each section has 6–10 varied prompts. Prompts ONLY — no answers.
 - Spread coverage across the keyword list — do NOT duplicate the same questions for every keyword.
 - Q&A: real buyer questions to this business (natural wording, not the full page title).
-- Definition: "What is …?" for concepts in the topic (split system, climate control, etc.).
-- Comparison: specific pairings (A vs B, ducted vs split, large vs small unit).
+- Definition: "What is …?" for concepts evidenced by the site.
+- Comparison: specific pairings only when both topics are evidenced by the site.
 - Do not repeat the same prompt in multiple sections.`;
 
 export function keywordsForIdeas(keywords: GeoContentKeyword[]): GeoContentKeyword[] {
@@ -41,8 +41,9 @@ Meta description: ${input.description || '(none)'}
 Headings:
 ${headingBlock}
 
-Keywords for this site (use as topics — cover all of them across the 6 sections):
+BEGIN_SITE_KEYWORDS
 ${terms.map((t) => `- ${t}`).join('\n')}
+END_SITE_KEYWORDS
 
 Create exactly ${GEO_CONTENT_FORMATS.length} sections — ONE per format for the whole site (not per keyword):
 
@@ -69,7 +70,7 @@ export function packFromFallback(input: {
   const terms =
     keywordsForIdeas(input.keywords).map((k) => k.term).length > 0
       ? keywordsForIdeas(input.keywords).map((k) => k.term)
-      : ['HVAC'];
+      : ['this topic'];
 
   const sections: GeoContentSection[] = GEO_CONTENT_FORMATS.map((format) => ({
     format,
@@ -78,8 +79,8 @@ export function packFromFallback(input: {
 
   return {
     inferredTopic: trimTopic(topic),
-    audience: 'Prospects searching via AI assistants and traditional search',
-    positioning: 'Answer real buyer questions so the brand is cited in AI and voice results.',
+    audience: 'People seeking clear, evidence-backed information about this topic',
+    positioning: 'Publish direct answers grounded in the site so readers and answer engines can understand the topic.',
     sections,
   };
 }

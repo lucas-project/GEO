@@ -33,6 +33,11 @@ export function SimulationHowItWorks() {
         <span className="text-fg-subtle font-normal text-xs ml-1">(click to expand)</span>
       </summary>
       <div className="mt-3 space-y-3 text-[13px] text-fg-muted leading-relaxed">
+        {!data?.availability?.available && data?.availability?.message && (
+          <p className="text-xs rounded-md border border-border-subtle bg-bg-muted/50 px-2.5 py-2">
+            Simulation unavailable: {data.availability.message}
+          </p>
+        )}
         {data?.localMultiModel ? (
           <p>
             Each question runs against four local Ollama models (shown by real model name below). We extract

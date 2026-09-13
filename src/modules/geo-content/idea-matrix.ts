@@ -39,7 +39,7 @@ export function finalizeContentPack(pack: GeoContentPack, keywordTerms: string[]
     }
   }
 
-  const terms = keywordTerms.length > 0 ? keywordTerms : ['HVAC'];
+  const terms = keywordTerms.length > 0 ? keywordTerms : ['this topic'];
   const sections: GeoContentSection[] = GEO_CONTENT_FORMATS.map((format) => {
     const merged = cleanPrompts(byFormat.get(format) ?? []);
     const prompts = merged.length >= 5 ? merged : buildMergedPromptList(terms, format);

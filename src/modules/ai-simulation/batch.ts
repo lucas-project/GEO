@@ -5,6 +5,7 @@
 import { mapPool } from '@/lib/map-pool';
 import { config } from '@shared/config';
 import { warmOllamaSimulationModels } from '@shared/ai/ollama-warm';
+import { assertCapabilityAvailable } from '@shared/ai';
 import { createAuditChunkSearch, type AuditChunkSearch } from '@modules/embeddings';
 import { runSimulation } from './service';
 import type { BrandMention, Platform, SimulationResult, SimulationExecutionMode } from './schemas';
@@ -121,6 +122,7 @@ function toBatchResultItem(
 export async function runSimulationBatch(
   input: RunSimulationBatchInput,
 ): Promise<SimulationBatchResult> {
+  assertCapabilityAvailable('simulation');
   const entries = input.prompts
     .map((p) => ({
       text: p.text.trim(),

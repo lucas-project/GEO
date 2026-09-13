@@ -27,6 +27,18 @@ export async function checkOllamaSimulationHealth(): Promise<OllamaHealthResult>
   const baseUrl = config.ollama.baseUrl.replace(/\/$/, '');
   const requiredModels = config.simulation.ollamaModels;
 
+  if (!enabled) {
+    return {
+      enabled,
+      reachable: false,
+      baseUrl,
+      installedModels: [],
+      requiredModels,
+      missingModels: [],
+      ready: false,
+    };
+  }
+
   let installedModels: string[] = [];
   let reachable = false;
 
