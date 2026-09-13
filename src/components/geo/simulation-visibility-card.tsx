@@ -20,6 +20,8 @@ export function SimulationVisibilityCard({ scoringMeta, auditId }: SimulationVis
     check.promptsTested > 0
       ? Math.round((check.promptsCiting / check.promptsTested) * 100)
       : 0;
+  const mode = check.executionMode ?? 'legacy_unknown';
+  const isLive = mode === 'live';
 
   return (
     <Card className="mb-6 border-accent/20 bg-accent/5">
@@ -34,7 +36,7 @@ export function SimulationVisibilityCard({ scoringMeta, auditId }: SimulationVis
           <span className="font-semibold tabular-nums">
             {check.promptsCiting} of {check.promptsTested}
           </span>{' '}
-          discovery questions cite you on simulated AI search
+          discovery questions mention or cite the target in this experiment
           {citePct > 0 && (
             <span className="text-fg-muted"> ({citePct}% of discovery queries)</span>
           )}
@@ -46,6 +48,13 @@ export function SimulationVisibilityCard({ scoringMeta, auditId }: SimulationVis
               {check.brandPromptsTested === 1 ? '' : 's'} ran but are excluded from this score.
             </span>
           ) : null}
+        </p>
+        <p className={isLive ? 'text-xs text-success' : 'text-xs text-amber-600 dark:text-amber-400'}>
+          {isLive
+            ? 'External-provider observation mode. Results still apply only to this prompt set and run time.'
+            : mode === 'legacy_unknown'
+              ? 'Historical run mode was not recorded; do not treat this as an external-provider observation.'
+              : `${mode} experiment mode. This is not a measurement of ChatGPT, Gemini, Claude, or Perplexity production visibility.`}
         </p>
         <p className="text-xs text-fg-muted">Last checked {formatDate(check.checkedAt)}</p>
         <VisibilityCheckResults check={check} auditId={auditId} />

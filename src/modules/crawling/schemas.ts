@@ -61,6 +61,15 @@ export const CrawledPageSchema = z.object({
     .optional(),
   /** Present when a headed WAF retry was used after headless block. */
   fetchChannel: z.enum(['stealth', 'headed']).optional(),
+  fetchStatus: z.enum([
+    'observed', 'blocked', 'timeout', 'rate_limited', 'parse_error', 'not_run', 'legacy_unknown',
+  ]).optional(),
+  blockReason: z.string().optional(),
+  contentHash: z.string().optional(),
+  htmlTruncated: z.boolean().optional(),
+  rawHtmlAvailable: z.boolean().optional(),
+  renderedHtmlAvailable: z.boolean().optional(),
+  fetchProfile: z.string().optional(),
 });
 export type CrawledPage = z.infer<typeof CrawledPageSchema>;
 

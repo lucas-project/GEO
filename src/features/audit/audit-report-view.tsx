@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { SiteProfileReview } from '@/features/workspace/site-profile-review';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
@@ -52,11 +53,24 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function AuditReportContent({ audit }: { audit: GeoAuditResult }) {
   const dimensions = audit.dimensions;
+  const readiness = audit.scoringMeta?.readiness;
+  const displayedScore = readiness ? readiness.score : audit.overallScore;
   const dimensionEntries = (Object.keys(DIMENSION_LABELS) as Dimension[]).map((dim) => ({
     dim,
-    score: dimensions[dim]?.score ?? 0,
+    score: dimensions[dim]?.score ?? null,
     reasons: dimensions[dim]?.reasons ?? [],
   }));
+  const measuredDimensions = dimensionEntries.filter(
+    (entry): entry is typeof entry & { score: number } => entry.score != null,
+  );
+  const strongestDimension = measuredDimensions.reduce(
+    (best, entry) => (!best || entry.score > best.score ? entry : best),
+    measuredDimensions[0],
+  );
+  const weakestDimension = measuredDimensions.reduce(
+    (worst, entry) => (!worst || entry.score < worst.score ? entry : worst),
+    measuredDimensions[0],
+  );
 
   const { data: monitorStatus } = useQuery<SiteMonitorStatus>({
     queryKey: ['monitor-status', audit.siteId],
@@ -69,6 +83,7 @@ function AuditReportContent({ audit }: { audit: GeoAuditResult }) {
 
   return (
     <div className="max-w-6xl mx-auto px-8 py-10">
+      {audit.siteId && <div className="mb-6"><SiteProfileReview key={audit.siteId} siteId={audit.siteId} /></div>}
       <Link
         href="/audit"
         className="inline-flex items-center gap-1 text-xs text-fg-muted hover:text-fg mb-6 transition-colors"
@@ -104,14 +119,32 @@ function AuditReportContent({ audit }: { audit: GeoAuditResult }) {
               Export report
             </a>
           </div>
+          {audit.scoringMeta?.siteProfile && (
+            <div className="mt-2 text-xs text-fg-muted">
+              Detected entity: <span className="text-fg">{audit.scoringMeta.siteProfile.primaryEntity.name}</span>
+              <span className="ml-2 text-fg-subtle">
+                ({audit.scoringMeta.siteProfile.confirmationState === 'needs_review' ? 'needs review' : 'draft'})
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="shrink-0 flex flex-col sm:flex-row items-center gap-4">
           <div className="text-center">
-            <ScoreGauge score={audit.overallScore} size="xl" />
+            <ScoreGauge score={displayedScore} size="xl" />
             <div className="mt-2 text-xs uppercase tracking-wider text-fg-muted">
-              {scoreToLabel(audit.overallScore)}
+              {readiness ? 'Content & technical readiness' : `${scoreToLabel(audit.overallScore)} · historical estimate`}
             </div>
+            {readiness ? (
+              <div className="mt-1 text-[11px] text-fg-subtle" title="Share of applicable checks with observed evidence">
+                {readiness.coverageStatus === 'ready' ? 'Evidence-backed result' : readiness.coverageStatus === 'preliminary' ? 'Preliminary result' : 'Insufficient evidence'} · {Math.round(readiness.coverage * 100)}% coverage
+              </div>
+            ) : typeof audit.scoringMeta?.coverage === 'number' && (
+              <div className="mt-1 text-[11px] text-fg-subtle" title="Share of applicable checks with observed evidence">
+                Evidence coverage {Math.round(audit.scoringMeta.coverage * 100)}%
+                {audit.scoringMeta.coverage < 0.8 ? ' · limited' : ''}
+              </div>
+            )}
           </div>
           {audit.scoringMeta && (
             <CitationProbabilityCard scoringMeta={audit.scoringMeta} className="min-w-[200px]" />
@@ -235,19 +268,11 @@ function AuditReportContent({ audit }: { audit: GeoAuditResult }) {
               <Stat label="Fixes generated" value={String(audit.topFixes.length)} />
               <Stat
                 label="Strongest dimension"
-                value={
-                  DIMENSION_LABELS[
-                    dimensionEntries.reduce((a, b) => (a.score > b.score ? a : b)).dim as Dimension
-                  ]
-                }
+                value={strongestDimension ? DIMENSION_LABELS[strongestDimension.dim] : 'Insufficient evidence'}
               />
               <Stat
                 label="Weakest dimension"
-                value={
-                  DIMENSION_LABELS[
-                    dimensionEntries.reduce((a, b) => (a.score < b.score ? a : b)).dim as Dimension
-                  ]
-                }
+                value={weakestDimension ? DIMENSION_LABELS[weakestDimension.dim] : 'Insufficient evidence'}
               />
               {audit.screenshotUrl && (
                 <div className="pt-3 border-t border-border-subtle">

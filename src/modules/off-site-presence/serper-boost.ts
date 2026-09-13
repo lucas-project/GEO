@@ -1,5 +1,7 @@
 import { config } from '@shared/config';
-import { matchPlatformUrl } from '@modules/brand-presence/platforms';
+import { allowsCapability } from '@shared/ai';
+import { currentTaskBudget } from '@shared/ai/budget';
+import { matchPlatformUrl } from '@modules/brand-presence';
 import type { PresencePlatform } from '@modules/brand-presence';
 
 export interface SerperBoostResult {
@@ -24,6 +26,8 @@ const TOP_HITS = 5;
 async function serperSearch(query: string): Promise<Array<{ link: string; snippet: string }>> {
   const key = config.search?.serperApiKey;
   if (!key) return [];
+  if (!allowsCapability('remote_search')) return [];
+  currentTaskBudget()?.consume('searchRequests');
   const res = await fetch('https://google.serper.dev/search', {
     method: 'POST',
     headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },

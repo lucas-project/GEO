@@ -8,7 +8,6 @@ import { config } from '@shared/config';
 import {
   listPatternsFromSignals,
   parseRollupSignals,
-  legacyFieldsFromSignals,
   type PatternKeyRef,
 } from './rollup';
 import type { PatternStatMetadata, PatternType } from './schemas';

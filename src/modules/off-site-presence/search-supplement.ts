@@ -12,7 +12,6 @@ import {
   shouldOrchestrateSearch,
   type SearchOrchestrationMeta,
 } from './search-orchestrator';
-import { extractPageHints } from './prompts/search-plan';
 import type { EntityPageInput } from './resolve-entity';
 import { shouldCurateSearchHits } from './curate-search-hits';
 import { debugPresenceLog } from './debug-agent-log';
@@ -30,7 +29,6 @@ import { isDiscoveryMediaHost } from './media-discovery';
 import { SOCIAL_SEARCH_KEYS } from './platform-registry';
 import type { PresenceSearchPlan } from './search-plan-types';
 import { toSearchBrandLabel } from './search-brand';
-import { inferMarketFromDomain } from './market-country';
 import type { AgentReachHealth } from './schemas';
 
 export type { SearchSupplementSocialHit };
@@ -367,7 +365,6 @@ export async function runSearchSupplement(
   const brand = toSearchBrandLabel(rawBrand);
   const domain = input.domain.replace(/^www\./, '');
 
-  const pageHints = extractPageHints(input.pages);
   const allDefs = buildQueryDefsFromPlan(brand, domain, input.searchPlan);
   const maxQueries = config.presenceProbe.searchSupplementMaxQueries;
   const defs = selectQueryDefs(allDefs, maxQueries, domain);

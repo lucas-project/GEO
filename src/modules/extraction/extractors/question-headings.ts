@@ -1,7 +1,7 @@
 import type { Heading } from '../schemas';
 
 const QUESTION_WORDS =
-  /^(what|how|why|when|where|who|which|can|do|does|is|are|should|will)\b/i;
+  /^(what|how|why|when|where|who|which|can|do|does|is|are|should|will)\b|^(什么|如何|为什么|为何|何时|哪里|谁|是否|可以|能否|怎样)/i;
 
 export interface QuestionHeadingSignals {
   questionHeadingCount: number;
@@ -14,9 +14,10 @@ export function extractQuestionHeadings(headings: Heading[]): QuestionHeadingSig
   let questionHeadingCount = 0;
   for (const h of h2h3) {
     const t = h.text.trim();
-    if (t.endsWith('?') && t.length >= 8) {
+    const minLength = /[\u3400-\u9fff]/.test(t) ? 4 : 8;
+    if ((t.endsWith('?') || t.endsWith('？')) && t.length >= minLength) {
       questionHeadingCount++;
-    } else if (QUESTION_WORDS.test(t) && t.length >= 12) {
+    } else if (QUESTION_WORDS.test(t) && t.length >= minLength) {
       questionHeadingCount++;
     }
   }

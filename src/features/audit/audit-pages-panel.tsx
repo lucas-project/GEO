@@ -154,6 +154,11 @@ export function AuditPagesPanel({ auditId, inventory }: AuditPagesPanelProps) {
                   </a>
                   {page.title ? <p className="text-fg-muted mt-0.5 truncate">{page.title}</p> : null}
                   {page.error ? <p className="text-danger mt-0.5">{page.error}</p> : null}
+                  {page.observationStatus && page.observationStatus !== 'observed' ? (
+                    <p className="text-amber-600 dark:text-amber-400 mt-0.5">
+                      Acquisition: {page.observationStatus.replace('_', ' ')}; evidence excluded from score
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   {page.geoScore != null && page.geoScore > 0 && (

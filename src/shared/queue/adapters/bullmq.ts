@@ -9,13 +9,16 @@
 import { Queue as BullQueue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { randomId } from '@shared/util/id';
+import { createHash } from 'node:crypto';
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
 import { config } from '@shared/config';
 import { queueLogger } from '@shared/logger';
 import { reapOrphanedRunningJobs } from '../reap-orphaned-jobs';
 import type { JobContext, JobHandler, Queue, QueueJob } from '../types';
+import { executeWithBudget } from '../execution';
 
 const QUEUE_NAME = 'geo-jobs';
+const LEASE_MS = 5 * 60 * 1000;
 
 export class BullmqQueue implements Queue {
   private handlers = new Map<string, JobHandler>();
@@ -35,16 +38,35 @@ export class BullmqQueue implements Queue {
     queueLogger.info({ jobType }, 'bullmq handler registered');
   }
 
-  async enqueue<TPayload>(jobType: string, payload: TPayload): Promise<string> {
-    const id = randomId();
-    await prisma.job.create({
-      data: {
-        id,
-        type: jobType,
-        status: 'pending',
-        payload: stringifyJson(payload),
-      },
-    });
+  async enqueue<TPayload>(jobType: string, payload: TPayload, options?: { idempotencyKey?: string }): Promise<string> {
+    const id = options?.idempotencyKey
+      ? `idem-${createHash('sha256').update(`${jobType}:${options.idempotencyKey}`).digest('hex').slice(0, 32)}`
+      : randomId();
+    try {
+      await prisma.job.create({
+        data: {
+          id,
+          type: jobType,
+          status: 'pending',
+          payload: stringifyJson(payload),
+        },
+      });
+      if (options?.idempotencyKey) {
+        await prisma.$executeRaw`UPDATE "Job" SET "idempotencyKey" = ${options.idempotencyKey} WHERE "id" = ${id}`;
+      }
+    } catch (err) {
+      if (!options?.idempotencyKey) throw err;
+      const existing = await prisma.job.findUnique({ where: { id } });
+      if (!existing) throw err;
+      if (existing.status === 'pending' && !(await this.bullQueue.getJob(id))) {
+        await this.bullQueue.add(
+          jobType,
+          { prismaJobId: id, payload },
+          { jobId: id, attempts: 1, removeOnComplete: { count: 500 }, removeOnFail: { count: 200 } },
+        );
+      }
+      return existing.id;
+    }
     await this.bullQueue.add(
       jobType,
       { prismaJobId: id, payload },
@@ -70,6 +92,7 @@ export class BullmqQueue implements Queue {
       progress: row.progress,
       statusMessage: row.statusMessage ?? undefined,
       result: row.result ? parseJson(row.result, null) : undefined,
+      usage: row.usage ? parseJson(row.usage, {}) : undefined,
       error: row.error ?? undefined,
       createdAt: row.createdAt,
       startedAt: row.startedAt ?? undefined,
@@ -120,13 +143,30 @@ export class BullmqQueue implements Queue {
           return;
         }
 
-        await prisma.job.update({
-          where: { id: row.id },
-          data: { status: 'running', startedAt: new Date() },
-        });
+        const leaseToken = randomId();
+        const now = new Date();
+        const claimed = await prisma.$executeRaw`
+          UPDATE "Job"
+          SET "status" = 'running', "startedAt" = ${now},
+              "heartbeatAt" = ${now}, "leaseExpiresAt" = ${new Date(now.getTime() + LEASE_MS)},
+              "leaseToken" = ${leaseToken}, "attempt" = COALESCE("attempt", 0) + 1
+          WHERE "id" = ${row.id} AND "status" = 'pending'
+        `;
+        if (claimed !== 1) return;
 
         const log = queueLogger.child({ jobId: row.id, jobType: row.type });
+        const startedAtMs = Date.now();
         const payload = parseJson(row.payload, null);
+        const controller = new AbortController();
+        const runtimeTimer = setTimeout(() => controller.abort(), config.queue.maxRuntimeMs);
+        const cancellationPoll = setInterval(() => {
+          void prisma.job
+            .findUnique({ where: { id: row.id }, select: { status: true } })
+            .then((current) => {
+              if (current?.status === 'cancelled') controller.abort();
+            })
+            .catch(() => {});
+        }, 500);
         const ctx: JobContext = {
           job: {
             id: row.id,
@@ -136,50 +176,65 @@ export class BullmqQueue implements Queue {
             progress: 0,
             createdAt: row.createdAt,
           },
+          signal: controller.signal,
           reportProgress: async (progress: number, message?: string) => {
-            await prisma.job.update({
-              where: { id: row.id },
-              data: {
-                progress: Math.max(0, Math.min(100, Math.round(progress))),
-                ...(message !== undefined ? { statusMessage: message } : {}),
-              },
-            });
+            if (controller.signal.aborted) throw new Error('job cancelled');
+            const bounded = Math.max(0, Math.min(100, Math.round(progress)));
+            await prisma.$executeRaw`
+              UPDATE "Job"
+              SET "progress" = ${bounded},
+                  "heartbeatAt" = ${new Date()},
+                  "leaseExpiresAt" = ${new Date(Date.now() + LEASE_MS)},
+                  "statusMessage" = COALESCE(${message ?? null}, "statusMessage")
+              WHERE "id" = ${row.id} AND "status" = 'running' AND "leaseToken" = ${leaseToken}
+            `;
           },
           log: (message, extra) => log.info(extra ?? {}, message),
         };
 
         try {
-          const result = await handler(ctx);
-          await prisma.job.update({
-            where: { id: row.id },
-            data: {
-              status: 'completed',
-              progress: 100,
-              result: stringifyJson(result ?? null),
-              finishedAt: new Date(),
-            },
-          });
+          const result = await executeWithBudget(ctx, handler, leaseToken);
+          const completed = await prisma.$executeRaw`
+            UPDATE "Job"
+            SET "status" = 'completed', "progress" = 100,
+                "result" = ${stringifyJson(result ?? null)}, "finishedAt" = ${new Date()},
+                "usage" = ${stringifyJson({ ...ctx.budget?.snapshot(), durationMs: Date.now() - startedAtMs, attempt: row.attempt + 1 })},
+                "leaseToken" = NULL, "leaseExpiresAt" = NULL
+            WHERE "id" = ${row.id} AND "status" = 'running' AND "leaseToken" = ${leaseToken}
+          `;
+          if (completed !== 1) {
+            log.warn('job completion ignored because lease was lost or job was cancelled');
+            clearInterval(cancellationPoll);
+            clearTimeout(runtimeTimer);
+            return;
+          }
           log.info('job completed');
+          clearInterval(cancellationPoll);
+          clearTimeout(runtimeTimer);
         } catch (err) {
+          clearInterval(cancellationPoll);
           const current = await prisma.job.findUnique({
             where: { id: row.id },
             select: { status: true },
           });
           if (current?.status === 'cancelled') {
             log.info('job cancelled');
+            await prisma.$executeRaw`
+              UPDATE "Job" SET "usage" = ${stringifyJson({ ...ctx.budget?.snapshot(), durationMs: Date.now() - startedAtMs, attempt: row.attempt + 1 })}
+              WHERE "id" = ${row.id}
+            `;
             return;
           }
           const message = err instanceof Error ? err.message : String(err);
           const stack = err instanceof Error ? err.stack : undefined;
           log.error({ err: message, stack }, 'job failed');
-          await prisma.job.update({
-            where: { id: row.id },
-            data: {
-              status: 'failed',
-              error: message,
-              finishedAt: new Date(),
-            },
-          });
+          await prisma.$executeRaw`
+            UPDATE "Job"
+            SET "status" = 'failed', "error" = ${message}, "finishedAt" = ${new Date()},
+                "usage" = ${stringifyJson({ ...ctx.budget?.snapshot(), durationMs: Date.now() - startedAtMs, attempt: row.attempt + 1 })},
+                "leaseToken" = NULL, "leaseExpiresAt" = NULL
+            WHERE "id" = ${row.id} AND "status" = 'running' AND "leaseToken" = ${leaseToken}
+          `;
           throw err;
         }
       },

@@ -11,15 +11,18 @@
  */
 
 import { promises as fs } from 'fs';
+import { createHash } from 'node:crypto';
 import path from 'path';
 import { canonicalPageUrl } from '@/lib/website-url';
 import { config } from '@shared/config';
 import { crawlLogger } from '@shared/logger';
 import { telemetry } from '@shared/telemetry';
-import { fetchRobots } from './robots';
+import { fetchRobotsPolicy } from './robots';
 import { fetchSitemapRecursive, discoverSitemaps } from './sitemap';
 import { discoverInternalLinks } from './discover-links';
 import { mapPool } from '@/lib/map-pool';
+// Focused helper import avoids introducing unrelated barrel dependencies.
+// eslint-disable-next-line no-restricted-imports
 import { prioritizePresenceUrls } from '@modules/brand-presence/prioritize-presence-pages';
 import { renderPage, type RenderProfile } from './browser/pool';
 import { detectBlockedPage } from './blocked-page';
@@ -51,6 +54,7 @@ async function renderCrawledPage(
     timeoutMs: number;
     screenshot: boolean;
     auditId: string;
+    signal?: AbortSignal;
     profile?: RenderProfile;
     headless?: boolean;
     waitForSelector?: string;
@@ -59,6 +63,7 @@ async function renderCrawledPage(
 ): Promise<CrawledPage> {
   const rendered = await renderPage({
     url,
+    signal: opts.signal,
     timeoutMs: opts.timeoutMs,
     screenshot: opts.screenshot,
     profile: opts.profile ?? 'audit',
@@ -75,14 +80,16 @@ async function renderCrawledPage(
     html: rendered.renderedHtml,
     title: rendered.title,
   });
+  const rawHtml = rendered.html || null;
+  const renderedHtml = blocked.blocked ? null : rendered.renderedHtml;
 
   return {
     url,
     finalUrl: rendered.finalUrl,
     statusCode: rendered.statusCode,
     contentType: 'text/html',
-    html: rendered.html,
-    renderedHtml: blocked.blocked ? null : rendered.renderedHtml,
+    html: rawHtml,
+    renderedHtml,
     title: rendered.title,
     fetchedAt: new Date().toISOString(),
     durationMs: rendered.durationMs,
@@ -90,6 +97,13 @@ async function renderCrawledPage(
     error: blocked.blocked ? blocked.reason : null,
     hydrationDelta: rendered.hydrationDelta,
     performance: blocked.blocked ? null : rendered.performance,
+    fetchStatus: blocked.blocked ? 'blocked' : 'observed',
+    blockReason: blocked.blocked ? blocked.reason : undefined,
+    contentHash: rawHtml ? createHash('sha256').update(rawHtml).digest('hex') : undefined,
+    htmlTruncated: false,
+    rawHtmlAvailable: Boolean(rawHtml),
+    renderedHtmlAvailable: Boolean(renderedHtml),
+    fetchProfile: opts.profile ?? 'audit',
   };
 }
 
@@ -99,6 +113,7 @@ export async function crawlSinglePage(
     timeoutMs: number;
     screenshot: boolean;
     auditId: string;
+    signal?: AbortSignal;
     profile?: RenderProfile;
     waitForSelector?: string;
     blockHeavyResources?: boolean;
@@ -158,6 +173,11 @@ export async function crawlSinglePage(
       error: message,
       hydrationDelta: null,
       performance: null,
+      fetchStatus: /timeout/i.test(message) ? 'timeout' : 'legacy_unknown',
+      blockReason: message,
+      rawHtmlAvailable: false,
+      renderedHtmlAvailable: false,
+      fetchProfile: opts.profile ?? 'audit',
     };
   }
 }
@@ -185,7 +205,8 @@ export async function crawl(opts: CrawlServiceOptions): Promise<CrawlResult> {
   const startedAt = new Date().toISOString();
 
   return telemetry.timed('crawl.run', async () => {
-    const robots = await fetchRobots(parsed.url);
+    const robotsPolicy = await fetchRobotsPolicy(parsed.url);
+    const robots = { ...robotsPolicy.info, allowed: robotsPolicy.allows(parsed.url) };
     opts.onProgress?.(15, 'Discovering sitemap…');
 
     let sitemapUrls = robots.sitemaps;
@@ -254,6 +275,14 @@ export async function crawl(opts: CrawlServiceOptions): Promise<CrawlResult> {
         parsed.url,
         parsed.maxPages - 1,
       );
+    }
+
+    if (parsed.respectRobots) {
+      const before = additional.length;
+      additional = additional.filter((candidate) => robotsPolicy.allows(candidate));
+      if (additional.length !== before) {
+        log.info({ skipped: before - additional.length }, 'robots.txt excluded secondary crawl pages');
+      }
     }
 
     const secondaryTimeout = config.crawl.auditSecondaryTimeoutMs;

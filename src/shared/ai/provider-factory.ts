@@ -7,10 +7,15 @@ import { MockAIProvider } from './providers/mock';
 import { OllamaProvider } from './providers/ollama';
 import { OpenAIProvider } from './providers/openai';
 import type { AIProvider } from './types';
+import { meteredProvider } from './usage';
 
 export type NamedAIProvider = typeof config.ai.provider;
 
 export function createAIProvider(name: NamedAIProvider): AIProvider {
+  return meteredProvider(createProvider(name));
+}
+
+function createProvider(name: NamedAIProvider): AIProvider {
   switch (name) {
     case 'openai':
       if (config.ai.openai.apiKey) return new OpenAIProvider();

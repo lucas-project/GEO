@@ -15,7 +15,7 @@ import {
   updateMonitorSchedule,
 } from '@modules/monitoring';
 import { canonicalPageUrl } from '@/lib/website-url';
-import { MonitorSchedulePresetSchema } from '@modules/monitoring/schemas';
+import { MonitorSchedulePresetSchema } from '@modules/monitoring';
 import { normalizeWebsiteUrl } from '@/lib/website-url';
 import { getRequestOwnerId, assertSiteOwnedBy } from '@/lib/owner-scope';
 import { parseJsonBody, parseZod } from '@/lib/api-route';

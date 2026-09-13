@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Bot, Sparkles } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { GoalInput } from '@/features/workspace/goal-input';

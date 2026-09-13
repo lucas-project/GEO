@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { DIMENSIONS } from './schemas';
 import { deriveIssuesAndFixes, scoreAll, type ScoringContext } from './scoring';
 import type { PresenceProbeResult } from '@modules/brand-presence-probe';
-import type { CrawlResult, CrawledPage } from '@modules/crawling';
+import type { CrawledPage } from '@modules/crawling';
 import type { PageExtraction } from '@modules/extraction';
 import { emptyPageChecklist } from '@modules/extraction';
+import type { PresenceSignals } from '@modules/brand-presence';
 
 describe('geo-audit scoring dimensions', () => {
   it('defines exactly 12 blueprint dimensions', () => {

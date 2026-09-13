@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ai } from '@shared/ai';
+import { ai, generateCachedStructuredOutput } from '@shared/ai';
 import { config } from '@shared/config';
 import { logger } from '@shared/logger';
 import { buildBrandAliases } from './aliases';
@@ -152,14 +152,18 @@ export async function resolveProbeSetup(
 
   try {
     const presenceModel = resolvePresenceModel(ai.name);
-    const { data } = await ai.generateStructuredOutput({
-      schema: ProbeSetupLlmOutputSchema,
-      schemaName: 'ProbeSetup',
-      system: PROBE_SETUP_SYSTEM,
-      prompt,
-      temperature: 0.15,
-      ...(presenceModel ? { model: presenceModel } : {}),
-    });
+    const { data } = await generateCachedStructuredOutput(
+      ai,
+      {
+        schema: ProbeSetupLlmOutputSchema,
+        schemaName: 'ProbeSetup',
+        system: PROBE_SETUP_SYSTEM,
+        prompt,
+        temperature: 0.15,
+        ...(presenceModel ? { model: presenceModel } : {}),
+      },
+      { namespace: 'presence-probe-setup-v1', ttlSeconds: 86_400 },
+    );
 
     const entity = applyBrandFromSetup(input.entity, data, enrichBrand);
     const siteKeywords = mergeKeywordList(

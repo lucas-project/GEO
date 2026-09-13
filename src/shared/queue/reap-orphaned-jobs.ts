@@ -6,7 +6,7 @@ const INTERRUPTED_ERROR = 'Interrupted — worker stopped or restarted';
 /** Fail jobs left in `running` when a worker process starts (orphaned after Ctrl+C / crash). */
 export async function reapOrphanedRunningJobs(): Promise<number> {
   const result = await prisma.job.updateMany({
-    where: { status: 'running' },
+    where: { status: 'running', OR: [{ leaseExpiresAt: { lt: new Date() } }, { leaseExpiresAt: null }] },
     data: {
       status: 'failed',
       error: INTERRUPTED_ERROR,

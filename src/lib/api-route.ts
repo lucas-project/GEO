@@ -72,6 +72,7 @@ export async function enqueueJob(
 ): Promise<NextResponse> {
   const authFail = assertApiAuth(req);
   if (authFail) return authFail;
-  const jobId = await enqueueJobId(jobType, payload);
+  const idempotencyKey = req.headers.get('idempotency-key')?.trim() || undefined;
+  const jobId = await queue.enqueue(jobType, payload, { idempotencyKey });
   return NextResponse.json({ jobId }, { status: 202 });
 }

@@ -4,7 +4,7 @@ import { normalizeWebsiteUrl } from '@/lib/website-url';
 import { config } from '@shared/config';
 import { crawlSinglePage } from '@modules/crawling/server';
 import * as cheerio from 'cheerio';
-import { extractSchemas } from '@modules/extraction/extractors/schema';
+import { extractSchemas } from '@modules/extraction';
 import { detectSiteKeywordsFromPages } from './detect-site-keywords';
 import { pageContextFromPages } from './page-context';
 import type { EntityPageInput } from './resolve-entity';

@@ -7,12 +7,18 @@
 
 import { config } from '@shared/config';
 import { crawlLogger } from '@shared/logger';
+import { safeFetch } from '@shared/network/safe-fetch';
 import type { RobotsInfo } from './schemas';
 
 interface UserAgentRules {
   allow: string[];
   disallow: string[];
   crawlDelaySec?: number;
+}
+
+export interface RobotsPolicy {
+  info: Omit<RobotsInfo, 'allowed'>;
+  allows: (targetUrl: string) => boolean;
 }
 
 function parseRobots(text: string): { groups: Map<string, UserAgentRules>; sitemaps: string[] } {
@@ -65,11 +71,13 @@ function parseRobots(text: string): { groups: Map<string, UserAgentRules>; sitem
 function pathMatches(rule: string, path: string): boolean {
   if (!rule) return false;
   // Convert robots glob into a basic prefix/wildcard match. Supports * and $.
-  const pattern = rule
+  const anchored = rule.endsWith('$');
+  const body = anchored ? rule.slice(0, -1) : rule;
+  const pattern = body
     .split('*')
     .map((s) => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
     .join('.*');
-  const re = new RegExp('^' + pattern + (rule.endsWith('$') ? '$' : ''));
+  const re = new RegExp('^' + pattern + (anchored ? '$' : ''));
   return re.test(path);
 }
 
@@ -82,35 +90,55 @@ function isAllowed(rules: UserAgentRules, path: string): boolean {
   return bestAllow >= bestDisallow;
 }
 
-export async function fetchRobots(rootUrl: string): Promise<RobotsInfo> {
+function rulesForUserAgent(groups: Map<string, UserAgentRules>, userAgent: string): UserAgentRules {
+  const normalizedUserAgent = userAgent.toLowerCase();
+  const matches = Array.from(groups.entries())
+    .filter(([agent]) => agent !== '*' && agent.length > 0 && normalizedUserAgent.includes(agent))
+    .sort(([a], [b]) => b.length - a.length);
+  return matches[0]?.[1] ?? groups.get('*') ?? { allow: [], disallow: [] };
+}
+
+export function isAllowedByRobotsText(text: string, userAgent: string, targetUrl: string): boolean {
+  const { groups } = parseRobots(text);
+  const target = new URL(targetUrl);
+  return isAllowed(rulesForUserAgent(groups, userAgent), `${target.pathname}${target.search}`);
+}
+
+export async function fetchRobotsPolicy(rootUrl: string): Promise<RobotsPolicy> {
   const url = new URL('/robots.txt', rootUrl);
   try {
-    const res = await fetch(url.toString(), {
+    const res = await safeFetch(url.toString(), {
       headers: { 'user-agent': config.crawl.userAgent },
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {
-      return { fetched: false, allowed: true, sitemaps: [], crawlDelayMs: null, rawSize: 0 };
+      return {
+        info: { fetched: false, sitemaps: [], crawlDelayMs: null, rawSize: 0 },
+        allows: () => true,
+      };
     }
     const text = await res.text();
     const { groups, sitemaps } = parseRobots(text);
-
-    // Determine the matching rule group: GeoAIBot specifically, else *.
-    const ua = config.crawl.userAgent.toLowerCase();
-    const matching =
-      Array.from(groups.entries()).find(([key]) => key !== '*' && ua.includes(key))?.[1] ??
-      groups.get('*') ?? { allow: [], disallow: [] };
-
-    const allowed = isAllowed(matching, new URL(rootUrl).pathname);
+    const matching = rulesForUserAgent(groups, config.crawl.userAgent);
     return {
-      fetched: true,
-      allowed,
-      sitemaps,
-      crawlDelayMs: matching.crawlDelaySec ? matching.crawlDelaySec * 1000 : null,
-      rawSize: text.length,
+      info: {
+        fetched: true,
+        sitemaps,
+        crawlDelayMs: matching.crawlDelaySec ? matching.crawlDelaySec * 1000 : null,
+        rawSize: text.length,
+      },
+      allows: (targetUrl) => isAllowedByRobotsText(text, config.crawl.userAgent, targetUrl),
     };
   } catch (err) {
     crawlLogger.warn({ err: (err as Error).message, url: url.toString() }, 'robots fetch failed');
-    return { fetched: false, allowed: true, sitemaps: [], crawlDelayMs: null, rawSize: 0 };
+    return {
+      info: { fetched: false, sitemaps: [], crawlDelayMs: null, rawSize: 0 },
+      allows: () => true,
+    };
   }
+}
+
+export async function fetchRobots(rootUrl: string, targetUrl = rootUrl): Promise<RobotsInfo> {
+  const policy = await fetchRobotsPolicy(rootUrl);
+  return { ...policy.info, allowed: policy.allows(targetUrl) };
 }

@@ -6,6 +6,8 @@ import { z } from 'zod';
 
 export const PLATFORMS = ['chatgpt', 'gemini', 'claude', 'perplexity'] as const;
 export type Platform = (typeof PLATFORMS)[number];
+export const SIMULATION_EXECUTION_MODES = ['mock', 'local', 'persona', 'live', 'mixed', 'legacy_unknown'] as const;
+export type SimulationExecutionMode = (typeof SIMULATION_EXECUTION_MODES)[number];
 
 export const CitationSchema = z.object({
   url: z.string().nullable(),
@@ -31,6 +33,7 @@ export const SimulationRunSchema = z.object({
   brandMentions: z.array(BrandMentionSchema),
   model: z.string(),
   provider: z.string(),
+  executionMode: z.enum(SIMULATION_EXECUTION_MODES),
   tokens: z.object({ input: z.number(), output: z.number(), total: z.number() }),
 });
 export type SimulationRun = z.infer<typeof SimulationRunSchema>;
@@ -39,6 +42,8 @@ export const SimulationResultSchema = z.object({
   runId: z.string(),
   prompt: z.string(),
   runs: z.array(SimulationRunSchema),
+  executionMode: z.enum(SIMULATION_EXECUTION_MODES),
+  retrievalEnabled: z.boolean(),
   aggregate: z.object({
     totalCitations: z.number().int(),
     brandLeaderboard: z.array(BrandMentionSchema),

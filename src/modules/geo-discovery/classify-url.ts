@@ -1,4 +1,4 @@
-import type { PageArchetype } from '@modules/geo-audit/schemas';
+import type { PageArchetype } from '@modules/geo-audit';
 
 const UTILITY_PATH =
   /\/(wp-admin|wp-json|cart|checkout|login|signup|sign-in|sign-up|account|feed|xmlrpc)(\/|$)/i;

@@ -19,6 +19,8 @@ import { extractTables } from './extractors/tables';
 import { extractAuthors } from './extractors/authors';
 import { extractEntities } from './extractors/entities';
 import { extractPageChecklist } from './extractors/checklist';
+// Focused helper import avoids introducing unrelated barrel dependencies.
+// eslint-disable-next-line no-restricted-imports
 import { augmentLinksWithMarkup } from '@modules/brand-presence/collect-markup-links';
 import type { PageExtraction } from './schemas';
 

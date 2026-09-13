@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScoreGauge } from '@/components/geo/score-gauge';
 import { JobProgress } from '@/components/geo/job-progress';

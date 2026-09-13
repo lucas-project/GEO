@@ -8,6 +8,12 @@
 type AIProviderName = 'mock' | 'openai' | 'anthropic' | 'gemini' | 'ollama' | 'minimax';
 type InheritedAIProvider = 'inherit' | AIProviderName;
 type QueueDriver = 'memory' | 'bullmq';
+type RunMode = 'free-deterministic' | 'local-assisted' | 'paid-assisted' | 'demo';
+
+function runMode(value: string | undefined): RunMode {
+  if (value === 'local-assisted' || value === 'paid-assisted' || value === 'demo') return value;
+  return 'free-deterministic';
+}
 
 function bool(value: string | undefined, fallback = false): boolean {
   if (value === undefined) return fallback;
@@ -47,17 +53,36 @@ export const config = {
 
   database: {
     url: process.env.DATABASE_URL ?? 'file:./dev.db',
+    backupDirectory: process.env.GEO_DB_BACKUP_DIR ?? './data/backups',
+  },
+
+  maintenance: {
+    screenshotRetentionDays: int(process.env.GEO_SCREENSHOT_RETENTION_DAYS, 30),
+    completedJobRetentionDays: int(process.env.GEO_COMPLETED_JOB_RETENTION_DAYS, 14),
   },
 
   queue: {
+    budget: {
+      httpRequests: int(process.env.GEO_JOB_HTTP_LIMIT, 300),
+      searchRequests: int(process.env.GEO_JOB_SEARCH_LIMIT, 30),
+      browserMs: int(process.env.GEO_JOB_BROWSER_MS, 300000),
+      tokens: int(process.env.GEO_JOB_TOKEN_LIMIT, 30000),
+    },
     driver: (process.env.QUEUE_DRIVER as QueueDriver) ?? 'memory',
     redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
     /** In-memory driver: max jobs executing at once (heavy jobs still capped at one). */
     maxConcurrent: int(process.env.QUEUE_MAX_CONCURRENT, 2),
+    /** Hard wall-clock limit per task; aborts handlers that keep running. */
+    maxRuntimeMs: int(process.env.QUEUE_MAX_RUNTIME_MS, 15 * 60 * 1000),
   },
 
   /** Optional: require `Authorization: Bearer …` or `x-geo-api-key` for /api/* */
   apiSecret: process.env.GEO_API_SECRET ?? '',
+
+  runtime: {
+    /** Free deterministic is the safe default; paid capabilities require an explicit opt-in. */
+    mode: runMode(process.env.GEO_RUN_MODE),
+  },
 
   wordpress: {
     baseUrl: process.env.WORDPRESS_BASE_URL ?? '',
@@ -289,8 +314,14 @@ export const config = {
     platformMaxMs: int(process.env.PRESENCE_PROBE_PLATFORM_MAX_MS, 45_000),
     /** HTTP-only SERP fetches (search supplement) — fail fast vs platform probes. */
     serpTimeoutMs: int(process.env.PRESENCE_PROBE_SERP_TIMEOUT_MS, 12_000),
+    /** Successful SERP retrieval is reusable briefly; failure states are never stored. */
+    serpCacheTtlSeconds: int(process.env.PRESENCE_PROBE_SERP_CACHE_TTL_SECONDS, 3_600),
     retries: int(process.env.PRESENCE_PROBE_RETRIES, 2),
     requestsPerMinute: int(process.env.PRESENCE_PROBE_RPM, 10),
+    /** Safety budget for all direct external-page requests in one presence run. */
+    maxRequestsPerRun: int(process.env.PRESENCE_PROBE_MAX_REQUESTS_PER_RUN, 36),
+    /** A host that repeatedly blocks us should not consume the full run budget. */
+    maxRequestsPerHost: int(process.env.PRESENCE_PROBE_MAX_REQUESTS_PER_HOST, 3),
     /** Playwright storage_state JSON path for Reddit session reuse (optional). */
     storageStatePath: process.env.PRESENCE_PROBE_STORAGE_STATE_PATH?.trim() || '',
     searchSupplementEnabled: bool(process.env.PRESENCE_PROBE_SEARCH_SUPPLEMENT, true),

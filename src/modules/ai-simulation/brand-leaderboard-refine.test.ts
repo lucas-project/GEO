@@ -24,6 +24,7 @@ function runWithMentions(mentions: string[]): SimulationRun[] {
       brandMentions: mentions.map((brand) => ({ brand, count: 1 })),
       model: 'test',
       provider: 'test',
+      executionMode: 'mock',
       tokens: { input: 0, output: 0, total: 0 },
     },
   ];

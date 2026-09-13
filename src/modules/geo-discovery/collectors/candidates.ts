@@ -1,5 +1,5 @@
 import { canonicalPageUrl, normalizeWebsiteUrl } from '@/lib/website-url';
-import type { DiscoverySource } from '@modules/geo-audit/schemas';
+import type { DiscoverySource } from '@modules/geo-audit';
 import type { SitemapEntry } from '@modules/crawling';
 import type { DiscoveryCandidate } from '../types';
 import type { NavLinkHit } from './nav';

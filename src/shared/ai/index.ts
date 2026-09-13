@@ -16,12 +16,15 @@ export type * from './types';
 export { AIProviderError } from './types';
 
 export { ai } from './singleton';
+export { generateCachedStructuredOutput } from './cached-structured-output';
 
 export { MockAIProvider } from './providers/mock';
 export { mockSampleBrands, mockSampleDomains } from './providers/mock';
 export { OllamaProvider } from './providers/ollama';
 export { MinimaxProvider } from './providers/minimax';
 export { createAIProvider } from './provider-factory';
+export { allowsCapability, isFreeDeterministicMode } from './capabilities';
+export type { RuntimeCapability } from './capabilities';
 export {
   getSiteKeywordsAI,
   resolvedSiteKeywordsProviderName,

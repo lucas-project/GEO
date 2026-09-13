@@ -1,4 +1,5 @@
 import { config } from '@shared/config';
+import { safeFetch } from '@shared/network/safe-fetch';
 import { logger } from '@shared/logger';
 import type { Alert } from './schemas';
 
@@ -26,7 +27,7 @@ export async function postMonitoringAlerts(input: {
   const ac = new AbortController();
   const tid = setTimeout(() => ac.abort(), 10_000);
   try {
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

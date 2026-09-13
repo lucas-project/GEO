@@ -10,7 +10,7 @@ import { mapPool } from '@/lib/map-pool';
 import { canonicalPageUrl, normalizeWebsiteUrl } from '@/lib/website-url';
 import {
   discoverSitemaps,
-  fetchRobots,
+  fetchRobotsPolicy,
   fetchSitemapRecursive,
   isAccessDeniedBySite,
   isParkedDomainPage,
@@ -44,15 +44,18 @@ export async function discoverGeoPages(
   };
 
   onProgress?.('Fetching robots.txt and rendering homepage…');
-  const [robots, rootPage] = await Promise.all([
-    fetchRobots(url),
-    crawlSinglePage(url, {
-      timeoutMs: hubTimeout(),
-      screenshot: false,
-      auditId: 'geo-discover',
-      profile: 'hub',
-    }),
-  ]);
+  const robotsPolicy = await fetchRobotsPolicy(url);
+  const robots = { ...robotsPolicy.info, allowed: robotsPolicy.allows(url) };
+  if (!robots.allowed) {
+    onProgress?.('robots.txt disallows the requested page; discovery stopped.');
+    return { url, pages: [], suggestedUrls: [], maxSelectable, discoveredCount: 0, probedCount: 0 };
+  }
+  const rootPage = await crawlSinglePage(url, {
+    timeoutMs: hubTimeout(),
+    screenshot: false,
+    auditId: 'geo-discover',
+    profile: 'hub',
+  });
 
   const rootFinal = canonicalPageUrl(rootPage.finalUrl || url, url);
   const rootHtml = rootPage.renderedHtml ?? rootPage.html ?? '';
@@ -96,6 +99,7 @@ export async function discoverGeoPages(
   const graphLinkMap = new Map<string, ReturnType<typeof discoverNavLinks>[number]>();
   const bfsTargets = navLinks
     .filter((l) => l.url !== rootFinal)
+    .filter((l) => robotsPolicy.allows(l.url))
     .slice(0, config.discovery.linkGraphMaxPages);
 
   if (bfsTargets.length > 0 && Date.now() < deadline) {
@@ -150,6 +154,7 @@ export async function discoverGeoPages(
   const rankedPages = await probeCandidates(url, [...candidateMap.values()], onProgress, {
     prefetched,
     probeTimeoutMs: probeTimeout(),
+    isAllowedByRobots: robotsPolicy.allows,
   });
 
   rankedPages.sort((a, b) => {

@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint src workers scripts --max-warnings=0",
     "worker": "cross-env GEO_QUEUE_CONSUMER=true tsx workers/index.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
@@ -20,7 +20,9 @@
     "test:watch": "vitest",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "presence:probe": "tsx scripts/presence-probe.ts",
-    "ollama:check": "tsx scripts/check-ollama-simulation.ts"
+    "ollama:check": "tsx scripts/check-ollama-simulation.ts",
+    "db:backup": "tsx scripts/backup-database.ts",
+    "maintenance:prune": "tsx scripts/prune-artifacts.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",
@@ -45,7 +47,7 @@
     "zod": "^3.24.1"
   },
   "optionalDependencies": {
-    "@anthropic-ai/sdk": "npm:null@^0.34.0",
+    "@anthropic-ai/sdk": "^0.34.0",
     "@google/generative-ai": "^0.21.0",
     "openai": "^4.77.0"
   },

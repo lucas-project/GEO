@@ -7,7 +7,7 @@ import { config } from '@shared/config';
 import { warmOllamaSimulationModels } from '@shared/ai/ollama-warm';
 import { createAuditChunkSearch, type AuditChunkSearch } from '@modules/embeddings';
 import { runSimulation } from './service';
-import type { BrandMention, Platform, SimulationResult } from './schemas';
+import type { BrandMention, Platform, SimulationResult, SimulationExecutionMode } from './schemas';
 import { buildCitationHighlights } from './visibility-highlights';
 import { aggregateDiscoveryLandscape, inferPromptType } from './batch-aggregate';
 import { logger } from '@shared/logger';
@@ -53,6 +53,9 @@ export interface SimulationBatchResult {
   /** Market landscape from discovery questions in this batch (updates each run). */
   brandLeaderboard: BrandMention[];
   domainLeaderboard: Array<{ domain: string; count: number }>;
+  /** Records what was actually run; only live is an external observation. */
+  executionMode: SimulationExecutionMode;
+  platformModes: Partial<Record<Platform, SimulationExecutionMode>>;
 }
 
 export interface RunSimulationBatchInput {
@@ -224,7 +227,16 @@ export async function runSimulationBatch(
     discoveryPairs.map((p) => p.sim),
   );
 
-  if (input.siteId) {
+  const batchRuns = paired.flatMap((pair) => pair.sim.runs);
+  const modes = new Set(batchRuns.map((run) => run.executionMode));
+  const executionMode: SimulationExecutionMode = modes.size === 1
+    ? [...modes][0]!
+    : 'mixed';
+  const platformModes = Object.fromEntries(
+    batchRuns.map((run) => [run.platform, run.executionMode]),
+  ) as Partial<Record<Platform, SimulationExecutionMode>>;
+
+  if (input.siteId && executionMode === 'live') {
     const { ingestCitationSnapshot } = await import('@modules/intelligence');
     void ingestCitationSnapshot(input.siteId).catch((err) => {
       batchLogger.warn({ err: (err as Error).message, siteId: input.siteId }, 'citation snapshot ingest skipped');
@@ -239,6 +251,8 @@ export async function runSimulationBatch(
     brandPromptsTested: brandResults.length,
     brandLeaderboard: landscape.brandLeaderboard,
     domainLeaderboard: landscape.domainLeaderboard,
+    executionMode,
+    platformModes,
     checkedAt: new Date().toISOString(),
   };
 }

@@ -6,7 +6,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAudit } from '@modules/geo-audit/server';
+// Server-side generator entrypoints avoid pulling the whole optimization barrel.
+// eslint-disable-next-line no-restricted-imports
 import { generateHighlightRewrite } from '@modules/optimization/generators/highlight-rewrite';
+// eslint-disable-next-line no-restricted-imports
 import { resolveRewriteHeading } from '@modules/optimization/generators/rewrite-heading';
 import type { Dimension } from '@modules/geo-audit';
 

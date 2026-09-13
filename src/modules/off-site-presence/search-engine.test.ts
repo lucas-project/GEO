@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseSearchResults, runBingDdgSearch } from './search-engine';
+import { parseSearchResults, runBingDdgSearch, serpCacheKey } from './search-engine';
 import type { FetchPageFn } from './platforms/types';
+import { cache } from '@shared/cache';
 
 const BING_HTML = `
 <html><body>
@@ -36,12 +37,28 @@ describe('parseSearchResults', () => {
 });
 
 describe('runBingDdgSearch httpOnly', () => {
-  it('does not call fetchPage when httpOnly is true', async () => {
-    const fetchPage = vi.fn<FetchPageFn>();
-    global.fetch = vi.fn().mockRejectedValue(new Error('network'));
+  it('uses the budgeted fetchPage HTTP path when httpOnly is true', async () => {
+    const fetchPage = vi.fn<FetchPageFn>().mockResolvedValue({
+      html: '', statusCode: 503, finalUrl: 'https://search.test', observationStatus: 'unreachable',
+    });
 
     await runBingDdgSearch('test brand', fetchPage, { httpOnly: true });
 
-    expect(fetchPage).not.toHaveBeenCalled();
+    expect(fetchPage).toHaveBeenCalled();
+    expect(fetchPage.mock.calls.every(([, options]) => options?.httpOnly === true)).toBe(true);
+  });
+});
+
+describe('runBingDdgSearch cache', () => {
+  it('reuses successful results', async () => {
+    const query = 'cache fixture brand';
+    await cache.delete(serpCacheKey(query, { httpOnly: true }));
+    const fetchPage = vi.fn<FetchPageFn>().mockResolvedValue({
+      html: BING_HTML, statusCode: 200, finalUrl: 'https://www.bing.com/search', observationStatus: 'observed',
+    });
+    await runBingDdgSearch(query, fetchPage, { httpOnly: true });
+    await runBingDdgSearch(query, fetchPage, { httpOnly: true });
+    expect(fetchPage).toHaveBeenCalledTimes(1);
+    await cache.delete(serpCacheKey(query, { httpOnly: true }));
   });
 });

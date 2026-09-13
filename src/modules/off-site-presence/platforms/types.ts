@@ -12,6 +12,10 @@ export interface FetchPageOptions {
   waitForSelector?: string;
   /** Set false for Reddit URLs so images/fonts load (link.md part 2). */
   blockHeavyResources?: boolean;
+  /** Abort an in-flight HTTP request when the enclosing probe is cancelled or times out. */
+  signal?: AbortSignal;
+  /** Prefer the HTTP path even when Playwright is available (SERP retrieval). */
+  httpOnly?: boolean;
 }
 
 export interface FetchedPage {
@@ -20,6 +24,9 @@ export interface FetchedPage {
   finalUrl: string;
   fetchMethod?: OffSiteFetchMethod;
   title?: string | null;
+  /** Acquisition outcome; an empty body is never treated as proof of absence. */
+  observationStatus?: 'observed' | 'blocked' | 'rate_limited' | 'timeout' | 'unreachable' | 'parse_error';
+  blockReason?: string;
 }
 
 export type FetchPageFn = (url: string, options?: FetchPageOptions) => Promise<FetchedPage>;

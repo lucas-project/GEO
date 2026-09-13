@@ -152,7 +152,7 @@ function LayerCardBody({
             key={dim}
             compact
             name={DIMENSION_LABELS[dim]}
-            score={dimensions[dim]?.score ?? 0}
+            score={dimensions[dim]?.score ?? null}
             description={
               expanded
                 ? undefined

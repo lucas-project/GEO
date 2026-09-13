@@ -18,7 +18,6 @@ import type { SiteChecklistSignals } from './checklist-schema';
 import { computeRefCategoryScores, type RefScoreAuxiliary } from './ref-category-scores';
 import {
   DIMENSIONS,
-  DIMENSION_LABELS,
   DIMENSION_LAYERS,
   type Dimension,
   type DimensionScore,
@@ -891,22 +890,6 @@ export function scoreAll(
 
 function pageUrl(ctx: ScoringContext): string {
   return ctx.rootPage.finalUrl || ctx.url;
-}
-
-function crawledUrls(ctx: ScoringContext): string[] {
-  const urls = new Set<string>();
-  const site = ctx.url;
-  urls.add(canonicalPageUrl(pageUrl(ctx), site));
-  for (const p of ctx.crawl.pages) {
-    const u = p.finalUrl || p.url;
-    if (u) urls.add(canonicalPageUrl(u, site));
-  }
-  if (ctx.pageExtractions) {
-    for (const { page } of ctx.pageExtractions) {
-      urls.add(canonicalPageUrl(page.finalUrl || page.url, site));
-    }
-  }
-  return [...urls];
 }
 
 

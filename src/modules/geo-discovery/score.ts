@@ -1,4 +1,4 @@
-import type { PageArchetype } from '@modules/geo-audit/schemas';
+import type { PageArchetype } from '@modules/geo-audit';
 import type { DiscoveryProbeSignals } from '@modules/extraction';
 import { classifyUrl } from './classify-url';
 import type { DiscoveryCandidate } from './types';

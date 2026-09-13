@@ -4,6 +4,7 @@
 
 import { z } from 'zod';
 import { ai } from '@shared/ai';
+import { config } from '@shared/config';
 import { AI_SUMMARY_SYSTEM, buildAiSummaryPrompt } from '../prompts';
 
 const ResponseSchema = z.object({
@@ -17,6 +18,7 @@ export async function generateAiSummary(input: {
 }): Promise<{ summary: string; rationale: string; htmlBlock: string }> {
   let data: z.infer<typeof ResponseSchema>;
   try {
+    if (config.runtime.mode !== 'paid-assisted' && config.runtime.mode !== 'local-assisted') throw new Error('Use extracted text');
     ({ data } = await ai.generateStructuredOutput({
       schema: ResponseSchema,
       schemaName: 'AiSummary',

@@ -196,7 +196,7 @@ export async function probeReddit(ctx: ProbeContext): Promise<PlatformProbeResul
   });
 
   const jsonProbe = await probeRedditViaJson(slug, postQueries);
-  let allPosts = [...jsonProbe.allPosts];
+  const allPosts = [...jsonProbe.allPosts];
   const subreddits = new Set(jsonProbe.subreddits);
   let profileExists = jsonProbe.profileExists;
   let subscriberCount = jsonProbe.subscriberCount;

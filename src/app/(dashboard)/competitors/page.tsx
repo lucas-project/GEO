@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { CompetitorRunner } from '@/features/competitors/competitor-runner';
 
 export default function CompetitorsPage() {
@@ -10,7 +11,9 @@ export default function CompetitorsPage() {
           and per-dimension GEO scores to surface gaps you can close.
         </p>
       </div>
-      <CompetitorRunner />
+      <Suspense fallback={<div className="h-32 rounded-lg border border-border bg-bg-muted/30" />}>
+        <CompetitorRunner />
+      </Suspense>
     </div>
   );
 }

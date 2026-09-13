@@ -31,7 +31,7 @@ function citationMatchesTarget(
   return b.includes(canonical) || canonical.includes(b);
 }
 
-function sentenceAroundTarget(text: string, target: string, maxLen = 160): string | null {
+function sentenceAroundTarget(text: string, target: string): string | null {
   const lower = text.toLowerCase();
   const idx = lower.indexOf(target.toLowerCase());
   if (idx < 0) return null;

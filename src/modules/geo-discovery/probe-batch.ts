@@ -28,6 +28,7 @@ function buildHeuristicPages(
 export interface ProbeCandidatesOptions {
   prefetched?: Map<string, PrefetchedProbePage>;
   probeTimeoutMs?: number;
+  isAllowedByRobots?: (url: string) => boolean;
 }
 
 export async function probeCandidates(
@@ -46,7 +47,10 @@ export async function probeCandidates(
     return scored.map(({ candidate, heuristic }) => toPage(candidate, heuristic, null));
   }
 
-  const toProbe = new Set(scored.slice(0, probeCount).map((x) => x.candidate.url));
+  const eligible = options.isAllowedByRobots
+    ? scored.filter(({ candidate }) => options.isAllowedByRobots!(candidate.url))
+    : scored;
+  const toProbe = new Set(eligible.slice(0, probeCount).map((x) => x.candidate.url));
   const probeResults = new Map<string, ReturnType<typeof extractDiscoveryProbeSignals>>();
   const probeList = scored.filter((x) => toProbe.has(x.candidate.url));
 

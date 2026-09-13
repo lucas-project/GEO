@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import type { SchemaBlock } from '@modules/extraction';
-import { extractSameAsUrls } from '@modules/brand-presence/same-as';
-import { extractMetadata } from '@modules/extraction/extractors/metadata';
+import { extractSameAsUrls } from '@modules/brand-presence';
+import { extractMetadata } from '@modules/extraction';
 import { buildBrandAliases, normalizeDomain, slugifyBrand } from './aliases';
 import type { BrandEntityResult } from './schemas';
 import { BrandEntityResultSchema } from './schemas';
@@ -173,22 +173,8 @@ export function resolveBrandEntity(input: ResolveEntityInput): BrandEntityResult
   const navHints = input.pages.flatMap((p) => extractNavBrandHints(cheerio.load(p.html)));
   const marketplaceMode = brandNodes.length >= 3 || navHints.length >= 8;
 
-  let brandParam: string | null = null;
-  try {
-    brandParam = new URL(input.siteUrl).searchParams.get('brand');
-  } catch {
-    /* ignore */
-  }
-
   const { primary, confidence, sources } = pickPrimaryBrand(candidates, domain);
-  let primaryBrand = primary;
-  if (marketplaceMode && brandParam) {
-    primaryBrand = brandParam.trim();
-    sources.push('url-brand-param');
-  } else if (marketplaceMode && brandNodes.length > 0) {
-    primaryBrand = brandNodes[0]!;
-    sources.push('marketplace-top-brand');
-  }
+  const primaryBrand = primary;
 
   const ambiguousGeneric =
     primaryBrand.length <= 5 &&

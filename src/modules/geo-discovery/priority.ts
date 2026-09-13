@@ -1,5 +1,4 @@
-import type { DiscoverySource, PageArchetype } from '@modules/geo-audit/schemas';
-import { classifyUrl } from './classify-url';
+import type { DiscoverySource, PageArchetype } from '@modules/geo-audit';
 import { scoreHeuristic } from './score';
 import type { DiscoveryCandidate } from './types';
 

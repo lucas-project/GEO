@@ -10,7 +10,11 @@ import { probeQuora } from './quora';
 import type { ProbeContext } from './types';
 
 const baseCtx = {
-  brand: { primaryBrand: 'Acme Corp', sameAsUrls: [], aliases: [] },
+  brand: {
+    primaryBrand: 'Acme Corp', sameAsUrls: [], aliases: [], confidence: 1,
+    needsReview: false, sources: ['test'],
+    flags: { marketplaceMode: false, ambiguousGeneric: false, subBrands: [] },
+  },
   domain: 'acme.com',
   siteUrl: 'https://acme.com',
   fetchPage: vi.fn(),
@@ -36,6 +40,12 @@ describe('probeQuora', () => {
         social: [],
         facebookPosts: [],
         crossPlatformPosts: {},
+        queries: [],
+        offSiteDomains: [],
+        discoveryDomains: [],
+        generalHitEstimate: 0,
+        verticalHits: {},
+        verticalDomains: [],
         discovery: [],
       },
     } as ProbeContext);

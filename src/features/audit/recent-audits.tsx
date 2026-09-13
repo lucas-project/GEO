@@ -117,7 +117,7 @@ export function RecentAudits() {
                             {group.displayHost}
                           </span>
                           {group.monitored && (
-                            <MonitoredBadge href="/monitor" className="shrink-0 scale-90 origin-left" />
+                            <MonitoredBadge href={undefined} className="shrink-0 scale-90 origin-left" />
                           )}
                         </div>
                         <p className="text-[11px] text-fg-subtle truncate mt-0.5">

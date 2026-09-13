@@ -1,6 +1,5 @@
 import * as cheerio from 'cheerio';
 import type { PlatformId, PlatformProbeResult, RedditPost } from '../schemas';
-import { bestSupplementUrl } from '../supplement-helpers';
 import { detectCaptchaOrBlock } from './parse-helpers';
 import type { ProbeContext } from './types';
 

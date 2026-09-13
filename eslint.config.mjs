@@ -9,12 +9,18 @@ const eslintConfig = [
   ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
       'no-restricted-imports': [
         'warn',
         {
           patterns: [
             {
-              group: ['@modules/*/*'],
+              // `server.ts` and `client.ts` are explicit environment-specific
+              // public entrypoints. Everything else must use the module barrel.
+              group: ['@modules/*/*', '!@modules/*/server', '!@modules/*/client'],
               message:
                 'Import modules via their public index.ts (e.g. @modules/geo-audit), not deep paths.',
             },

@@ -23,6 +23,9 @@ export const GeneratedArtifactSchema = z.object({
   contentFormat: z.enum(['json', 'text', 'html', 'markdown']),
   rationale: z.string(),
   applied: z.boolean(),
+  evidenceIds: z.array(z.string()).default([]),
+  disposition: z.string().default('draft'),
+  recheckAuditId: z.string().nullable().optional(),
   createdAt: z.string(),
 });
 export type GeneratedArtifact = z.infer<typeof GeneratedArtifactSchema>;

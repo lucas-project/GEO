@@ -238,6 +238,21 @@ export async function generateAuditSuggestions(input: {
   return { prompts, competitors };
 }
 
+/** Free-tier fallback: deterministic category seeds only, with no model call. */
+export function generateDeterministicAuditSuggestions(_input: {
+  url: string;
+  siteKeywords?: string[];
+}): { prompts: SimulationPromptEntry[]; competitors: string[] } {
+  void _input;
+  // Automatic competitor guesses are intentionally withheld in the free tier;
+  // users can submit explicit URLs for validation once the candidate workflow
+  // is enabled. This avoids presenting category seeds as confirmed rivals.
+  return {
+    prompts: [],
+    competitors: [],
+  };
+}
+
 export async function generateSimulationQuestions(input: {
   url: string;
   brandName: string;
@@ -255,9 +270,10 @@ export async function generateCompetitorSuggestions(input: {
   siteKeywords?: string[];
   dimensions?: Record<Dimension, DimensionScore>;
 }): Promise<string[]> {
-  const neutralDims = Object.fromEntries(
-    DIMENSIONS.map((d) => [d, { score: 50, reasons: [] }]),
-  ) as Record<Dimension, DimensionScore>;
+  const neutralDims = DIMENSIONS.reduce((out, d) => {
+    out[d] = { score: 50, reasons: [] };
+    return out;
+  }, {} as Record<Dimension, DimensionScore>);
 
   return generateCompetitorsOnly({
     url: input.url,

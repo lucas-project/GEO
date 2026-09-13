@@ -10,8 +10,9 @@ import { prisma, stringifyJson, parseJson } from '@shared/database/client';
 import { logger } from '@shared/logger';
 import { normalizeWebsiteUrl } from '@/lib/website-url';
 import { runAudit } from '@modules/geo-audit/server';
-import { type DimensionScore, DIMENSIONS } from '@modules/geo-audit';
+import { type DimensionScore, DIMENSIONS, selectAuditRootPage } from '@modules/geo-audit';
 import type { SiteSummary, CompetitorComparison, DimensionGap, FailedCompetitor } from './schemas';
+import { validateCompetitorCandidates } from './candidates';
 
 const compLogger = logger.child({ module: 'competitor-analysis' });
 
@@ -27,7 +28,7 @@ async function auditAsSummary(url: string): Promise<SiteSummary> {
     where: { id: result.id },
     include: { extractionResults: true },
   });
-  const extraction = audit?.extractionResults[0];
+  const extraction = audit ? selectAuditRootPage(audit.extractionResults, result.url) : null;
   const entities = extraction
     ? safeParse<Array<{ name: string; kind: string; relevance: number }>>(extraction.entities, [])
     : [];
@@ -96,7 +97,8 @@ function computeGap(target: SiteSummary, competitor: SiteSummary): CompetitorCom
 export async function runComparison(input: RunComparisonInput): Promise<CompetitorComparison> {
   const id = randomId();
   const targetUrl = normalizeWebsiteUrl(input.targetUrl.trim());
-  const competitorUrls = input.competitorUrls.map((u) => normalizeWebsiteUrl(u.trim()));
+  const candidates = validateCompetitorCandidates({ targetUrl, candidateUrls: input.competitorUrls });
+  const competitorUrls = candidates.accepted;
   compLogger.info({ id, targetUrl, competitorCount: competitorUrls.length }, 'comparison starting');
 
   input.onProgress?.(5, `Auditing target ${targetUrl}…`);
@@ -117,14 +119,6 @@ export async function runComparison(input: RunComparisonInput): Promise<Competit
     }
   }
 
-  if (competitors.length === 0) {
-    const summary =
-      failedCompetitors.length === 1
-        ? failedCompetitors[0]!.error
-        : `All ${failedCompetitors.length} competitor audits failed. ${failedCompetitors[0]!.error}`;
-    throw new Error(summary);
-  }
-
   const gaps = competitors.map((c) => computeGap(target, c));
 
   const out: CompetitorComparison = {
@@ -132,6 +126,8 @@ export async function runComparison(input: RunComparisonInput): Promise<Competit
     target,
     competitors,
     gaps,
+    comparisonStatus: competitors.length > 0 ? 'completed' : 'insufficient_candidates',
+    ...(candidates.rejected.length > 0 ? { candidateRejections: candidates.rejected } : {}),
     ...(failedCompetitors.length > 0 ? { failedCompetitors } : {}),
     createdAt: new Date().toISOString(),
   };

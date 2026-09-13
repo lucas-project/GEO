@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { SimulationRunner } from '@/features/simulate/simulation-runner';
 
 export default function SimulatePage() {
@@ -10,7 +11,9 @@ export default function SimulatePage() {
         </p>
       </div>
 
-      <SimulationRunner />
+      <Suspense fallback={<div className="text-sm text-fg-muted">Loading simulation…</div>}>
+        <SimulationRunner />
+      </Suspense>
     </div>
   );
 }

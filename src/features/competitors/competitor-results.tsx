@@ -26,10 +26,27 @@ function hostnameFromUrl(u: string) {
 }
 
 export function CompetitorComparisonResults({ data }: { data: CompetitorComparison }) {
-  const { target, gaps, failedCompetitors, createdAt } = data;
+  const { target, gaps, failedCompetitors, candidateRejections, comparisonStatus, createdAt } = data;
 
   return (
     <div className="space-y-6">
+      {comparisonStatus === 'insufficient_candidates' && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+          No validated competitor sites were available. Add direct competitor URLs to run a comparison; directory and same-site URLs are excluded.
+        </div>
+      )}
+      {candidateRejections && candidateRejections.length > 0 && (
+        <div className="rounded-lg border border-border-subtle bg-bg-muted/30 px-3 py-2">
+          <p className="text-xs font-medium text-fg-muted">Excluded candidate URLs</p>
+          <ul className="mt-1 space-y-1">
+            {candidateRejections.map((candidate) => (
+              <li key={`${candidate.input}-${candidate.reason}`} className="text-[11px] text-fg-subtle">
+                <span className="font-mono text-fg">{candidate.input}</span> — {candidate.reason.replace('_', ' ')}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {failedCompetitors && failedCompetitors.length > 0 && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 space-y-2">
           <p className="text-xs font-medium text-amber-700 dark:text-amber-300">

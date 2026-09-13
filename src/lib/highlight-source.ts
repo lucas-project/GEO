@@ -3,7 +3,7 @@
  */
 
 import type { PageCodeHighlight, SourceRange } from '@modules/geo-audit';
-import { locateHeadingTagRanges } from '@modules/geo-audit/locate-in-source';
+import { locateHeadingTagRanges } from '@modules/geo-audit';
 
 const MIN_NEEDLE_LEN = 10;
 const MAX_NEEDLES = 12;

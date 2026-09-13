@@ -20,6 +20,7 @@ export interface QueueJob<TPayload = unknown> {
   progress: number;
   statusMessage?: string;
   result?: unknown;
+  usage?: { durationMs?: number; attempt?: number; [key: string]: unknown };
   error?: string;
   createdAt: Date;
   startedAt?: Date;
@@ -27,7 +28,10 @@ export interface QueueJob<TPayload = unknown> {
 }
 
 export interface JobContext<TPayload = unknown> {
+  budget?: import('@shared/ai/budget').TaskBudget;
   job: QueueJob<TPayload>;
+  /** Aborted when the job is cancelled while its handler is running. */
+  signal: AbortSignal;
   reportProgress: (progress: number, message?: string) => Promise<void>;
   log: (message: string, extra?: Record<string, unknown>) => void;
 }
@@ -37,7 +41,7 @@ export type JobHandler<TPayload = unknown, TResult = unknown> = (
 ) => Promise<TResult>;
 
 export interface Queue {
-  enqueue<TPayload>(jobType: string, payload: TPayload): Promise<string>;
+  enqueue<TPayload>(jobType: string, payload: TPayload, options?: { idempotencyKey?: string }): Promise<string>;
   process<TPayload, TResult>(jobType: string, handler: JobHandler<TPayload, TResult>): void;
   getJob(jobId: string): Promise<QueueJob | null>;
   cancel(jobId: string): Promise<void>;

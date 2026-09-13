@@ -44,7 +44,13 @@ export const reportingService = {
 
     if (bundle.audit) {
       parts.push(`<h2>Audit: ${escapeHtml(bundle.audit.url)}</h2>`);
-      parts.push(`<p><strong>Overall score:</strong> ${bundle.audit.overallScore}</p>`);
+      const readiness = bundle.audit.scoringMeta?.readiness;
+      parts.push(
+        readiness
+          ? `<p><strong>Content and technical readiness:</strong> ${readiness.score == null ? 'Insufficient evidence' : readiness.score} (coverage ${Math.round(readiness.coverage * 100)}%)</p>`
+          : `<p><strong>Overall score:</strong> ${bundle.audit.overallScore} (historical estimate)</p>`,
+      );
+      if (bundle.audit.revision != null) parts.push(`<p><strong>Report revision:</strong> ${bundle.audit.revision}</p>`);
       if (bundle.audit.narrative) {
         parts.push(`<h3>Narrative</h3><p>${escapeHtml(bundle.audit.narrative)}</p>`);
       }

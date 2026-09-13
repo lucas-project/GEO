@@ -25,3 +25,5 @@ export type {
   MonitoringDiffPayload,
 } from './schemas';
 export { MonitorSchedulePresetSchema } from './schemas';
+export { compareAuditSampleScopes } from './sample-comparison';
+export type { AuditSampleScope, SampleComparison } from './sample-comparison';

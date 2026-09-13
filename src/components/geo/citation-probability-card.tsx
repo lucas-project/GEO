@@ -20,14 +20,15 @@ export function CitationProbabilityCard({ scoringMeta, className }: CitationProb
   return (
     <div className={cn('rounded-xl border border-border bg-bg-elevated p-5', className)}>
       <div className="text-[11px] uppercase tracking-wider text-fg-subtle mb-2">
-        Citation probability
+        Citation-related signals
       </div>
       <div className={cn('text-5xl font-semibold tabular-nums', probColorClass(scoringMeta.citationProbability))}>
         {pct}%
       </div>
       <p className="mt-2 text-xs text-fg-muted leading-relaxed max-w-[240px]">
-        Estimated likelihood AI systems will cite this site based on the visibility pipeline
-        {hasSnapshot ? ' and observed simulation runs.' : ' and on-page signals.'}
+        {hasSnapshot
+          ? 'Observed simulation context is available. This is not a prediction of real-world citation probability.'
+          : 'On-page signals only. Run a compatible, evidence-backed experiment before drawing citation conclusions.'}
       </p>
       <div className="mt-3">
         {hasSnapshot ? (
@@ -38,7 +39,7 @@ export function CitationProbabilityCard({ scoringMeta, className }: CitationProb
           </span>
         ) : (
           <span className="text-[10px] uppercase tracking-wider text-fg-subtle">
-            Heuristic estimate
+            No citation experiment
           </span>
         )}
       </div>

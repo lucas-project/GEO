@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   Plus,
   Play,
-  Activity,
   TrendingDown,
   TrendingUp,
   Info,

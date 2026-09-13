@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
-import { parseExtractionRow } from '@modules/intelligence/rollup';
+import { parseExtractionRow } from '@modules/intelligence';
 import {
   DIMENSIONS,
   DimensionScoreSchema,
@@ -20,6 +20,7 @@ import {
   resolveQuestionTypes,
   type SimulationQuestionTypesInput,
 } from './simulation-prompts';
+import { updateAuditJsonWithRevision } from './revisioned-update';
 
 function normalizeDimensions(
   raw: Partial<Record<Dimension, DimensionScore>>,
@@ -108,19 +109,18 @@ export async function enrichAuditSuggestions(
       ? applyGeneratedSimulationPrompts(generatedPrompts, typesToGenerate)
       : normalizeSimulationPrompts(storedMeta.suggestedSimulationPrompts, brandName);
 
-  const mergedMeta: ScoringMeta = {
-    ...storedMeta,
-    ...(suggestedSimulationPrompts.length > 0 ? { suggestedSimulationPrompts } : {}),
-    ...(suggestedCompetitors.length > 0
-      ? { suggestedCompetitors }
-      : storedMeta.suggestedCompetitors
-        ? { suggestedCompetitors: storedMeta.suggestedCompetitors }
-        : {}),
-  };
-
-  await prisma.geoAudit.update({
-    where: { id: auditId },
-    data: { scoringMeta: stringifyJson(mergedMeta) },
+  await updateAuditJsonWithRevision(auditId, (current) => {
+    const latestMeta = parseScoringMeta(current.scoringMeta) ?? storedMeta;
+    const mergedMeta: ScoringMeta = {
+      ...latestMeta,
+      ...(suggestedSimulationPrompts.length > 0 ? { suggestedSimulationPrompts } : {}),
+      ...(suggestedCompetitors.length > 0
+        ? { suggestedCompetitors }
+        : latestMeta.suggestedCompetitors
+          ? { suggestedCompetitors: latestMeta.suggestedCompetitors }
+          : {}),
+    };
+    return { dimensions: current.dimensions, scoringMeta: stringifyJson(mergedMeta) };
   });
 
   return {

@@ -6,8 +6,10 @@
  * Off-site presence uses CloakBrowser by default (stealth Chromium); Firefox/Chromium via env.
  */
 
-import type { Browser, BrowserContext, Page } from 'playwright';
+import type { BrowserContext, Page } from 'playwright';
 import { config } from '@shared/config';
+import { assertPublicHost, validateSafeUrl } from '@shared/network/safe-fetch';
+import { currentTaskBudget } from '@shared/ai/budget';
 import {
   launchBrowser,
   launchEphemeralBrowser,
@@ -23,6 +25,8 @@ export type RenderProfile = 'audit' | 'audit-secondary' | 'hub' | 'discovery' | 
 
 export interface RenderRequest {
   url: string;
+  /** Cancels navigation and closes the browser context when aborted. */
+  signal?: AbortSignal;
   timeoutMs?: number;
   waitForSelector?: string;
   scrollToBottom?: boolean;
@@ -77,6 +81,13 @@ async function applyWebdriverPatch(page: Page): Promise<void> {
 }
 
 export async function renderPage(req: RenderRequest): Promise<RenderResult> {
+  const budget = currentTaskBudget();
+  const remaining = budget ? budget.limits.browserMs - budget.used.browserMs : Infinity;
+  const allocation = Math.min(req.timeoutMs ?? config.crawl.timeoutMs, remaining);
+  budget?.consume('browserMs', allocation > 0 ? allocation : 1);
+  req = { ...req, signal: AbortSignal.any([req.signal, budget?.signal, AbortSignal.timeout(Math.max(1, allocation === Infinity ? 30000 : allocation))].filter((s): s is AbortSignal => Boolean(s))) };
+  await assertPublicHost(validateSafeUrl(req.url));
+  if (req.signal?.aborted) throw new Error('render aborted');
   const profile = req.profile ?? 'audit';
   const headless = req.headless ?? config.crawl.headless;
   const ephemeral = headless === false;
@@ -143,24 +154,34 @@ export async function renderPage(req: RenderRequest): Promise<RenderResult> {
         },
   );
   const page: Page = await context.newPage();
+  if (req.signal?.aborted) {
+    await context.close().catch(() => {});
+    if (ephemeral) await browser.close().catch(() => {});
+    throw new Error('render aborted');
+  }
+  const abortListener = () => {
+    void context.close().catch(() => {});
+  };
+  req.signal?.addEventListener('abort', abortListener, { once: true });
   const skipWebdriverPatch = isOffSite && config.presenceProbe.browser === 'cloak';
   if (!skipWebdriverPatch) {
     await applyWebdriverPatch(page);
   }
   const t0 = Date.now();
 
-  if (shouldBlockHeavyResources(req, profile)) {
-    await page.route('**/*', (route) => {
-      const type = route.request().resourceType();
-      if (type === 'image' || type === 'media' || type === 'font') {
-        void route.abort();
-      } else {
-        void route.continue();
-      }
-    });
-  }
-
   try {
+      await page.route('**/*', async (route) => {
+        const type = route.request().resourceType();
+        if (shouldBlockHeavyResources(req, profile) && (type === 'image' || type === 'media' || type === 'font')) {
+          await route.abort(); return;
+        }
+        try {
+          await assertPublicHost(validateSafeUrl(route.request().url()));
+          budget?.consume('httpRequests');
+          await route.continue();
+        } catch { await route.abort().catch(() => {}); }
+      });
+
     const response = await page.goto(req.url, {
       timeout: req.timeoutMs ?? config.crawl.timeoutMs,
       waitUntil: profile === 'discovery' ? 'commit' : 'domcontentloaded',
@@ -225,6 +246,8 @@ export async function renderPage(req: RenderRequest): Promise<RenderResult> {
       sessionReused,
     };
   } finally {
+    if (budget) budget.used.browserMs = Math.max(0, budget.used.browserMs - allocation + Date.now() - t0);
+    req.signal?.removeEventListener('abort', abortListener);
     await context.close().catch(() => {});
     if (ephemeral) {
       await browser.close().catch(() => {});

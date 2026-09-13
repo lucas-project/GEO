@@ -14,7 +14,7 @@ interface AuditPresenceScanProps {
   siteUrl: string;
 }
 
-export function AuditPresenceScan({ auditId, siteUrl }: AuditPresenceScanProps) {
+export function AuditPresenceScan({ siteUrl }: AuditPresenceScanProps) {
   const router = useRouter();
   const { setTargetUrl } = useWorkspaceTarget();
   const {

@@ -16,6 +16,7 @@ export function registerGeoAuditHandlers(): void {
       url: string;
       pageUrls?: string[];
       maxPages?: number;
+      recheckOptimizationId?: string;
       pageRankings?: import('./page-inventory').PagePriorityHint[];
     },
     { auditId: string }
@@ -31,6 +32,11 @@ export function registerGeoAuditHandlers(): void {
         await ctx.reportProgress(p);
       },
     });
+    if (ctx.job.payload.recheckOptimizationId) {
+      const { prisma } = await import('@shared/database/client');
+      await prisma.optimizationSuggestion.update({ where: { id: ctx.job.payload.recheckOptimizationId },
+        data: { recheckAuditId: result.id } });
+    }
     return { auditId: result.id };
   });
 

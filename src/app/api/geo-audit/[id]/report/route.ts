@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@shared/database/client';
-import { REF_TIER_LABELS } from '@modules/geo-audit/ref-category-scores';
-import { DIMENSION_LABELS, ScoringMetaSchema } from '@modules/geo-audit/schemas';
+import { REF_TIER_LABELS, DIMENSION_LABELS, ScoringMetaSchema } from '@modules/geo-audit';
 import { decayedScore } from '@/lib/audit-time-decay';
 
 export async function GET(
@@ -15,6 +14,9 @@ export async function GET(
       id: true,
       url: true,
       overallScore: true,
+      revision: true,
+      scoreVersion: true,
+      coverage: true,
       narrative: true,
       dimensions: true,
       scoringMeta: true,
@@ -41,10 +43,16 @@ export async function GET(
     '',
     `URL: ${audit.url}`,
     `Audit ID: ${audit.id}`,
+    `Report revision: ${audit.revision}`,
+    `Score version: ${audit.scoreVersion}`,
     `Created: ${audit.createdAt.toISOString()}`,
     '',
-    `Overall score: ${audit.overallScore}/100`,
-    `Time-adjusted score: ${effectiveScore}/100`,
+    meta?.readiness
+      ? `Content and technical readiness: ${meta.readiness.score == null ? 'insufficient evidence' : `${meta.readiness.score}/100`}`
+      : `Overall score: ${audit.overallScore}/100 (historical estimate)`,
+    meta?.readiness
+      ? `Evidence coverage: ${Math.round(meta.readiness.coverage * 100)}% (${meta.readiness.coverageStatus})`
+      : `Time-adjusted score: ${effectiveScore}/100`,
     '',
   ];
 

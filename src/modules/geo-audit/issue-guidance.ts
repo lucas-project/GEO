@@ -3,7 +3,10 @@
  */
 
 import type { PageExtraction, SemanticChunk } from '@modules/extraction';
+// Deterministic generators are imported directly to avoid loading the server service barrel.
+// eslint-disable-next-line no-restricted-imports
 import { buildAnswerFirstRewrite } from '@modules/optimization/generators/answer-first-rewrite';
+// eslint-disable-next-line no-restricted-imports
 import { buildReadabilityRewrite } from '@modules/optimization/generators/readability-rewrite';
 import type { Dimension } from './schemas';
 
@@ -66,11 +69,6 @@ function openerExplanation(kind: OpenerKind, heading?: string): string {
     default:
       return `it does not open with a direct, declarative answer to ${topic}`;
   }
-}
-
-function extractTemperatureRange(text: string): string | null {
-  const m = text.match(/-?\d+\s*°?\s*[CFcf]\s*(?:to|–|-)\s*-?\d+\s*°?\s*[CFcf]/);
-  return m?.[0] ?? null;
 }
 
 function buildAnswerFirstExample(
@@ -197,7 +195,7 @@ export function guidanceForHeadings(extraction: PageExtraction): HighlightGuidan
 export function guidanceForHtmlSnippet(
   dim: Dimension,
   extraction: PageExtraction,
-  label: string,
+  _label: string,
 ): HighlightGuidance | null {
   switch (dim) {
     case 'citationFriendliness':

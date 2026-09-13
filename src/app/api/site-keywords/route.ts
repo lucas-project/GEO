@@ -4,8 +4,10 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { fetchSiteKeywords } from '@modules/off-site-presence/site-keywords-service';
+// Constant-only internal import; the public barrel intentionally stays client-safe.
+// eslint-disable-next-line no-restricted-imports
 import { SITE_KEYWORD_LIMITS } from '@modules/off-site-presence/detect-site-keywords';
+import { fetchSiteKeywords } from '@modules/off-site-presence/server';
 import { assertApiAuth, parseJsonBody, parseZod } from '@/lib/api-route';
 
 const RequestSchema = z.object({

@@ -31,3 +31,9 @@ export type { SearchHit } from './search-engine';
 export type { SearchSupplementResult } from './search-supplement';
 export type { SerperBoostResult } from './serper-boost';
 export type { ResolveEntityInput, EntityPageInput } from './resolve-entity';
+export {
+  inferMarketFromDomain,
+  scoreRedditPostMarketRelevance,
+  partitionRedditPostsByMarket,
+} from './market-country';
+export type { MarketCountry } from './market-country';

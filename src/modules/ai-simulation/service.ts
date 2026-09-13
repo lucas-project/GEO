@@ -8,6 +8,7 @@
  */
 
 import { randomId } from '@shared/util/id';
+import { confirmedProfileForUrl } from '@modules/site-profile';
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
 import { logger } from '@shared/logger';
 import { runOnAllPlatforms, SIMULATED_PLATFORMS } from '@shared/ai/multi';
@@ -21,9 +22,15 @@ import {
   type Platform,
   type SimulationRun,
   type SimulationResult,
+  type SimulationExecutionMode,
 } from './schemas';
 
 const simLogger = logger.child({ module: 'ai-simulation' });
+
+function executionModeForRuns(runs: SimulationRun[]): SimulationExecutionMode {
+  const modes = new Set(runs.map((run) => run.executionMode));
+  return modes.size === 1 ? [...modes][0]! : 'mixed';
+}
 
 const JUNK_DOMAINS = new Set([
   'github.com',
@@ -84,11 +91,16 @@ export interface RunSimulationInput {
 }
 
 export async function runSimulation(input: RunSimulationInput): Promise<SimulationResult> {
+  if (input.targetUrl) {
+    const profile = await confirmedProfileForUrl(input.targetUrl);
+    if (profile) input = { ...input, targetBrand: profile.primaryEntity.name };
+  }
   const runId = randomId();
   simLogger.info({ runId, prompt: input.prompt }, 'simulation starting');
   input.onProgress?.(10, 'Querying simulated AI platforms…');
 
   let effectivePrompt = input.prompt;
+  let retrievalEnabled = false;
   if (input.contextSearch) {
     try {
       const topK = input.contextTopK ?? 5;
@@ -96,6 +108,7 @@ export async function runSimulation(input: RunSimulationInput): Promise<Simulati
       if (similar.length) {
         const block = similar.map((s) => s.textPreview).join('\n---\n');
         effectivePrompt = `Relevant excerpts from the audited site (retrieved):\n${block}\n\nUser task:\n${input.prompt}`;
+        retrievalEnabled = true;
         simLogger.info({ n: similar.length }, 'retrieval context attached (cached search)');
       }
     } catch (err) {
@@ -107,6 +120,7 @@ export async function runSimulation(input: RunSimulationInput): Promise<Simulati
       if (similar.length) {
         const block = similar.map((s) => s.textPreview).join('\n---\n');
         effectivePrompt = `Relevant excerpts from the audited site (retrieved):\n${block}\n\nUser task:\n${input.prompt}`;
+        retrievalEnabled = true;
         simLogger.info({ auditId: input.contextAuditId, n: similar.length }, 'retrieval context attached');
       }
     } catch (err) {
@@ -151,6 +165,7 @@ export async function runSimulation(input: RunSimulationInput): Promise<Simulati
         brandMentions,
         model: r.model,
         provider: r.provider,
+        executionMode: r.mode,
         tokens: r.tokens,
       };
 
@@ -167,6 +182,10 @@ export async function runSimulation(input: RunSimulationInput): Promise<Simulati
           brandMentions: stringifyJson(brandMentions),
         },
       });
+      await prisma.$executeRawUnsafe(
+        `UPDATE "AiSimulation" SET "executionMode" = ?, "provider" = ?, "model" = ?, "tokens" = ?, "retrievalEnabled" = ? WHERE "id" = ?`,
+        run.executionMode, run.provider, run.model, stringifyJson(run.tokens), retrievalEnabled, run.id,
+      );
 
       return run;
     }),
@@ -182,6 +201,8 @@ export async function runSimulation(input: RunSimulationInput): Promise<Simulati
     runId,
     prompt: input.prompt,
     runs,
+    executionMode: executionModeForRuns(runs),
+    retrievalEnabled,
     aggregate,
     createdAt: new Date().toISOString(),
   };
@@ -195,11 +216,13 @@ export async function runSimulation(input: RunSimulationInput): Promise<Simulati
     'simulation complete',
   );
 
-  if (input.siteId && !input.skipCitationSnapshot) {
+  if (input.siteId && !input.skipCitationSnapshot && result.executionMode === 'live' && !retrievalEnabled) {
     const { ingestCitationSnapshot } = await import('@modules/intelligence');
     void ingestCitationSnapshot(input.siteId).catch((err) => {
       simLogger.warn({ err: (err as Error).message, siteId: input.siteId }, 'citation snapshot ingest skipped');
     });
+  } else if (input.siteId && !input.skipCitationSnapshot) {
+    simLogger.info({ runId, executionMode: result.executionMode, retrievalEnabled }, 'simulation excluded from citation snapshot');
   }
 
   return result;
@@ -298,6 +321,12 @@ export async function getSimulation(runId: string): Promise<SimulationResult | n
   if (rows.length === 0) return null;
 
   const targetBrand = rows[0].targetBrand ?? undefined;
+  const persistedRows = await prisma.$queryRawUnsafe<Array<{
+    id: string; executionMode: string | null; provider: string | null; model: string | null; tokens: string | null; retrievalEnabled: boolean;
+  }>>(
+    `SELECT "id", "executionMode", "provider", "model", "tokens", "retrievalEnabled" FROM "AiSimulation" WHERE "runId" = ?`, runId,
+  ).catch(() => []);
+  const persistedById = new Map(persistedRows.map((row) => [row.id, row]));
 
   // Re-parse citations from response text (ignores stale junk stored in DB).
   // Upgrade legacy mock filler to HVAC-aware answers on read.
@@ -315,23 +344,28 @@ export async function getSimulation(runId: string): Promise<SimulationResult | n
         });
       }
       const { citations, brandMentions } = await extractCitations(responseText);
+      const persisted = persistedById.get(r.id);
       return {
         id: r.id,
         platform: r.platform as Platform,
         responseText,
         citations,
         brandMentions,
-        model: r.responseText.includes('mock-simulation') ? 'mock-simulation-v1' : 'persisted',
-        provider: citations.length > 0 ? 'recomputed' : 'persisted',
-        tokens: { input: 0, output: 0, total: 0 },
+        model: persisted?.model ?? (r.responseText.includes('mock-simulation') ? 'mock-simulation-v1' : 'persisted'),
+        provider: persisted?.provider ?? 'legacy_unknown',
+        executionMode: (persisted?.executionMode as SimulationExecutionMode | null) ?? 'legacy_unknown',
+        tokens: parseJson(persisted?.tokens ?? null, { input: 0, output: 0, total: 0 }),
       };
     }),
   );
 
+  const executionMode = executionModeForRuns(runs);
   return {
     runId,
     prompt: rows[0].prompt,
     runs,
+    executionMode,
+    retrievalEnabled: persistedRows.some((row) => row.retrievalEnabled),
     aggregate: await buildAggregate(runs, targetBrand, undefined),
     createdAt: rows[0].createdAt.toISOString(),
   };

@@ -4,7 +4,7 @@ import type { PresenceSearchPlan } from './search-plan-types';
 export const UNIVERSAL_SEARCH_TARGETS = ['reddit', 'general', 'news'] as const;
 export type UniversalSearchTarget = (typeof UNIVERSAL_SEARCH_TARGETS)[number];
 
-export const UNIVERSAL_PROBE_IDS: PlatformId[] = ['reddit', 'quora', 'site_search'];
+export const UNIVERSAL_PROBE_IDS = ['reddit', 'quora', 'site_search'] as PlatformId[];
 
 export const SOCIAL_SEARCH_KEYS = ['facebook', 'linkedin', 'youtube', 'instagram', 'x'] as const;
 export type SocialSearchKey = (typeof SOCIAL_SEARCH_KEYS)[number];
@@ -74,9 +74,9 @@ export function platformsForCategory(category: SearchPlanCategory, domain?: stri
   if (domain && domain.replace(/^www\./, '').endsWith('.au')) {
     const au: PlatformId[] = ['whirlpool', 'productreview', 'ozbargain'];
     const withoutReddit = platforms.filter((p) => p !== 'reddit');
-    return [...new Set([...au, ...withoutReddit, 'reddit'])];
+    return [...new Set([...au, ...withoutReddit, 'reddit'])] as PlatformId[];
   }
-  return [...new Set(platforms)];
+  return [...new Set(platforms)] as PlatformId[];
 }
 
 export function searchTargetsForCategory(
@@ -87,7 +87,7 @@ export function searchTargetsForCategory(
   if (domain && domain.endsWith('.au')) {
     targets.push('whirlpool', 'productreview', 'ozbargain');
   }
-  return [...new Set(targets)];
+  return [...new Set(targets)] as Array<PlatformId | UniversalSearchTarget | 'social'>;
 }
 
 export function skipPlatformsForCategory(

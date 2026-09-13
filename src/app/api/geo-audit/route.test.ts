@@ -30,9 +30,9 @@ describe('POST /api/geo-audit', () => {
     expect(res.status).toBe(202);
     const body = (await res.json()) as { jobId: string };
     expect(body.jobId).toBe('job-test-123');
-    expect(queue.enqueue).toHaveBeenCalledWith('geo-audit.run', {
+    expect(queue.enqueue).toHaveBeenCalledWith('geo-audit.run', expect.objectContaining({
       url: 'https://example.com',
-    });
+    }), { idempotencyKey: undefined });
   });
 
   it('returns 400 for invalid JSON', async () => {

@@ -7,13 +7,14 @@
 import * as cheerio from 'cheerio';
 import { config } from '@shared/config';
 import { crawlLogger } from '@shared/logger';
+import { safeFetch } from '@shared/network/safe-fetch';
 import type { SitemapEntry } from './schemas';
 
 const DEFAULT_LIMIT = 200;
 
 export async function fetchSitemap(url: string, limit = DEFAULT_LIMIT): Promise<SitemapEntry[]> {
   try {
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       headers: { 'user-agent': config.crawl.userAgent },
       signal: AbortSignal.timeout(15_000),
     });
@@ -80,7 +81,7 @@ export async function fetchSitemapRecursive(
     seenFiles.add(next.url);
 
     try {
-      const res = await fetch(next.url, {
+      const res = await safeFetch(next.url, {
         headers: { 'user-agent': config.crawl.userAgent },
         signal: AbortSignal.timeout(15_000),
       });
@@ -135,7 +136,7 @@ export async function discoverSitemaps(rootUrl: string): Promise<string[]> {
   const found: string[] = [];
   for (const url of candidates) {
     try {
-      const res = await fetch(url, {
+      const res = await safeFetch(url, {
         method: 'HEAD',
         headers: { 'user-agent': config.crawl.userAgent },
         signal: AbortSignal.timeout(5000),

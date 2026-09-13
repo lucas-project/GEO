@@ -171,7 +171,6 @@ export function buildBenchmarkCopy(input: BenchmarkCopyInput): {
   const youHave = input.youHavePattern === true;
   const missing = input.youHavePattern === false;
   const pts = input.liftPoints;
-  const pct = input.liftPercent;
 
   let summary: string;
   let explanation: string;

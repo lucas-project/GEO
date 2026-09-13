@@ -22,8 +22,12 @@ export function extractMediaSignals($: CheerioAPI): MediaSignals {
     if (!src || src.startsWith('data:')) return;
     imageCount++;
     const alt = ($(el).attr('alt') ?? '').trim();
+    const decorative =
+      $(el).attr('alt') === '' ||
+      ($(el).attr('role') ?? '').toLowerCase() === 'presentation' ||
+      ($(el).attr('aria-hidden') ?? '').toLowerCase() === 'true';
     if (!alt) {
-      imagesMissingAlt++;
+      if (!decorative) imagesMissingAlt++;
     } else if (alt.length >= 8 && !GENERIC_ALT.test(alt)) {
       imagesWithGoodAlt++;
     }

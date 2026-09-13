@@ -12,7 +12,6 @@ import { InMemoryQueue } from './adapters/in-memory';
 import type { Queue } from './types';
 
 declare global {
-  // eslint-disable-next-line no-var
   var __geoQueue: Queue | undefined;
 }
 

@@ -1,10 +1,8 @@
 import type { PageExtraction, SchemaBlock } from '@modules/extraction';
 import {
-  PRESENCE_PLATFORMS,
   PresenceSignalsSchema,
   type PresencePlatform,
   type PresenceSignals,
-  type PlatformLink,
 } from './schemas';
 import {
   isComparePath,

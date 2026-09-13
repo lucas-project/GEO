@@ -32,9 +32,14 @@ function minimalReport(overrides: Partial<OffSitePresenceReport['scores']> = {})
     engagement: {
       redditTopPosts: [],
       redditDisplayPosts: [],
+      redditDisplayTarget: 10,
+      redditDisplayShortfall: 0,
       redditHighEngagementCount: 5,
       facebookDisplayPosts: [],
-    } as any,
+      crossPlatformDisplayPosts: [],
+      crossPlatformDisplayTarget: 10,
+      crossPlatformDisplayShortfall: 0,
+    },
     scores: {
       total: 62,
       reviews: 28,

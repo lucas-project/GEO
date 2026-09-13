@@ -62,7 +62,15 @@ async function probeWithRetries(
     try {
       await limiter.wait();
       if (attempt > 0) await new Promise((r) => setTimeout(r, jitterMs()));
-      return await withProbeTimeout(adapter.probe(ctx), maxMs, label);
+      return await withProbeTimeout(
+        (signal) =>
+          adapter.probe({
+            ...ctx,
+            fetchPage: (url, options) => ctx.fetchPage(url, { ...options, signal }),
+          }),
+        maxMs,
+        label,
+      );
     } catch (err) {
       lastError = err;
     }

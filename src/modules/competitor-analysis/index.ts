@@ -15,3 +15,5 @@ export type {
   CompetitorComparison,
   DimensionGap,
 } from './schemas';
+export { validateCompetitorCandidates } from './candidates';
+export type { CandidateValidation, CandidateRejection } from './candidates';

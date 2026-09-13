@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { BenchmarkLiftChart } from '@/components/geo/benchmark-lift-chart';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api-client';
+// Copy helpers are client-safe; the main barrel also exposes server queue handlers.
+// eslint-disable-next-line no-restricted-imports
 import {
   plainCategoryIntro,
   plainCategoryLabel,

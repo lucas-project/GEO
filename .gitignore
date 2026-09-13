@@ -3,22 +3,27 @@ node_modules/
 .pnp
 .pnp.js
 
-# next.js
+# next.js (default + GEO_NEXT_DIST_DIR variants e.g. .next-dev, .next-acceptance)
 .next/
+.next-*/
 out/
 build/
 dist/
 
 # env & secrets
 .env
-.env.local
-.env*.local
+.env.*
 !.env.example
 
-# prisma (local dev db)
-prisma/dev.db
-prisma/dev.db-journal
+# prisma (local sqlite / acceptance DBs - never commit)
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db-shm
+prisma/*.db-wal
 prisma/migrations/dev/
+
+# cursor / IDE local debug dumps
+.cursor/*.log
 
 # logs
 *.log
@@ -47,7 +52,7 @@ playwright-report/
 playwright/.cache/
 blob-report/
 
-# crawl screenshots (Playwright → public/screenshots/, served at /screenshots/*)
+# crawl screenshots (Playwright -> public/screenshots/, served at /screenshots/*)
 /screenshots/
 public/screenshots/*
 !public/screenshots/.gitkeep

@@ -148,6 +148,7 @@ All knobs are in [`.env.example`](.env.example). The most-asked-about ones:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `AI_PROVIDER` | `mock` (default) | `mock`, `openai`, `anthropic`, `gemini`, **`ollama`** |
+| `GEO_RUN_MODE` | `free-deterministic` | `free-deterministic`, `local-assisted`, `paid-assisted`, `demo`; paid capabilities require explicit opt-in |
 | `GEO_API_SECRET` | empty | When set, protects all `/api/*` routes (Bearer or `x-geo-api-key`) |
 | `DATABASE_URL` | `file:./prisma/dev.db` | SQLite for dev; swap to Postgres URL for prod |
 | `QUEUE_DRIVER` | `memory` | `memory` (in-process), `bullmq` (needs `REDIS_URL`) |

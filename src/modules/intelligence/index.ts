@@ -31,5 +31,7 @@ export type {
   IntelligenceGraphSummary,
 } from './schemas';
 export { pickBenchmarkForArtifact } from './artifact-benchmark-match';
+export { parseExtractionRow } from './rollup';
+export { getLatestCitationSnapshot } from './citation-snapshot';
 export { registerIntelligenceHandlers } from './handlers';
 export type { IntelligenceIngestPayload } from './handlers';

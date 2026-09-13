@@ -10,6 +10,7 @@ export {
   markOptimizationApplied,
 } from './service';
 export { ARTIFACT_TYPES } from './schemas';
+export { disposeArtifact, recheckArtifact, readArtifactVerification } from './workflow';
 export type { GeneratedArtifact, ArtifactType } from './schemas';
 export { pickAdapter as pickCmsAdapter } from './cms';
 export type { CmsAdapter, CmsPatchInput, CmsPatchResult } from './cms';

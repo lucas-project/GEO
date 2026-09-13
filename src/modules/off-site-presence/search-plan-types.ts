@@ -46,7 +46,7 @@ export const PresenceSearchPlanSchema = z.object({
   customQueries: z.array(z.string()).max(5).default([]),
   additionalSources: z.array(AdditionalSourceSchema).max(6).default([]),
   brandKeywords: z.array(z.string()).max(8).default([]),
-  source: z.enum(['llm', 'heuristic']),
+  source: z.enum(['llm', 'heuristic']).default('heuristic'),
 });
 
 export type PresenceSearchPlan = z.infer<typeof PresenceSearchPlanSchema>;

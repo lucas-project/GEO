@@ -57,7 +57,7 @@ export function sortPagesInCategory(pages: AuditPageEntry[]): AuditPageEntry[] {
 /** Group discovered pages by GEO archetype, roots first within each group. */
 export function groupPagesByArchetype(
   pages: AuditPageEntry[],
-  siteRoot: string,
+  _siteRoot: string,
 ): PageArchetypeGroup[] {
   const byArchetype = new Map<PageArchetype, AuditPageEntry[]>();
 

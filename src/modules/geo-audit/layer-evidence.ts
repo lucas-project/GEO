@@ -4,6 +4,7 @@
 
 import type { CrawlResult } from '@modules/crawling';
 import type { PageExtraction } from '@modules/extraction';
+import { selectAuditRootPage } from './root-page';
 import {
   PRESENCE_PLATFORMS,
   PLATFORM_LABELS,
@@ -121,7 +122,7 @@ function buildFoundation(input: BuildLayerEvidenceInput, pages: string[]): Layer
     });
   }
 
-  const perf = input.crawl.pages[0]?.performance;
+  const perf = selectAuditRootPage(input.crawl.pages, input.crawl.rootUrl)?.performance;
   if (perf?.lcpMs != null) {
     crawlFindings.push({
       label: `Homepage LCP: ${Math.round(perf.lcpMs)}ms`,

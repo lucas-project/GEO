@@ -7,8 +7,8 @@ import {
   type LayerScore,
   type ScoreLayer,
 } from '@modules/geo-audit';
-import type { RefCategoryScores } from '@modules/geo-audit/checklist-schema';
-import { REF_TIER_LABELS } from '@modules/geo-audit/ref-category-scores';
+import type { RefCategoryScores } from '@modules/geo-audit';
+import { REF_TIER_LABELS } from '@modules/geo-audit';
 
 const PIPELINE_LABELS: { layer: ScoreLayer; label: string }[] = SCORE_LAYERS.map((layer) => ({
   layer,

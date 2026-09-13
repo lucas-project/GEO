@@ -30,16 +30,28 @@ model Job {
   updatedAt DateTime @updatedAt
   startedAt DateTime?
   finishedAt DateTime?
+  /** Compare-and-set execution lease; prevents two workers completing one job. */
+  leaseToken String?
+  leaseExpiresAt DateTime?
+  heartbeatAt DateTime?
+  attempt Int @default(0)
+  /** Stable caller key for idempotent enqueue (optional during migration). */
+  idempotencyKey String?
+  budget String? // JSON-encoded task budget
+  usage String? // JSON-encoded measured usage
 
   @@index([status])
   @@index([type])
   @@index([createdAt])
+  @@index([leaseExpiresAt])
+  @@index([idempotencyKey])
 }
 
 // ---------------------------------------------------------------
 // SITES — the target websites being optimized for AI visibility
 // ---------------------------------------------------------------
 model Site {
+  userEvidence String @default("[]")
   id          String   @id @default(cuid())
   url         String   @unique
   name        String?
@@ -61,6 +73,11 @@ model Site {
   /** Cohort tagging for benchmarks */
   vertical             String?
   cohortTags           String?   // JSON string[]
+  /** Deterministic site identity draft; confirmation is an explicit user action. */
+  profile              String?
+  profileVersion       String?
+  profileConfirmedAt   DateTime?
+  profileConfirmedBy   String?
   /** Opt-in: run AI simulation on each monitor cycle (costly) */
   monitorSimulation    Boolean   @default(false)
   /** Consecutive monitor failures — drives exponential backoff */
@@ -109,6 +126,11 @@ model GeoAudit {
   siteId        String?
   url           String
   overallScore  Int      @default(0)
+  scoreVersion  String   @default("hierarchical-v2")
+  coverage      Float?
+  revision      Int      @default(1)
+  sampleManifest String  @default("[]")
+  recomputedAt  DateTime?
   dimensions    String   // JSON: dimension -> {score, reasons[]}
   /** Hierarchical pipeline: layers, citation probability, bottleneck, gates */
   scoringMeta   String   @default("{}")
@@ -166,6 +188,14 @@ model CrawlResult {
   fetchedAt      DateTime @default(now())
   durationMs     Int      @default(0)
   error          String?
+  fetchStatus    String?
+  blockReason    String?
+  contentHash    String?
+  htmlTruncated  Boolean  @default(false)
+  rawHtmlAvailable      Boolean @default(false)
+  renderedHtmlAvailable Boolean @default(false)
+  fetchProfile   String?
+  fetchChannel   String?
 
   audit GeoAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
 
@@ -209,10 +239,17 @@ model AiSimulation {
   responseText  String
   citations     String   // JSON: {url, brand, position}[]
   brandMentions String   // JSON: {brand, count}[]
+  /** live | local | persona | mock; legacy rows remain unknown until rerun. */
+  executionMode String?
+  provider      String?
+  model         String?
+  tokens        String?
+  retrievalEnabled Boolean @default(false)
   createdAt     DateTime @default(now())
 
   @@index([siteId])
   @@index([runId])
+  @@index([executionMode])
   @@index([prompt])
 }
 
@@ -248,6 +285,11 @@ model ComparisonRun {
 // OPTIMIZATION SUGGESTIONS — Phase 3 generated artifacts
 // ---------------------------------------------------------------
 model OptimizationSuggestion {
+  evidenceIds      String @default("[]")
+  sourceRevision   Int?
+  contentFormat    String @default("text")
+  disposition      String @default("draft")
+  recheckAuditId   String?
   id               String   @id @default(cuid())
   auditId          String
   type             String   // "faq-schema" | "llms-txt" | "ai-summary" | "answer-first" | ...

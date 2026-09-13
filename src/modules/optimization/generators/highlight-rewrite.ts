@@ -2,8 +2,9 @@
  * Unified highlight rewrite entry (mock + LLM).
  */
 
-import type { Dimension } from '@modules/geo-audit/schemas';
+import type { Dimension } from '@modules/geo-audit';
 import { ai } from '@shared/ai';
+import { config } from '@shared/config';
 import { z } from 'zod';
 import {
   ANSWER_FIRST_SYSTEM,
@@ -40,7 +41,7 @@ export async function generateHighlightRewrite(input: {
   const shorter = prefersShorterRewrite(input);
   const variantIndex = input.variantIndex ?? 0;
 
-  if (ai.name === 'mock') {
+  if (ai.name === 'mock' || config.runtime?.mode === 'free-deterministic') {
     return shorter
       ? rewriteReadabilityLocal({
           firstChunk: input.firstChunk,

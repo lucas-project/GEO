@@ -14,7 +14,7 @@ export function extractSchemas($: CheerioAPI): SchemaBlock[] {
     if (!raw) return;
     try {
       const parsed = JSON.parse(raw);
-      flatten(parsed, blocks);
+      flatten(parsed, blocks, new WeakSet<object>());
     } catch {
       // Bad JSON-LD is common; ignore silently rather than fail extraction.
     }
@@ -22,20 +22,25 @@ export function extractSchemas($: CheerioAPI): SchemaBlock[] {
   return blocks;
 }
 
-function flatten(value: unknown, out: SchemaBlock[]): void {
+function flatten(value: unknown, out: SchemaBlock[], seen: WeakSet<object>): void {
   if (!value) return;
   if (Array.isArray(value)) {
-    for (const v of value) flatten(v, out);
+    for (const v of value) flatten(v, out, seen);
     return;
   }
   if (typeof value !== 'object') return;
   const obj = value as Record<string, unknown>;
+  if (seen.has(obj)) return;
+  seen.add(obj);
   if ('@graph' in obj && Array.isArray(obj['@graph'])) {
-    for (const v of obj['@graph']) flatten(v, out);
+    for (const v of obj['@graph']) flatten(v, out, seen);
   }
   const t = obj['@type'];
-  const type = Array.isArray(t) ? t[0] : t;
-  if (typeof type === 'string') {
-    out.push({ type, raw: obj });
+  const types = Array.isArray(t) ? t : [t];
+  for (const type of types) {
+    if (typeof type === 'string') out.push({ type, raw: obj });
+  }
+  for (const [key, nested] of Object.entries(obj)) {
+    if (key !== '@graph') flatten(nested, out, seen);
   }
 }

@@ -1,5 +1,4 @@
 import type { BrandEntityResult } from '../schemas';
-import { extractRichPageContext } from '../page-context';
 
 export interface SearchPlanPromptInput {
   brand: BrandEntityResult;

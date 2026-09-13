@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ExternalLink, Globe, TrendingUp } from 'lucide-react';
+import { ExternalLink, Globe, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PLATFORM_LABELS } from '@modules/brand-presence';
 import type {
@@ -17,7 +17,7 @@ import { PLATFORM_IDS } from '@modules/off-site-presence';
 import {
   inferMarketFromDomain,
   partitionRedditPostsByMarket,
-} from '@modules/off-site-presence/market-country';
+} from '@modules/off-site-presence';
 
 interface OffSiteInfluencePanelProps {
   report: OffSitePresenceReport;

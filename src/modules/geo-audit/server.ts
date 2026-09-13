@@ -17,3 +17,8 @@ export {
 } from './service';
 export { registerGeoAuditHandlers } from './handlers';
 export { discoverAuditPages } from './discover-pages';
+export { resetSimulationMarketLandscape } from './reset-simulation-landscape';
+export { buildLayerEvidence } from './layer-evidence';
+export { updateAuditJsonWithRevision } from './revisioned-update';
+export { commitAuditReportWithRevision } from './revisioned-update';
+export type { RevisionedAuditRow, AuditJsonPatch, AuditReportPatch } from './revisioned-update';

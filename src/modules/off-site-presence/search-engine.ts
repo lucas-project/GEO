@@ -1,26 +1,8 @@
 import * as cheerio from 'cheerio';
+import { cache } from '@shared/cache';
 import { config } from '@shared/config';
 import { detectCaptchaOrBlock, parseCount } from './platforms/parse-helpers';
-import type { FetchPageFn, FetchedPage } from './platforms/types';
-
-async function fetchSerpHttp(url: string, timeoutMs?: number): Promise<FetchedPage> {
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': config.crawl.browserUserAgent,
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-    redirect: 'follow',
-    signal: AbortSignal.timeout(timeoutMs ?? config.presenceProbe.serpTimeoutMs),
-  });
-  const html = await res.text();
-  return {
-    html,
-    statusCode: res.status,
-    finalUrl: res.url || url,
-    fetchMethod: 'http',
-  };
-}
+import type { FetchPageFn } from './platforms/types';
 
 export const TOP_SEARCH_HITS = 5;
 
@@ -187,6 +169,14 @@ export interface SearchSerpOptions {
   httpOnly?: boolean;
   /** Restrict SERP backends (default: all). Prefer `['bing']` to avoid slow DDG. */
   engines?: Array<SearchHit['engine']>;
+  /** Disable only for callers that require a fresh observation. */
+  useCache?: boolean;
+}
+
+export function serpCacheKey(query: string, options?: SearchSerpOptions): string {
+  const engines = options?.engines?.slice().sort().join(',') ?? 'all';
+  const mode = options?.httpOnly ? 'http' : 'fallback';
+  return `presence:serp:${encodeURIComponent(query.trim().toLowerCase())}:${engines}:${mode}`;
 }
 
 async function tryFetchSerp(
@@ -197,7 +187,7 @@ async function tryFetchSerp(
 ): Promise<{ hits: SearchHit[]; engine: SearchHit['engine']; finalUrl?: string } | null> {
   const attempts: Array<() => Promise<{ html: string; statusCode: number; title?: string | null; finalUrl: string }>> = [
     async () => {
-      const page = await fetchSerpHttp(url);
+      const page = await fetchPage(url, { httpOnly: true });
       return { html: page.html, statusCode: page.statusCode, title: page.title, finalUrl: page.finalUrl };
     },
   ];
@@ -230,6 +220,11 @@ export async function runBingDdgSearch(
   fetchPage: FetchPageFn,
   options?: SearchSerpOptions,
 ): Promise<{ hits: SearchHit[]; engine: SearchHit['engine'] | null; finalUrl?: string }> {
+  const key = serpCacheKey(query, options);
+  if (options?.useCache !== false) {
+    const cached = await cache.get<{ hits: SearchHit[]; engine: SearchHit['engine']; finalUrl?: string }>(key);
+    if (cached?.hits.length) return cached;
+  }
   const q = encodeURIComponent(query);
   const allowed = options?.engines ? new Set(options.engines) : null;
   const engines = allowed
@@ -238,7 +233,12 @@ export async function runBingDdgSearch(
 
   for (const { engine, buildUrl } of engines) {
     const result = await tryFetchSerp(buildUrl(q), engine, fetchPage, options);
-    if (result) return result;
+    if (result) {
+      if (options?.useCache !== false) {
+        await cache.set(key, result, config.presenceProbe.serpCacheTtlSeconds);
+      }
+      return result;
+    }
   }
 
   return { hits: [], engine: null };

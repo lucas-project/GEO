@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  generateCachedStructuredOutput,
   getSiteKeywordsAI,
   resolvedSiteKeywordsProviderName,
 } from '@shared/ai';
@@ -51,14 +52,18 @@ Return JSON: { "keywords": ["...", ...] }`;
     const siteKeywordsAI = getSiteKeywordsAI();
     const providerName = resolvedSiteKeywordsProviderName();
     const model = resolveSiteKeywordsModel(providerName);
-    const { data } = await siteKeywordsAI.generateStructuredOutput({
-      schema: RefineSiteKeywordsSchema,
-      schemaName: 'RefineSiteKeywords',
-      system: REFINE_SYSTEM,
-      prompt,
-      temperature: 0.2,
-      ...(model ? { model } : {}),
-    });
+    const { data } = await generateCachedStructuredOutput(
+      siteKeywordsAI,
+      {
+        schema: RefineSiteKeywordsSchema,
+        schemaName: 'RefineSiteKeywords',
+        system: REFINE_SYSTEM,
+        prompt,
+        temperature: 0.2,
+        ...(model ? { model } : {}),
+      },
+      { namespace: 'presence-keywords-v1', ttlSeconds: 86_400 },
+    );
 
     const out: string[] = [];
     const seen = new Set<string>();

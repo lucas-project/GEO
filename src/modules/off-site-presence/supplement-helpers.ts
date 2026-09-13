@@ -1,4 +1,4 @@
-import { matchPlatformUrl } from '@modules/brand-presence/platforms';
+import { matchPlatformUrl } from '@modules/brand-presence';
 import type { PresencePlatform } from '@modules/brand-presence';
 import type { PlatformId } from './schemas';
 import type { SearchHit } from './search-engine';

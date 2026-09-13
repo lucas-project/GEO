@@ -38,6 +38,16 @@ export type {
   PageCodeHighlight,
   SourceRange,
 } from './schemas';
+export { ObservationStatusSchema, EvidenceMethodSchema, EvidenceSchema, CriterionResultSchema, EvidenceBundleSchema } from './evidence-schema';
+export type { ObservationStatus, EvidenceMethod, Evidence, CriterionResult, EvidenceBundle } from './evidence-schema';
+export { buildEvidenceBundle } from './evidence';
+export { selectAuditRootPage } from './root-page';
+export { evaluateReadinessCriteria, READINESS_RULE_VERSION } from './criteria';
+export { computeReadinessScore } from './scoring-v3';
+export type { ReadinessScore } from './scoring-v3';
+export type { RefCategoryScores } from './checklist-schema';
+export { REF_TIER_LABELS } from './ref-category-scores';
+export { locateHeadingTagRanges } from './locate-in-source';
 export { deriveScoringMetaFromDimensions } from './hierarchical-scoring';
 export { buildImprovementPlan, ARTIFACT_LABELS } from './improvement-plan';
 export {

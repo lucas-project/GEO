@@ -103,7 +103,7 @@ function HighlightRewriteEditor({
   const [isRewritten, setIsRewritten] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rewriteVariant, setRewriteVariant] = useState(0);
+  const [, setRewriteVariant] = useState(0);
   const variantIndexRef = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 

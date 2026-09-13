@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 
 interface ScoreGaugeProps {
-  score: number;
+  score: number | null | undefined;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   label?: string;
   className?: string;
@@ -14,18 +14,19 @@ const sizeMap = {
   xl: { dim: 200, stroke: 12, font: 'text-5xl' },
 };
 
-function colorFor(score: number): string {
+function colorFor(score: number | null): string {
+  if (score == null) return '#71717a';
   if (score >= 80) return '#22c55e';
   if (score >= 60) return '#f59e0b';
   return '#ef4444';
 }
 
 export function ScoreGauge({ score, size = 'md', label, className }: ScoreGaugeProps) {
-  const clamped = Math.max(0, Math.min(100, score));
+  const clamped = score == null ? null : Math.max(0, Math.min(100, score));
   const { dim, stroke, font } = sizeMap[size];
   const radius = (dim - stroke) / 2;
   const circ = 2 * Math.PI * radius;
-  const offset = circ - (clamped / 100) * circ;
+  const offset = circ - ((clamped ?? 0) / 100) * circ;
   const color = colorFor(clamped);
 
   return (
@@ -54,7 +55,7 @@ export function ScoreGauge({ score, size = 'md', label, className }: ScoreGaugeP
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className={cn('font-semibold tabular-nums', font)} style={{ color }}>
-          {clamped}
+          {clamped ?? '—'}
         </span>
         {label && <span className="text-[12px] uppercase tracking-wider text-fg-subtle mt-0.5">{label}</span>}
       </div>

@@ -2,7 +2,6 @@ import { queue } from '@shared/queue';
 import {
   ingestAudit,
   ingestAuditEmbeddings,
-  ingestAuditSync,
   reindexPatterns,
   backfillIntelligenceFromAudits,
 } from './ingest';

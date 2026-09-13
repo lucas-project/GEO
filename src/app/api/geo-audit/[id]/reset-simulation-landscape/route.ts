@@ -3,7 +3,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { resetSimulationMarketLandscape } from '@modules/geo-audit/reset-simulation-landscape';
+import { resetSimulationMarketLandscape } from '@modules/geo-audit/server';
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;

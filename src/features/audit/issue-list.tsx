@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { IssueCard, type IssueSeverity } from '@/components/geo/issue-card';
 import { cn } from '@/lib/utils';
-import type { Issue } from '@modules/geo-audit/schemas';
-import { expandReason } from '@modules/geo-audit/plain-language';
+import type { Issue } from '@modules/geo-audit';
+import { expandReason } from '@modules/geo-audit';
 import { IssuePageEvidence } from './issue-page-evidence';
 
 interface IssueListProps {

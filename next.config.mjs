@@ -5,6 +5,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  distDir: process.env.GEO_NEXT_DIST_DIR || '.next',
   reactStrictMode: true,
   serverExternalPackages: [
     'playwright',
@@ -27,6 +28,7 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   webpack: (config, { isServer, nextRuntime }) => {
+    config.watchOptions = { ...config.watchOptions, ignored: ['**/node_modules/**', '**/.git/**', '**/.next*/**', '**/prisma/*.db*', '**/data/**'] };
     if (nextRuntime === 'middleware') {
       config.output.globalObject = 'globalThis';
     }

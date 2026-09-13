@@ -17,6 +17,7 @@ import { parseJsonBody, parseZod } from '@/lib/api-route';
 const RequestSchema = z.object({
   auditId: z.string().min(1),
   type: z.enum(ARTIFACT_TYPES),
+  targetUrl: z.string().url().optional(),
   applyWordpressDraft: z.boolean().optional(),
 });
 

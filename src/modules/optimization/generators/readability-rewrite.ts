@@ -13,10 +13,6 @@ function firstSentence(text: string): string {
   return (m?.[1] ?? t.split(/\s+/).slice(0, 25).join(' ')).trim();
 }
 
-function wordCount(s: string): number {
-  return s.split(/\s+/).filter(Boolean).length;
-}
-
 function normalizeHomePhrase(s: string): string {
   return s
     .replace(/\s+in your home\.?$/i, '')
@@ -98,8 +94,6 @@ export function buildReadabilityRewrite(input: {
 
   const variantIndex = input.variantIndex ?? 0;
   const first = normalizeApostrophes(firstSentence(sanitized)).replace(/\.$/, '');
-  const rest = sanitized.slice(first.length).trim();
-
   const ausTop = first.match(/^(.+?)\s+are\s+Australia's\s+top\s+choice\s+for\s+(.+)$/i);
   if (ausTop) {
     const subject = ausTop[1].trim();

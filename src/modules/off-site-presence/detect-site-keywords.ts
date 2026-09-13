@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { extractRelevantKeywords } from '@modules/geo-content/keywords';
+import { extractRelevantKeywords } from '@modules/geo-content';
 import type { EntityPageInput } from './resolve-entity';
 
 const MIN_KEYWORDS = 5;

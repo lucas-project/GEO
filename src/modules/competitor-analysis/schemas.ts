@@ -47,6 +47,8 @@ export const CompetitorComparisonSchema = z.object({
     }),
   ),
   failedCompetitors: z.array(FailedCompetitorSchema).optional(),
+  comparisonStatus: z.enum(['completed', 'insufficient_candidates']).optional(),
+  candidateRejections: z.array(z.object({ input: z.string(), reason: z.string() })).optional(),
   createdAt: z.string(),
 });
 export type CompetitorComparison = z.infer<typeof CompetitorComparisonSchema>;

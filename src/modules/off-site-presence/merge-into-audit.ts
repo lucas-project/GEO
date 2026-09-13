@@ -2,7 +2,7 @@ import 'server-only';
 
 import * as cheerio from 'cheerio';
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
-import { extractSchemas } from '@modules/extraction/extractors/schema';
+import { extractSchemas } from '@modules/extraction';
 import {
   DIMENSIONS,
   DimensionScoreSchema,
@@ -12,8 +12,8 @@ import {
   type DimensionScore,
   type ScoringMeta,
 } from '@modules/geo-audit';
-import { computeHierarchicalScore } from '@modules/geo-audit/hierarchical-scoring';
-import { buildLayerEvidence } from '@modules/geo-audit/layer-evidence';
+import { updateAuditJsonWithRevision } from '@modules/geo-audit/server';
+import { buildLayerEvidence } from '@modules/geo-audit/server';
 import type { CrawlResult } from '@modules/crawling';
 import type { OffSitePresenceReport } from './schemas';
 import {
@@ -64,66 +64,37 @@ export async function mergeOffSiteReportIntoAudit(
   auditId: string,
   report: OffSitePresenceReport,
 ): Promise<void> {
-  const row = await prisma.geoAudit.findUnique({
-    where: { id: auditId },
-    select: { url: true, dimensions: true, scoringMeta: true },
-  });
-  if (!row) return;
-
-  const dimensions = normalizeDimensions(
-    parseJson(row.dimensions, {} as Partial<Record<Dimension, DimensionScore>>),
-  );
-  dimensions.offSitePresence = buildOffSiteDimensionScore(report);
-
-  const storedMeta = parseScoringMeta(row.scoringMeta) ?? deriveScoringMetaFromDimensions(dimensions);
-  const presenceProbe = mapReportToPresenceProbe(report);
-
-  const { overallScore, scoringMeta: recomputed } = computeHierarchicalScore({
-    dimensions,
-    citationVisibility: storedMeta.citationSnapshotVisibility ?? null,
-    simulationRunCount: storedMeta.simulationRunCount,
-    presenceSignals: storedMeta.presenceSignals,
-  });
-
-  const mergedMeta: ScoringMeta = {
-    ...storedMeta,
-    ...recomputed,
-    presenceSignals: storedMeta.presenceSignals,
-    checklist: storedMeta.checklist,
-    refCategories: storedMeta.refCategories,
-    auxiliaryScores: storedMeta.auxiliaryScores,
-    shareOfModel: storedMeta.shareOfModel,
-    presenceProbe,
-    platformWeights: storedMeta.platformWeights,
-    offSitePresenceReport: report,
-    offSitePresenceScannedAt: report.meta.scannedAt,
-  };
-
-  if (storedMeta.layerEvidence) {
-    mergedMeta.layerEvidence = {
-      ...storedMeta.layerEvidence,
-      presence: buildLayerEvidence({
-        dimensions,
-        gatesApplied: mergedMeta.gatesApplied,
-        crawl: emptyCrawl(row.url),
-        rootUrl: row.url,
-        presenceSignals: storedMeta.presenceSignals,
-        presenceProbe,
-        offSitePresenceReport: report,
-        siteChecklist: storedMeta.checklist,
-        citationSnapshotVisibility: storedMeta.citationSnapshotVisibility,
-        shareOfModel: storedMeta.shareOfModel,
-      }).presence,
+  await updateAuditJsonWithRevision(auditId, (row) => {
+    const dimensions = normalizeDimensions(
+      parseJson(row.dimensions, {} as Partial<Record<Dimension, DimensionScore>>),
+    );
+    dimensions.offSitePresence = buildOffSiteDimensionScore(report);
+    const storedMeta = parseScoringMeta(row.scoringMeta) ?? deriveScoringMetaFromDimensions(dimensions);
+    const presenceProbe = mapReportToPresenceProbe(report);
+    const mergedMeta: ScoringMeta = {
+      ...storedMeta,
+      presenceSignals: storedMeta.presenceSignals,
+      checklist: storedMeta.checklist,
+      refCategories: storedMeta.refCategories,
+      auxiliaryScores: storedMeta.auxiliaryScores,
+      shareOfModel: storedMeta.shareOfModel,
+      presenceProbe,
+      platformWeights: storedMeta.platformWeights,
+      offSitePresenceReport: report,
+      offSitePresenceScannedAt: report.meta.scannedAt,
     };
-  }
-
-  await prisma.geoAudit.update({
-    where: { id: auditId },
-    data: {
-      overallScore,
-      dimensions: stringifyJson(dimensions),
-      scoringMeta: stringifyJson(mergedMeta),
-    },
+    if (storedMeta.layerEvidence) {
+      mergedMeta.layerEvidence = {
+        ...storedMeta.layerEvidence,
+        presence: buildLayerEvidence({
+          dimensions, gatesApplied: mergedMeta.gatesApplied, crawl: emptyCrawl(row.url), rootUrl: row.url,
+          presenceSignals: storedMeta.presenceSignals, presenceProbe, offSitePresenceReport: report,
+          siteChecklist: storedMeta.checklist, citationSnapshotVisibility: storedMeta.citationSnapshotVisibility,
+          shareOfModel: storedMeta.shareOfModel,
+        }).presence,
+      };
+    }
+    return { dimensions: stringifyJson(dimensions), scoringMeta: stringifyJson(mergedMeta) };
   });
 }
 

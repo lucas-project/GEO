@@ -7,9 +7,13 @@
 
 import { z } from 'zod';
 import { PresenceSignalsSchema } from '@modules/brand-presence';
+// Schema-only dependency avoids loading the off-site report/server graph.
+// eslint-disable-next-line no-restricted-imports
 import { OffSitePresenceReportSchema } from '@modules/off-site-presence/schemas';
 import { SimulationPromptEntrySchema } from './simulation-prompts';
 import { SiteChecklistSignalsSchema, RefCategoryScoresSchema } from './checklist-schema';
+import { EvidenceBundleSchema } from './evidence-schema';
+import { SiteProfileSchema } from '@modules/extraction';
 
 /** AI visibility pipeline layers (causal order). */
 export const SCORE_LAYERS = [
@@ -170,6 +174,8 @@ export type LayerEvidence = z.infer<typeof LayerEvidenceSchema>;
 /** One saved batch visibility run on an audit. */
 export const SimulationVisibilityCheckSchema = z.object({
   checkedAt: z.string(),
+  executionMode: z.enum(['mock', 'local', 'persona', 'live', 'mixed', 'legacy_unknown']).optional(),
+  platformModes: z.record(z.enum(['chatgpt', 'gemini', 'claude', 'perplexity']), z.enum(['mock', 'local', 'persona', 'live', 'mixed', 'legacy_unknown'])).optional(),
   /** Discovery (non-brand) questions only. */
   promptsTested: z.number().int().min(0),
   promptsCiting: z.number().int().min(0),
@@ -216,6 +222,30 @@ export type SimulationVisibilityCheck = z.infer<typeof SimulationVisibilityCheck
 
 export const ScoringMetaSchema = z.object({
   modelVersion: z.enum(['hierarchical-v1', 'hierarchical-v2']),
+  scoreVersion: z.string().optional(),
+  coverage: z.number().min(0).max(1).optional(),
+  evidenceBundle: EvidenceBundleSchema.optional(),
+  siteProfile: SiteProfileSchema.optional(),
+  /**
+   * v3 is an evidence-only content and technical readiness score. It is kept
+   * beside the historical hierarchical score so old reports are never silently
+   * reinterpreted.
+   */
+  readiness: z
+    .object({
+      ruleVersion: z.string(),
+      score: z.number().int().min(0).max(100).nullable(),
+      coverage: z.number().min(0).max(1),
+      coverageStatus: z.enum(['ready', 'preliminary', 'insufficient_evidence']),
+      observedWeight: z.number().positive().optional(),
+      applicableWeight: z.number().positive().optional(),
+      pendingApplicabilityWeight: z.number().nonnegative(),
+      range: z
+        .object({ min: z.number().int().min(0).max(100), max: z.number().int().min(0).max(100) })
+        .nullable(),
+      criteria: z.array(EvidenceBundleSchema.shape.criteria.element),
+    })
+    .optional(),
   layers: z.record(z.enum(SCORE_LAYERS), LayerScoreSchema),
   citationProbability: z.number().min(0).max(1),
   bottleneck: BottleneckSchema,
@@ -357,6 +387,7 @@ export const AuditPageEntrySchema = z.object({
   sources: z.array(z.enum(DISCOVERY_SOURCES)).optional(),
   audited: z.boolean(),
   error: z.string().nullable().optional(),
+  observationStatus: z.enum(['observed', 'blocked', 'timeout', 'rate_limited', 'parse_error', 'not_run', 'legacy_unknown']).optional(),
   geoScore: z.number().int().min(0).max(100).optional(),
   archetype: z.enum(PAGE_ARCHETYPES).optional(),
   signals: z.array(z.string()).optional(),
@@ -373,6 +404,7 @@ export type PageInventory = z.infer<typeof PageInventorySchema>;
 
 export const GeoAuditResultSchema = z.object({
   id: z.string(),
+  revision: z.number().int().positive().optional(),
   siteId: z.string().nullable().optional(),
   url: z.string(),
   overallScore: z.number().int().min(0).max(100),

@@ -177,8 +177,6 @@ export function chunkHighlightsForDimension(
   pageReasons: string[] = [],
 ): PageCodeHighlight[] {
   const out: PageCodeHighlight[] = [];
-  const dimFix = getDimensionRecommendation(dim);
-
   if (dim === 'answerExtraction') {
     const bad = extraction.chunks.filter((c) => !c.hasAnswerFirstSentence);
     for (const c of bad.slice(0, MAX_HIGHLIGHTS)) {

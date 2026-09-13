@@ -32,6 +32,11 @@ const ARTIFACT_TYPES = [
 ] as const;
 
 interface Artifact {
+  auditId: string;
+  targetUrl: string | null;
+  disposition?: string;
+  evidenceIds?: string[];
+  recheckAuditId?: string | null;
   id: string;
   type: string;
   content: string;
@@ -47,6 +52,7 @@ export function OptimizeWorkspace() {
   const [auditId, setAuditId] = useState(search.get('auditId') ?? '');
   const [selectedType, setSelectedType] = useState<string>(search.get('type') ?? 'faq-schema');
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [targetUrl, setTargetUrl] = useState('');
 
   useEffect(() => {
     const qAudit = search.get('auditId');
@@ -63,7 +69,7 @@ export function OptimizeWorkspace() {
 
   const generate = useMutation({
     mutationFn: () =>
-      api.post<{ artifact: Artifact }>('/api/auto-fix', { auditId: auditId.trim(), type: selectedType }),
+      api.post<{ artifact: Artifact }>('/api/auto-fix', { auditId: auditId.trim(), type: selectedType, targetUrl: targetUrl || undefined }),
     onSuccess: (data) => {
       setHighlightId(data.artifact.id);
       void queryClient.invalidateQueries({ queryKey: ['artifacts', auditId.trim()] });
@@ -166,6 +172,11 @@ export function OptimizeWorkspace() {
           only when CMS credentials are configured.
         </p>
         <AuditHelpBlurb />
+        {audit && <label className="block text-sm">Target page
+          <select className="block w-full bg-bg border border-border rounded p-2" value={targetUrl || audit.url} onChange={e => setTargetUrl(e.target.value)}>
+            {[...new Set([audit.url, ...(audit.pageInventory?.pages ?? []).filter(p => p.audited).map(p => p.url)])].map(url => <option key={url}>{url}</option>)}
+          </select>
+        </label>}
         <div>
           <label className="text-xs font-medium text-fg-muted uppercase tracking-wider mb-1.5 block">
             Which audit report?
@@ -280,6 +291,24 @@ function ArtifactCard({
   highlighted?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  const client = useQueryClient();
+  const [jobId, setJobId] = useState<string | null>(null);
+  const action = useMutation({ mutationFn: (value: string) => api.post<{ jobId?: string }>('/api/auto-fix/workflow', {
+    optimizationId: artifact.id, action: value,
+  }), onSuccess: data => {
+    if (data.jobId) setJobId(data.jobId);
+    void client.invalidateQueries({ queryKey: ['artifacts', artifact.auditId] });
+  } });
+  const job = useQuery<{ status: string; result?: { auditId?: string }; error?: string }>({
+    queryKey: ['optimization-recheck', jobId], enabled: Boolean(jobId),
+    queryFn: async () => (await api.get<{ job: { status: string; result?: { auditId?: string }; error?: string } }>(`/api/jobs/${jobId}`)).job,
+    refetchInterval: query => ['completed','failed','cancelled'].includes(query.state.data?.status ?? '') ? false : 1000,
+  });
+  const verification = useQuery<{ state: string; items: Array<{ criterionId: string; state: string }> }>({
+    queryKey: ['optimization-verification', artifact.id, job.data?.status],
+    enabled: Boolean(artifact.recheckAuditId || job.data?.status === 'completed'),
+    queryFn: () => api.get(`/api/auto-fix/workflow?optimizationId=${artifact.id}`),
+  });
   const copy = async () => {
     await navigator.clipboard.writeText(artifact.content);
     setCopied(true);
@@ -317,6 +346,19 @@ function ArtifactCard({
           {artifact.rationale}
         </div>
       )}
+      <div className="p-4 space-y-2 text-sm">
+        <p>Page: {artifact.targetUrl} · Status: {artifact.disposition ?? 'draft'}</p>
+        <p className="text-xs">Evidence: {artifact.evidenceIds?.join(', ') || 'Historical draft: evidence references unavailable'}</p>
+        <div className="flex gap-2 flex-wrap">
+          <Button size="sm" disabled={!artifact.content || action.isPending} onClick={() => action.mutate('applied')}>Mark applied</Button>
+          <Button size="sm" variant="ghost" disabled={action.isPending} onClick={() => action.mutate('dismissed')}>Do not apply</Button>
+          <Button size="sm" disabled={artifact.disposition !== 'applied' || action.isPending || Boolean(jobId && !['completed','failed','cancelled'].includes(job.data?.status ?? ''))} onClick={() => action.mutate('recheck')}>Recheck same pages</Button>
+        </div>
+        {jobId && <p role="status">Recheck: {job.data?.status ?? 'queued'} {job.data?.error}</p>}
+        {job.data?.result?.auditId && <Link className="text-accent" href={`/audit/${job.data.result.auditId}`}>Open recheck report</Link>}
+        {verification.data && <div><p>Verification: {verification.data.state}</p>{verification.data.items.map(i => <p key={i.criterionId}>{i.criterionId}: {i.state}</p>)}</div>}
+        {action.error && <p role="alert">{action.error.message}</p>}
+      </div>
       <pre className="p-4 text-[13px] leading-relaxed font-mono text-fg whitespace-pre-wrap break-all max-h-96 overflow-y-auto">
         {artifact.content}
       </pre>

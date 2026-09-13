@@ -1,5 +1,5 @@
 import { config } from '@shared/config';
-import { ai } from '@shared/ai';
+import { ai, generateCachedStructuredOutput } from '@shared/ai';
 import { logger } from '@shared/logger';
 import type { BrandEntityResult, PlatformId } from './schemas';
 import type { EntityPageInput } from './resolve-entity';
@@ -242,19 +242,23 @@ export async function resolveSearchPlan(
   const domain = normalizeDomain(input.domain);
 
   try {
-    const { data } = await ai.generateStructuredOutput({
-      schema: SearchPlanLlmOutputSchema,
-      schemaName: 'SearchPlan',
-      system: SEARCH_PLAN_SYSTEM,
-      prompt: buildSearchPlanPrompt({
-        brand: input.brand,
-        domain,
-        pageHints,
-        siteKeywords: input.siteKeywords,
-      }),
-      temperature: 0.2,
-      ...(resolvePresenceModel(ai.name) ? { model: resolvePresenceModel(ai.name) } : {}),
-    });
+    const { data } = await generateCachedStructuredOutput(
+      ai,
+      {
+        schema: SearchPlanLlmOutputSchema,
+        schemaName: 'SearchPlan',
+        system: SEARCH_PLAN_SYSTEM,
+        prompt: buildSearchPlanPrompt({
+          brand: input.brand,
+          domain,
+          pageHints,
+          siteKeywords: input.siteKeywords,
+        }),
+        temperature: 0.2,
+        ...(resolvePresenceModel(ai.name) ? { model: resolvePresenceModel(ai.name) } : {}),
+      },
+      { namespace: 'presence-search-plan-v1', ttlSeconds: 21_600 },
+    );
     return applySiteKeywordsIfAny(
       sanitizeLlmPlan(data, domain, pageHints, input.brand.primaryBrand),
       input,

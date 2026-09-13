@@ -2,6 +2,8 @@
 
 ## In-memory driver (default)
 
+Workers claim pending rows with a short lease token and renew it on progress updates. Completion and failure use compare-and-set writes, so duplicate consumers and late cancellations cannot overwrite the current job state. Apply the job lease migration before starting a worker against an existing database (`npx prisma migrate deploy`).
+
 `QUEUE_DRIVER=memory` uses [`../src/shared/queue/adapters/in-memory.ts`](../src/shared/queue/adapters/in-memory.ts). Jobs are stored in SQLite (`Job` table) and processed by an in-process poller. Next.js `instrumentation.ts` calls `queue.start()` so `npm run dev` processes jobs without a separate worker.
 
 ## BullMQ + Redis
@@ -19,7 +21,13 @@ The [`Queue`](../src/shared/queue/types.ts) interface is intentionally small so 
 
 ## Postgres and pgvector
 
-For production, point `DATABASE_URL` at PostgreSQL and run `npx prisma migrate deploy`. Chunk vectors are stored as JSON arrays today; you can add a `vector` column and HNSW index via raw SQL migrations when you adopt `pgvector`.
+The current Prisma schema and raw SQL paths target SQLite. Moving to PostgreSQL is a separate migration project: update the provider, make migrations and raw queries portable, migrate data, and rehearse rollback. Do not treat changing `DATABASE_URL` as a production database migration.
+
+## SQLite maintenance and recovery
+
+SQLite is suitable for the initial single-instance deployment, provided the web app and worker are stopped before backup or restore. Run `npm run db:backup` to copy the database into `GEO_DB_BACKUP_DIR` (default `./data/backups`); the command also copies matching WAL sidecars when present. Test a restore by copying the database and matching `-wal`/`-shm` files into a stopped local instance, then start it and load a known audit.
+
+Run `npm run maintenance:prune` periodically to preview old screenshots and terminal jobs. It changes nothing until invoked as `npm run maintenance:prune -- --apply`. Retention defaults are 30 days for screenshots and 14 days for completed, failed, and cancelled jobs. Audit records, evidence, and embeddings are never deleted by this command.
 
 ## Continuous monitoring (production runbook)
 

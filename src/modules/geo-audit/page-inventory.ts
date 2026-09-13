@@ -6,6 +6,7 @@ import type { CrawlResult } from '@modules/crawling';
 import { scorePagePriority } from '@modules/geo-discovery';
 import { canonicalPageUrl, sameTargetSite } from '@/lib/website-url';
 import type { AuditPageEntry, PageInventory } from './schemas';
+import { selectAuditRootPage } from './root-page';
 
 export type PagePriorityHint = Pick<
   AuditPageEntry,
@@ -41,15 +42,17 @@ export function buildPageInventory(input: {
       statusCode: patch?.statusCode ?? existing?.statusCode,
       audited,
       error: patch?.error ?? existing?.error ?? null,
+      observationStatus: patch?.observationStatus ?? existing?.observationStatus,
     });
   };
 
-  const root = crawl.pages[0];
+  const root = selectAuditRootPage(crawl.pages, rootUrl);
   const rootFinal = root?.finalUrl || rootUrl;
   upsert(rootFinal, 'seed', {
     title: root?.title ?? null,
     statusCode: root?.statusCode,
     error: root?.error,
+    observationStatus: root?.fetchStatus,
   });
 
   for (const entry of crawl.sitemap) {
@@ -67,6 +70,7 @@ export function buildPageInventory(input: {
       title: page.title,
       statusCode: page.statusCode,
       error: page.error,
+      observationStatus: page.fetchStatus,
     });
   }
 

@@ -35,7 +35,7 @@ import {
   resolvePlatformLabel,
   useSimulationPlatformConfig,
 } from './use-simulation-platform-config';
-import { VisibilityCheckResults, type VisibilityCheckSummary } from '@/components/geo/visibility-check-results';
+import { VisibilityCheckResults } from '@/components/geo/visibility-check-results';
 import { formatDate } from '@/lib/utils';
 import {
   readStoredSimBatchState,
@@ -66,6 +66,7 @@ interface SimulationRunData {
   responseText: string;
   model?: string;
   provider?: string;
+  executionMode?: 'mock' | 'local' | 'persona' | 'live' | 'mixed' | 'legacy_unknown';
   citations: Array<{ url: string | null; brand: string | null; domain: string | null; position: number }>;
   brandMentions: Array<{ brand: string; count: number }>;
 }
@@ -74,6 +75,8 @@ interface SimulationResultData {
   runId: string;
   prompt: string;
   runs: SimulationRunData[];
+  executionMode?: 'mock' | 'local' | 'persona' | 'live' | 'mixed' | 'legacy_unknown';
+  retrievalEnabled?: boolean;
   aggregate: {
     totalCitations: number;
     brandLeaderboard: Array<{ brand: string; count: number }>;
@@ -162,11 +165,14 @@ export function SimulationRunner() {
     staleTime: 0,
   });
 
-  const suggestedRaw = auditData?.audit?.scoringMeta?.suggestedSimulationPrompts ?? [];
   const brandName = targetBrand.trim() || undefined;
   const normalizedSuggestions = useMemo(
-    () => normalizeSimulationPrompts(suggestedRaw, brandName),
-    [suggestedRaw, brandName],
+    () =>
+      normalizeSimulationPrompts(
+        auditData?.audit?.scoringMeta?.suggestedSimulationPrompts ?? [],
+        brandName,
+      ),
+    [auditData?.audit?.scoringMeta?.suggestedSimulationPrompts, brandName],
   );
   const suggestedPrompts = useMemo(
     () => normalizedSuggestions.map((e) => e.prompt),
@@ -174,10 +180,13 @@ export function SimulationRunner() {
   );
   const latestVisibilityCheck =
     batchVisibilityOverride ?? auditData?.audit?.scoringMeta?.simulationVisibilityCheck;
-  const visibilityHistory = auditData?.audit?.scoringMeta?.simulationVisibilityHistory ?? [];
   const allVisibilityRuns = useMemo(
-    () => listVisibilityRuns(latestVisibilityCheck, visibilityHistory),
-    [latestVisibilityCheck, visibilityHistory],
+    () =>
+      listVisibilityRuns(
+        latestVisibilityCheck,
+        auditData?.audit?.scoringMeta?.simulationVisibilityHistory ?? [],
+      ),
+    [latestVisibilityCheck, auditData?.audit?.scoringMeta?.simulationVisibilityHistory],
   );
   const displayVisibilityCheck = useMemo(() => {
     if (allVisibilityRuns.length === 0) return null;
@@ -710,9 +719,17 @@ function SimulationResultView({
   platformLabels: Record<string, string>;
   localMultiModel?: boolean;
 }) {
+  const isLiveObservation = result.executionMode === 'live' && !result.retrievalEnabled;
   return (
     <>
       {runId && <p className="text-[12px] text-fg-subtle font-mono mb-1">Run {runId}</p>}
+      {!isLiveObservation && (
+        <p className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+          {result.executionMode === 'legacy_unknown'
+            ? 'This historical run has no recorded execution mode; it is not evidence of external AI-platform visibility.'
+            : `${result.executionMode ?? 'unknown'} experiment${result.retrievalEnabled ? ' with audited-site retrieval context' : ''}. It tests this model setup, not production visibility on named AI platforms.`}
+        </p>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader>

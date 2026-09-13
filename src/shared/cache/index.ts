@@ -43,7 +43,6 @@ class InMemoryCache implements Cache {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var __geoCache: Cache | undefined;
 }
 

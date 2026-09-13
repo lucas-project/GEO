@@ -1,11 +1,10 @@
-import { z } from 'zod';
 import { parseJson } from '@shared/database/client';
 import { logger } from '@shared/logger';
 import { ScoringMetaSchema, type ScoringMeta } from './schemas';
 
 const metaLogger = logger.child({ module: 'geo-audit-scoring-meta' });
 
-const SimulationVisibilityCheckSchema = ScoringMetaSchema.shape.simulationVisibilityCheck;
+const SimulationVisibilityCheckSchema = ScoringMetaSchema.shape.simulationVisibilityCheck.unwrap();
 
 export function parseScoringMeta(json: string | null | undefined): ScoringMeta | null {
   if (!json || json === '{}') return null;

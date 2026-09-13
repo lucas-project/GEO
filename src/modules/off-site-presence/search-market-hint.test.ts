@@ -11,6 +11,7 @@ const basePlan: PresenceSearchPlan = {
   brandKeywords: ['acme widget'],
   customQueries: [],
   additionalSources: [],
+  source: 'heuristic',
 };
 
 describe('buildQueryDefsFromPlan', () => {

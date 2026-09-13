@@ -51,6 +51,8 @@ export interface VisibilityCheckResultItem {
 
 export interface VisibilityCheckSummary {
   checkedAt: string;
+  executionMode?: 'mock' | 'local' | 'persona' | 'live' | 'mixed' | 'legacy_unknown';
+  platformModes?: Partial<Record<Platform, 'mock' | 'local' | 'persona' | 'live' | 'mixed' | 'legacy_unknown'>>;
   /** Discovery questions only. */
   promptsTested: number;
   promptsCiting: number;
@@ -257,10 +259,11 @@ function VisibilityCheckResultRow({
         cited: true,
         citationCount: 0,
         citedDomains: [] as string[],
+        excerpts: [] as string[],
       }));
 
   const citedCount = details.filter((d) => d.cited).length;
-  const highlights =
+  const highlights: CitationHighlight[] =
     item.citationHighlights ??
     details.flatMap((d) =>
       (d.excerpts ?? []).map((snippet) => ({ platform: d.platform, snippet })),

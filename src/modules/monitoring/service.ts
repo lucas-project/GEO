@@ -5,6 +5,7 @@
 import { prisma, stringifyJson, parseJson } from '@shared/database/client';
 import { logger } from '@shared/logger';
 import { config } from '@shared/config';
+import { randomId } from '@shared/util/id';
 import { normalizeWebsiteUrl } from '@/lib/website-url';
 import {
   listSitesDueForMonitor,
@@ -25,6 +26,7 @@ import {
   serializeMonitoringDiff,
 } from './diff';
 import { postMonitoringAlerts } from './webhook';
+import { compareAuditSampleScopes } from './sample-comparison';
 import type { Alert, MonitorRun, MonitorSchedulePreset } from './schemas';
 
 const monLogger = logger.child({ module: 'monitoring' });
@@ -516,6 +518,19 @@ export async function runMonitoringFor(
     let alerts: Alert[] = [];
     let diffJson: string | null = null;
     if (previousAudit) {
+      const sampleComparison = compareAuditSampleScopes(previousAudit, currentAudit);
+      if (!sampleComparison.comparable) {
+        const details: Record<typeof sampleComparison.reason, string> = {
+          legacy_or_empty_sample: 'One audit has no persisted page sample, so a score trend would be misleading.',
+          score_version_changed: 'The scoring rule version changed, so this run starts a new comparable baseline.',
+          sample_changed: 'The observed URL sample changed, so this run starts a new comparable baseline.',
+          same_sample: '',
+        };
+        alerts = [{
+          id: randomId(), severity: 'info', kind: 'score',
+          title: 'Monitoring baseline updated', detail: details[sampleComparison.reason], dimension: null, delta: null,
+        }];
+      } else {
       const scoringMetaByAudit = await loadScoringMetaForAudits([
         previousAudit.id,
         currentAudit.id,
@@ -540,6 +555,7 @@ export async function runMonitoringFor(
       });
       alerts = diffAlerts;
       diffJson = serializeMonitoringDiff(diff);
+      }
     }
 
     await verifyPendingFixOutcomes(

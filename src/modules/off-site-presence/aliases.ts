@@ -1,3 +1,5 @@
+// Pure canonicalizer import avoids loading simulation handlers from the barrel.
+// eslint-disable-next-line no-restricted-imports
 import { canonicalBrandName } from '@modules/ai-simulation/mock-responses';
 
 /** Search variants: spaced, collapsed, canonical. */

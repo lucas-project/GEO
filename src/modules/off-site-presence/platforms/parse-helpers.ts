@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { detectBlockedPage } from '@modules/crawling/blocked-page';
+import { detectBlockedPage } from '@modules/crawling';
 
 export function parseCount(text: string | undefined): number {
   if (!text) return 0;

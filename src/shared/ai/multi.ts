@@ -10,6 +10,7 @@
  */
 
 import { config } from '@shared/config';
+import { meteredProvider } from './usage';
 import { ai } from './index';
 import { AnthropicProvider } from './providers/anthropic';
 import { GeminiProvider } from './providers/gemini';
@@ -170,6 +171,7 @@ export interface PlatformResponse {
   text: string;
   model: string;
   provider: string;
+  mode: SimulationPlatformMode;
   tokens: GenerateTextResult['tokens'];
 }
 
@@ -233,11 +235,12 @@ async function runOnPlatform(
       text,
       model: 'mock-simulation-v1',
       provider: 'mock',
+      mode: 'mock',
       tokens: { input: inputTokens, output: outputTokens, total: inputTokens + outputTokens },
     };
   }
 
-  const platformAi = providerForPlatform(platform);
+  const platformAi = meteredProvider(providerForPlatform(platform));
   const singleModel = runOptions?.singleModel ?? false;
   const modelOverride = usesOllamaForSimulation()
     ? ollamaModelForPlatform(platform, singleModel)
@@ -256,6 +259,7 @@ async function runOnPlatform(
     text: res.text,
     model: res.model,
     provider: res.provider,
+    mode: getSimulationPlatformMode(platform),
     tokens: res.tokens,
   };
 }

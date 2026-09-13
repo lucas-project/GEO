@@ -1,7 +1,7 @@
 import type { GeoContentKeyword } from './keywords';
 import { FORMAT_LABELS, FORMAT_PROMPT_GUIDE, GEO_CONTENT_FORMATS, MAX_KEYWORDS_FOR_IDEAS } from './formats';
 import { buildMergedPromptList } from './prompt-templates';
-import type { GeoContentFormat, GeoContentPack, GeoContentSection } from './schemas';
+import type { GeoContentPack, GeoContentSection } from './schemas';
 
 export const GEO_CONTENT_SYSTEM = `You are a GEO content strategist.
 

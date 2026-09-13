@@ -2,24 +2,6 @@ import type { InfluenceScores, OffSitePresenceReport, PlatformId, PlatformProbeR
 import { countHighEngagementPosts } from './engagement';
 import type { SearchSupplementResult } from './search-supplement';
 
-const AUTHORITY_MEDIA = [
-  'techcrunch.com',
-  'forbes.com',
-  'wired.com',
-  'theverge.com',
-  'reuters.com',
-  'bloomberg.com',
-  'bbc.com',
-  'cnn.com',
-  'theguardian.com',
-  'nytimes.com',
-  'motortrend.com',
-  'autoweek.com',
-  'caranddriver.com',
-  'topgear.com',
-  'autocar.co.uk',
-];
-
 const MEDIA_HOST_FRAGMENTS = [
   'forbes',
   'reuters',

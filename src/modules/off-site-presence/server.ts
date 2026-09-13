@@ -1,5 +1,8 @@
 import 'server-only';
 
+export { fetchSiteKeywords } from './site-keywords-service';
+import { confirmedProfileForUrl } from '@modules/site-profile';
+
 
 
 import { normalizeWebsiteUrl } from '@/lib/website-url';
@@ -9,8 +12,9 @@ import { config } from '@shared/config';
 import { crawlSinglePage } from '@modules/crawling/server';
 
 import { createFetchPage } from './fetch-off-site-page';
+import { createBudgetedFetchPage } from './fetch-budget';
 
-import { extractSchemas } from '@modules/extraction/extractors/schema';
+import { extractSchemas } from '@modules/extraction';
 
 import * as cheerio from 'cheerio';
 
@@ -160,6 +164,8 @@ export async function runOffSitePresenceProbe(
   const started = Date.now();
 
   const siteUrl = normalizeWebsiteUrl(input.siteUrl);
+  const confirmed = await confirmedProfileForUrl(siteUrl);
+  if (confirmed) input = { ...input, brandOverride: confirmed.primaryEntity.name, siteKeywords: confirmed.offerings };
 
   const domain = normalizeDomain(siteUrl);
 
@@ -190,7 +196,7 @@ export async function runOffSitePresenceProbe(
   let siteKeywords: string[];
   let searchPlan: Awaited<ReturnType<typeof resolveSearchPlan>>;
 
-  if (shouldUseBatchedProbeSetup()) {
+  if (!confirmed && shouldUseBatchedProbeSetup()) {
     const setup = await resolveProbeSetup({
       entity,
       domain,
@@ -208,7 +214,7 @@ export async function runOffSitePresenceProbe(
       pageContext,
     });
     let llmSearchTerms: string[] | undefined;
-    if (brandEnrichment) {
+    if (brandEnrichment && !confirmed) {
       entity = brandEnrichment.entity;
       llmSearchTerms = brandEnrichment.searchTerms;
     }
@@ -229,7 +235,7 @@ export async function runOffSitePresenceProbe(
     });
   }
 
-  const fetchPage = createFetchPage(playwrightEnabled);
+  const fetchPage = createBudgetedFetchPage(createFetchPage(playwrightEnabled));
   const sources: OffSitePresenceReport['meta']['sources'] = [];
 
   let searchSupplement = null;

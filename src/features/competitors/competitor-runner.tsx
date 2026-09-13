@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { Plus, X, Loader2, TrendingUp, Lightbulb } from 'lucide-react';
@@ -45,7 +45,6 @@ export function CompetitorRunner() {
   const [suggestionsApplied, setSuggestionsApplied] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [detectError, setDetectError] = useState<string | null>(null);
-  const enrichAttemptedRef = useRef<string | null>(null);
 
   const { data: resolvedAuditId, isLoading: resolvingAudit } = useQuery<string | null>({
     queryKey: ['cmp-audit-id', targetUrl, lastAuditId, lastAuditForUrl],
@@ -67,18 +66,20 @@ export function CompetitorRunner() {
 
   useEffect(() => {
     setSuggestionsApplied(false);
-    enrichAttemptedRef.current = null;
     setDetectError(null);
   }, [effectiveAuditId]);
 
-  const { data: auditData, isLoading: auditLoading, isFetching: auditFetching } = useQuery<{ audit: GeoAuditResult }>({
+  const { data: auditData, isLoading: auditLoading } = useQuery<{ audit: GeoAuditResult }>({
     queryKey: ['cmp-audit-suggestions', effectiveAuditId],
     enabled: Boolean(effectiveAuditId),
     queryFn: () => api.get(`/api/geo-audit/${effectiveAuditId}`),
     staleTime: 5 * 60 * 1000,
   });
 
-  const suggestedCompetitors = auditData?.audit?.scoringMeta?.suggestedCompetitors ?? [];
+  const suggestedCompetitors = useMemo(
+    () => auditData?.audit?.scoringMeta?.suggestedCompetitors ?? [],
+    [auditData],
+  );
 
   const { mutate: triggerDetect, isRunning: isDetecting } = useAsyncJob<
     void,
@@ -105,24 +106,9 @@ export function CompetitorRunner() {
     },
   });
 
-  // Auto-detect competitors when audit exists but suggestions are empty
-  useEffect(() => {
-    if (!effectiveAuditId || auditLoading || auditFetching || isDetecting) return;
-    if (suggestionsApplied) return;
-    if (suggestedCompetitors.length > 0) return;
-    if (enrichAttemptedRef.current === effectiveAuditId) return;
-
-    enrichAttemptedRef.current = effectiveAuditId;
-    triggerDetect();
-  }, [
-    effectiveAuditId,
-    auditLoading,
-    auditFetching,
-    isDetecting,
-    suggestionsApplied,
-    suggestedCompetitors.length,
-    triggerDetect,
-  ]);
+  // Automatic competitor discovery is intentionally disabled. Candidates must
+  // come from the audited profile or an explicit user URL and pass hard filters
+  // in the competitor-analysis module before crawling.
 
   // Apply suggestions from URL query param (from NextStepsRail link) or from audit on first load
   useEffect(() => {
@@ -150,7 +136,7 @@ export function CompetitorRunner() {
     if (fromQuery) setTargetUrl(fromQuery);
   }, [searchParams, setTargetUrl]);
 
-  const { mutate, isRunning, jobId, job, jobQuery, cancelJob } = useAsyncJob<void, CmpJobResult>({
+  const { mutate, isRunning, jobId, job, jobQuery } = useAsyncJob<void, CmpJobResult>({
     queryKeyPrefix: 'cmp-job',
     persistKey: BACKGROUND_JOB_KEYS.competitor,
     background: BACKGROUND_JOB_UI.competitor,
@@ -229,7 +215,6 @@ export function CompetitorRunner() {
               disabled={isDetecting || !effectiveAuditId}
               onClick={() => {
                 if (!effectiveAuditId) return;
-                enrichAttemptedRef.current = null;
                 setDetectError(null);
                 triggerDetect();
               }}
@@ -282,7 +267,6 @@ export function CompetitorRunner() {
                 className="text-[12px] text-accent hover:underline flex items-center gap-1"
                 disabled={isDetecting}
                 onClick={() => {
-                  enrichAttemptedRef.current = null;
                   setDetectError(null);
                   triggerDetect();
                 }}

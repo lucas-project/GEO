@@ -32,11 +32,17 @@ export async function ingestCitationSnapshot(
   siteId: string,
   auditId?: string | null,
 ): Promise<{ targetVisibilityScore: number; platformHits: string[]; shareOfModel: number } | null> {
-  const rows = await prisma.aiSimulation.findMany({
-    where: { siteId },
-    orderBy: { createdAt: 'desc' },
-    take: 80,
-  });
+  // Only independently configured external-provider runs may calibrate a
+  // citation snapshot. Mock, local, persona and legacy rows are experiments,
+  // not observations of named production platforms.
+  const rows = await prisma.$queryRawUnsafe<Array<{
+    platform: string; citations: string; brandMentions: string; responseText: string; targetBrand: string | null;
+  }>>(
+    `SELECT "platform", "citations", "brandMentions", "responseText", "targetBrand"
+     FROM "AiSimulation" WHERE "siteId" = ? AND "executionMode" = 'live'
+     ORDER BY "createdAt" DESC LIMIT 80`,
+    siteId,
+  );
   if (rows.length === 0) return null;
 
   const breakdown: PlatformBreakdown = {};

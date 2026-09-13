@@ -14,7 +14,8 @@ export {
   parkedDomainMessage,
   walledGardenDiscoverMessage,
 } from './blocked-page';
-export { fetchRobots } from './robots';
+export { fetchRobots, fetchRobotsPolicy, isAllowedByRobotsText } from './robots';
+export type { RobotsPolicy } from './robots';
 export {
   fetchSitemap,
   fetchSitemapRecursive,

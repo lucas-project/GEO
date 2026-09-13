@@ -1,4 +1,4 @@
-import type { AuditPageEntry, DiscoverySource, PageArchetype } from '@modules/geo-audit/schemas';
+import type { AuditPageEntry, DiscoverySource, PageArchetype } from '@modules/geo-audit';
 
 export interface DiscoveryCandidate {
   url: string;

@@ -9,12 +9,12 @@ import 'server-only';
  *   3. Extract structured representation (modules/extraction)
  *   4. Score across 12 dimensions (./scoring)
  *   5. Derive issues + fixes
- *   6. Generate LLM narrative
+ *   6. Generate an LLM narrative only when the runtime capability profile allows it
  *   7. Persist results + return
  */
 
 import { z } from 'zod';
-import { ai } from '@shared/ai';
+import { ai, allowsCapability } from '@shared/ai';
 import { config } from '@shared/config';
 import {
   canonicalPageUrl,
@@ -39,11 +39,10 @@ import {
 import { crawlingService, crawlSinglePage } from '@modules/crawling/server';
 import type { CrawledPage, CrawlResult } from '@modules/crawling';
 import type { PageExtraction } from '@modules/extraction';
-import { extractionService } from '@modules/extraction';
+import { emptyPageExtraction, extractionService } from '@modules/extraction';
 import { embeddingsService } from '@modules/embeddings';
 import { ingestAuditSync } from '@modules/intelligence';
-import { parseExtractionRow } from '@modules/intelligence/rollup';
-import { getLatestCitationSnapshot } from '@modules/intelligence/citation-snapshot';
+import { parseExtractionRow, getLatestCitationSnapshot } from '@modules/intelligence';
 import { queue } from '@shared/queue';
 import { analyzePresenceSignals } from '@modules/brand-presence';
 import { runPresenceProbe } from '@modules/brand-presence-probe';
@@ -57,6 +56,7 @@ import { scoreAll, deriveIssuesAndFixes, type PageExtractionInput } from './scor
 import {
   deriveSiteKeywordsFromExtraction,
   generateAuditSuggestions,
+  generateDeterministicAuditSuggestions,
 } from './suggestion-generators';
 import { buildImpactedPagesFromExtractionRow } from './issue-evidence';
 import { attachRangesToHighlights } from './locate-in-source';
@@ -65,7 +65,6 @@ import { applyGeoPriorityToInventory, buildPageInventory, type PagePriorityHint 
 import { NARRATIVE_SYSTEM, buildNarrativePrompt } from './prompts/narrative';
 import {
   DIMENSIONS,
-  DIMENSION_LABELS,
   type Dimension,
   type DimensionScore,
   type GeoAuditResult,
@@ -73,12 +72,13 @@ import {
   type Issue,
   type Fix,
   type PageInventory,
-  ScoringMetaSchema,
   DimensionScoreSchema,
 } from './schemas';
-import type { LinkInfo } from '@modules/extraction';
 import { groupAuditsBySite, type SiteAuditGroup } from './group-by-site';
 import { plainIssueRecommendation } from './plain-language';
+import { recomputeAuditPresentation } from './recompute';
+import { commitAuditReportWithRevision } from './revisioned-update';
+import { selectAuditRootPage } from './root-page';
 
 /** Pages rendered + extracted per audit (capped for Playwright runtime). */
 const AUDIT_MAX_PAGES = Math.min(config.crawl.maxPages, 5);
@@ -144,7 +144,7 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
       ? Math.max(input.pageUrls.length, AUDIT_MAX_PAGES)
       : AUDIT_MAX_PAGES;
     const maxPages = Math.min(input.maxPages ?? defaultMax, config.crawl.maxPages);
-    let crawl = await crawlingService.crawl({
+    const crawl = await crawlingService.crawl({
       url: normalizedUrl,
       auditId: audit.id,
       maxPages,
@@ -153,25 +153,7 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
       onProgress: (p, m) => input.onProgress?.(10 + Math.round((p / 100) * 40), m),
     });
 
-    const firstPage = crawl.pages[0];
-    const unusable = crawl.pages.length === 0 || !firstPage?.renderedHtml;
-    if (unusable && config.crawl.respectRobots) {
-      auditLogger.warn(
-        { url: normalizedUrl, robotsAllowed: crawl.robots.allowed, pageError: firstPage?.error },
-        'crawl unusable with respectRobots=true; retrying once with respectRobots=false',
-      );
-      crawl = await crawlingService.crawl({
-        url: normalizedUrl,
-        auditId: audit.id,
-        maxPages,
-        pageUrls: input.pageUrls,
-        screenshot: true,
-        respectRobots: false,
-        onProgress: (p, m) => input.onProgress?.(10 + Math.round((p / 100) * 40), m),
-      });
-    }
-
-    const fp = crawl.pages[0];
+    const fp = selectAuditRootPage(crawl.pages, normalizedUrl);
     if (crawl.pages.length === 0) {
       const reason =
         crawl.robots.fetched && !crawl.robots.allowed
@@ -182,8 +164,8 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
     if (!fp?.renderedHtml) {
       const blocked = detectBlockedPage({
         statusCode: fp?.statusCode ?? 0,
-        html: fp?.html,
-        title: fp?.title,
+        html: fp?.html ?? null,
+        title: fp?.title ?? null,
       });
       if (blocked.blocked || fp?.error) {
         throw new Error(
@@ -224,11 +206,33 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
         }),
       ),
     );
+    // Preserve acquisition outcomes for re-score/replay even while the Prisma
+    // client is being regenerated during migration rollout.
+    await Promise.all(
+      crawl.pages.map((page) =>
+        prisma.$executeRawUnsafe(
+          `UPDATE "CrawlResult" SET "fetchStatus" = ?, "blockReason" = ?, "contentHash" = ?, "htmlTruncated" = ?, "rawHtmlAvailable" = ?, "renderedHtmlAvailable" = ?, "fetchProfile" = ?, "fetchChannel" = ? WHERE "auditId" = ? AND "url" = ?`,
+          page.fetchStatus ?? null,
+          page.blockReason ?? null,
+          page.contentHash ?? null,
+          page.htmlTruncated ? 1 : 0,
+          page.rawHtmlAvailable ? 1 : 0,
+          page.renderedHtmlAvailable ? 1 : 0,
+          page.fetchProfile ?? null,
+          page.fetchChannel ?? null,
+          audit.id,
+          page.url,
+        ).catch((err) => {
+          auditLogger.warn({ err: (err as Error).message, auditId: audit.id }, 'crawl metadata save skipped');
+        }),
+      ),
+    );
 
-    const rootPage = crawl.pages[0];
+    const rootPage = selectAuditRootPage(crawl.pages, normalizedUrl);
+    if (!rootPage) throw new Error('No root page was returned by the crawl');
     const internalLinks =
       rootPage.renderedHtml != null
-        ? discoverInternalLinks(rootPage.renderedHtml, normalizedUrl, 80)
+        ? discoverInternalLinks(rootPage.renderedHtml, rootPage.finalUrl || normalizedUrl, 80)
         : [];
 
     const auditedUrls = new Set<string>();
@@ -276,10 +280,16 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
       auditedUrls.add(row.pageUrl);
       pageExtractions.push({ page: row.page, extraction: row.extraction });
     }
+    pageExtractions.sort((a, b) => {
+      if (a.page === rootPage) return -1;
+      if (b.page === rootPage) return 1;
+      return canonicalPageUrl(a.page.finalUrl || a.page.url, normalizedUrl)
+        .localeCompare(canonicalPageUrl(b.page.finalUrl || b.page.url, normalizedUrl));
+    });
 
-    const extraction = pageExtractions[0]?.extraction;
-    if (!extraction) {
-      throw new Error('No pages could be extracted for scoring.');
+    const extraction = pageExtractions[0]?.extraction ?? emptyPageExtraction(normalizedUrl);
+    if (pageExtractions.length === 0 && rootPage) {
+      pageExtractions.push({ page: rootPage, extraction });
     }
 
     const pageInventory = applyGeoPriorityToInventory(
@@ -294,7 +304,7 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
     );
 
     const extractionsForChecklist = pageExtractions.map(({ extraction: ext }) => ext);
-    const siteChecklist = aggregateChecklist(extractionsForChecklist, normalizedUrl);
+    const siteChecklist = aggregateChecklist(extractionsForChecklist, rootPage.finalUrl || normalizedUrl);
 
     const presenceSignals = analyzePresenceSignals({
       rootUrl: normalizedUrl,
@@ -313,23 +323,26 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
     const technicalPerformance = scoreTechnicalPerformance(rootPage);
 
     const [presenceProbe, , citationSnap, calibration, simulationRunCount] = await Promise.all([
-      runPresenceProbe({
-        brandName,
-        siteUrl: normalizedUrl,
-        presenceSignals,
-      }).catch(() => null),
-      embeddingsService.indexChunksForAudit(audit.id, extraction).catch((err) => {
-        auditLogger.warn({ err: (err as Error).message, auditId: audit.id }, 'chunk embeddings skipped');
-      }),
+      allowsCapability('remote_search')
+        ? runPresenceProbe({
+            brandName,
+            siteUrl: normalizedUrl,
+            presenceSignals,
+          }).catch(() => null)
+        : Promise.resolve(null),
+      allowsCapability('embeddings')
+        ? embeddingsService.indexChunksForAudit(audit.id, extraction).catch((err) => {
+            auditLogger.warn({ err: (err as Error).message, auditId: audit.id }, 'chunk embeddings skipped');
+          })
+        : Promise.resolve(undefined),
       getLatestCitationSnapshot(site.id),
       getCalibrationWeights(site.id),
       prisma.aiSimulation.count({ where: { siteId: site.id } }),
     ]);
 
-    const topicCoverage = await scoreTopicCoverage(
-      audit.id,
-      extraction.metadata.title ?? '',
-    ).catch(() => null);
+    const topicCoverage = allowsCapability('embeddings')
+      ? await scoreTopicCoverage(audit.id, extraction.metadata.title ?? '').catch(() => null)
+      : null;
 
     input.onProgress?.(80, 'Scoring AI visibility pipeline…');
     const scoringCtx = {
@@ -355,63 +368,76 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
       presenceProbe: presenceProbe ?? undefined,
     });
     const { issues, fixes } = deriveIssuesAndFixes(dimensions, scoringCtx, scoringMeta);
+    const presentation = recomputeAuditPresentation({
+      siteUrl: normalizedUrl,
+      crawl,
+      pageExtractions,
+      legacyScoringMeta: scoringMeta,
+    });
+    const { readiness, scoringMeta: evidenceScoringMeta } = presentation;
+    const siteProfile = evidenceScoringMeta.siteProfile!;
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Site" SET "profile" = ?, "profileVersion" = ? WHERE "id" = ? AND "profileConfirmedAt" IS NULL`,
+      stringifyJson(siteProfile),
+      siteProfile.version,
+      site.id,
+    ).catch((err) => {
+      auditLogger.warn({ err: (err as Error).message, siteId: site.id }, 'site profile save skipped');
+    });
 
-    input.onProgress?.(90, 'Generating narrative and AI questions…');
+    input.onProgress?.(
+      90,
+      allowsCapability('remote_ai')
+        ? 'Generating narrative and AI questions…'
+        : 'Preparing deterministic report…',
+    );
     const siteKeywords = deriveSiteKeywordsFromExtraction(extraction);
     const [narrative, auditSuggestions] = await Promise.all([
-      generateNarrative({
-        url: normalizedUrl,
-        overallScore,
-        dimensions,
-        scoringMeta,
-        siteId: site.id,
-      }),
-      generateAuditSuggestions({
-        url: normalizedUrl,
-        brandName,
-        dimensions,
-        siteKeywords,
-      }),
+      allowsCapability('remote_ai')
+        ? generateNarrative({
+            url: normalizedUrl,
+            overallScore,
+            dimensions,
+            scoringMeta,
+            siteId: site.id,
+          })
+        : Promise.resolve(
+            readiness.score == null
+              ? 'Content and technical readiness could not be calculated because no page evidence was observed.'
+              : `Content and technical readiness: ${readiness.score}/100. Evidence coverage is ${Math.round(readiness.coverage * 100)}%; review the cited evidence before making changes.`,
+          ),
+      allowsCapability('remote_ai')
+        ? generateAuditSuggestions({
+            url: normalizedUrl,
+            brandName,
+            dimensions,
+            siteKeywords,
+          })
+        : Promise.resolve(generateDeterministicAuditSuggestions({ url: normalizedUrl, siteKeywords })),
     ]);
     const suggestedSimulationPrompts = auditSuggestions.prompts;
     const suggestedCompetitors = auditSuggestions.competitors;
 
     const enrichedScoringMeta: ScoringMeta = {
-      ...scoringMeta,
+      ...evidenceScoringMeta,
       ...(suggestedSimulationPrompts.length > 0 ? { suggestedSimulationPrompts } : {}),
       ...(suggestedCompetitors.length > 0 ? { suggestedCompetitors } : {}),
     };
 
     input.onProgress?.(97, 'Saving report…');
-    await prisma.geoAudit.update({
-      where: { id: audit.id },
-      data: {
-        overallScore,
-        dimensions: stringifyJson(dimensions),
-        narrative,
-        topIssues: stringifyJson(issues),
-        topFixes: stringifyJson(fixes),
-        screenshotUrl: rootPage.screenshotPath,
-        status: 'completed',
-      },
-    });
-
-    await prisma.$executeRawUnsafe(
-      `UPDATE "GeoAudit" SET "scoringMeta" = ? WHERE "id" = ?`,
-      stringifyJson(enrichedScoringMeta),
-      audit.id,
-    ).catch((err) => {
-      auditLogger.warn({ err: (err as Error).message, auditId: audit.id }, 'scoringMeta save skipped');
-    });
-
-    // pageInventory is a column added after the initial schema; use raw SQL to
-    // avoid failures when the Prisma client binary hasn't been regenerated yet.
-    await prisma.$executeRawUnsafe(
-      `UPDATE "GeoAudit" SET "pageInventory" = ? WHERE "id" = ?`,
-      stringifyJson(pageInventory),
-      audit.id,
-    ).catch((err) => {
-      auditLogger.warn({ err: (err as Error).message, auditId: audit.id }, 'pageInventory save skipped');
+    await commitAuditReportWithRevision(audit.id, {
+      overallScore,
+      dimensions: stringifyJson(dimensions),
+      scoringMeta: stringifyJson(enrichedScoringMeta),
+      narrative,
+      topIssues: stringifyJson(issues),
+      topFixes: stringifyJson(fixes),
+      screenshotUrl: rootPage.screenshotPath,
+      status: 'completed',
+      scoreVersion: 'content-readiness-v3',
+      coverage: readiness.coverage,
+      sampleManifest: stringifyJson(pageInventory.pages.map((p) => p.url)),
+      pageInventory: stringifyJson(pageInventory),
     });
 
     input.onProgress?.(100, 'Done!');
@@ -487,9 +513,9 @@ export async function getAudit(auditId: string): Promise<GeoAuditResult | null> 
   if (!row) return null;
 
   const rawCols = await prisma.$queryRawUnsafe<
-    [{ pageInventory: string; scoringMeta: string }?]
+    [{ pageInventory: string; scoringMeta: string; revision: number }?]
   >(
-    `SELECT "pageInventory", "scoringMeta" FROM "GeoAudit" WHERE "id" = ?`,
+    `SELECT "pageInventory", "scoringMeta", "revision" FROM "GeoAudit" WHERE "id" = ?`,
     auditId,
   ).then((rows) => rows[0] ?? null).catch(() => null);
 
@@ -516,15 +542,17 @@ export async function getAudit(auditId: string): Promise<GeoAuditResult | null> 
     };
   }
   const { issues: derivedIssues } = deriveIssuesAndFixes(dimensions, undefined, scoringMeta);
+  const storedIssues = parseJson<Issue[]>(row.topIssues, []);
   const topIssues = await enrichIssuesFromStoredPages(
     auditId,
     row.url,
-    derivedIssues,
+    storedIssues.length > 0 ? storedIssues : derivedIssues,
     pageInventory,
   );
 
   return {
     id: row.id,
+    revision: rawCols?.revision,
     siteId: row.siteId,
     url: row.url,
     overallScore: row.overallScore,
@@ -1016,9 +1044,7 @@ export async function extendAudit(
     hydrationDelta: null,
   }));
 
-  const rootCanon = canonicalPageUrl(normalizedUrl, normalizedUrl);
-  const rootPage =
-    pages.find((p) => canonicalPageUrl(p.finalUrl || p.url, normalizedUrl) === rootCanon) ?? pages[0];
+  const rootPage = selectAuditRootPage(pages, normalizedUrl);
   if (!rootPage?.renderedHtml) {
     throw new Error('Root page HTML missing; cannot re-score');
   }
@@ -1031,6 +1057,12 @@ export async function extendAudit(
       ) ?? rootPage;
     pageExtractions.push({ page, extraction: extractionFromDbRow(row) });
   }
+  pageExtractions.sort((a, b) => {
+    if (a.page === rootPage) return -1;
+    if (b.page === rootPage) return 1;
+    return canonicalPageUrl(a.page.finalUrl || a.page.url, normalizedUrl)
+      .localeCompare(canonicalPageUrl(b.page.finalUrl || b.page.url, normalizedUrl));
+  });
 
   const robots = await fetchRobots(normalizedUrl);
   let sitemapUrls = robots.sitemaps;
@@ -1051,7 +1083,7 @@ export async function extendAudit(
 
   const internalLinks =
     rootPage.renderedHtml != null
-      ? discoverInternalLinks(rootPage.renderedHtml, normalizedUrl, 80)
+      ? discoverInternalLinks(rootPage.renderedHtml, rootPage.finalUrl || normalizedUrl, 80)
       : [];
 
   const auditedUrls = new Set(
@@ -1070,7 +1102,7 @@ export async function extendAudit(
 
   const extraction = pageExtractions[0]!.extraction;
   const extractionsForChecklist = pageExtractions.map(({ extraction: ext }) => ext);
-  const siteChecklist = aggregateChecklist(extractionsForChecklist, normalizedUrl);
+  const siteChecklist = aggregateChecklist(extractionsForChecklist, rootPage.finalUrl || normalizedUrl);
   const presenceSignals = analyzePresenceSignals({
     rootUrl: normalizedUrl,
     pageExtractions: pageExtractions.map(({ page, extraction: ext }) => ({
@@ -1082,16 +1114,17 @@ export async function extendAudit(
   const brandName =
     extraction.metadata.title?.split(/[|\-–]/)[0]?.trim() ??
     new URL(normalizedUrl).hostname.replace(/^www\./, '');
-  const presenceProbe = await runPresenceProbe({
-    brandName,
-    siteUrl: normalizedUrl,
-    presenceSignals,
-  }).catch(() => null);
+  const presenceProbe = allowsCapability('remote_search')
+    ? await runPresenceProbe({
+        brandName,
+        siteUrl: normalizedUrl,
+        presenceSignals,
+      }).catch(() => null)
+    : null;
   const technicalPerformance = scoreTechnicalPerformance(rootPage);
-  const topicCoverage = await scoreTopicCoverage(
-    auditId,
-    extraction.metadata.title ?? '',
-  ).catch(() => null);
+  const topicCoverage = allowsCapability('embeddings')
+    ? await scoreTopicCoverage(auditId, extraction.metadata.title ?? '').catch(() => null)
+    : null;
 
   const scoringCtx = {
     url: normalizedUrl,
@@ -1123,45 +1156,53 @@ export async function extendAudit(
     presenceProbe: presenceProbe ?? undefined,
   });
   const { issues, fixes } = deriveIssuesAndFixes(dimensions, scoringCtx, scoringMeta);
+  const extractedUrls = new Set(
+    pageExtractions.map(({ page }) => canonicalPageUrl(page.finalUrl || page.url, normalizedUrl)),
+  );
+  const evidencePageExtractions: PageExtractionInput[] = [
+    ...pageExtractions,
+    ...pages
+      .filter((page) => !extractedUrls.has(canonicalPageUrl(page.finalUrl || page.url, normalizedUrl)))
+      .map((page) => ({ page, extraction: emptyPageExtraction(page.finalUrl || page.url) })),
+  ];
+  const presentation = recomputeAuditPresentation({
+    siteUrl: normalizedUrl, crawl, pageExtractions: evidencePageExtractions, legacyScoringMeta: scoringMeta,
+  });
+  const evidenceScoringMeta = presentation.scoringMeta;
+  const readiness = presentation.readiness;
 
   onProgress?.(85, 'Updating narrative…');
-  const narrative = await generateNarrative({
-    url: normalizedUrl,
+  const narrative = allowsCapability('remote_ai')
+    ? await generateNarrative({
+        url: normalizedUrl,
+        overallScore: readiness.score ?? overallScore,
+        dimensions,
+        scoringMeta: evidenceScoringMeta,
+        siteId: siteId ?? undefined,
+      })
+    : readiness.score == null
+      ? 'Content and technical readiness could not be calculated because no page evidence was observed.'
+      : `Content and technical readiness: ${readiness.score}/100. Evidence coverage is ${Math.round(readiness.coverage * 100)}%; review the cited evidence before making changes.`;
+
+  await commitAuditReportWithRevision(auditId, {
     overallScore,
-    dimensions,
-    scoringMeta,
-    siteId: siteId ?? undefined,
-  });
-
-  await prisma.geoAudit.update({
-    where: { id: auditId },
-    data: {
-      overallScore,
-      dimensions: stringifyJson(dimensions),
-      narrative,
-      topIssues: stringifyJson(issues),
-      topFixes: stringifyJson(fixes),
-    },
-  });
-
-  await prisma.$executeRawUnsafe(
-    `UPDATE "GeoAudit" SET "scoringMeta" = ? WHERE "id" = ?`,
-    stringifyJson(scoringMeta),
-    auditId,
-  ).catch((err) => {
-    auditLogger.warn({ err: (err as Error).message, auditId }, 'scoringMeta save skipped');
-  });
-
-  await prisma.$executeRawUnsafe(
-    `UPDATE "GeoAudit" SET "pageInventory" = ? WHERE "id" = ?`,
-    stringifyJson(pageInventory),
-    auditId,
-  ).catch((err) => {
-    auditLogger.warn({ err: (err as Error).message, auditId }, 'pageInventory save skipped');
+    dimensions: stringifyJson(dimensions),
+    scoringMeta: stringifyJson(evidenceScoringMeta),
+    narrative,
+    topIssues: stringifyJson(issues),
+    topFixes: stringifyJson(fixes),
+    screenshotUrl: audit.screenshotUrl,
+    status: 'completed',
+    scoreVersion: 'content-readiness-v3',
+    coverage: readiness.coverage,
+    sampleManifest: stringifyJson(pageInventory.pages.map((p) => p.url)),
+    pageInventory: stringifyJson(pageInventory),
   });
 
   onProgress?.(100, 'Done');
-  await ingestAuditSync(auditId).catch(() => {});
+  if (allowsCapability('embeddings')) {
+    await ingestAuditSync(auditId).catch(() => {});
+  }
 
   return {
     id: auditId,
@@ -1169,7 +1210,7 @@ export async function extendAudit(
     url: normalizedUrl,
     overallScore,
     dimensions,
-    scoringMeta,
+    scoringMeta: evidenceScoringMeta,
     narrative,
     topIssues: issues,
     topFixes: fixes,

@@ -1,4 +1,4 @@
-import type { PageChecklistSignals, PageExtraction } from '@modules/extraction';
+import type { PageExtraction } from '@modules/extraction';
 
 export interface SiteChecklistSignals {
   leadHasDefinition: boolean;

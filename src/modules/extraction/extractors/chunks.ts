@@ -39,11 +39,28 @@ function isAnswerFirst(text: string): boolean {
   return ANSWER_FIRST_OPENERS.some((re) => re.test(firstSentence));
 }
 
+function countWords(text: string): number {
+  const cjkCharacters = text.match(/[\u3400-\u9fff]/g)?.length ?? 0;
+  const spacedWords = text.match(/[A-Za-z0-9][A-Za-z0-9'-]*/g)?.length ?? 0;
+  return cjkCharacters + spacedWords || text.split(/\s+/).filter(Boolean).length;
+}
+
+function contentBlocks($: CheerioAPI, main: Cheerio<AnyNode>): Cheerio<AnyNode> {
+  const semantic = main.find('h1, h2, h3, p, ul, ol, table');
+  if (semantic.length > 0) return semantic as Cheerio<AnyNode>;
+
+  // Some app shells use div-only body content. Use leaf containers only so a
+  // wrapper and each descendant are not recorded as duplicate paragraphs.
+  return main
+    .find('div, section')
+    .filter((_, el) => $(el).find('div, section, p, ul, ol, table').length === 0) as Cheerio<AnyNode>;
+}
+
 export function extractChunks($: CheerioAPI): SemanticChunk[] {
   const main = pickMainRoot($);
   const chunks: SemanticChunk[] = [];
 
-  const blocks = main.find('h1, h2, h3, p, ul, ol, table');
+  const blocks = contentBlocks($, main);
   let currentHeading: string | null = null;
   let buffer: string[] = [];
   let hasList = false;
@@ -57,7 +74,7 @@ export function extractChunks($: CheerioAPI): SemanticChunk[] {
       hasNumbers = false;
       return;
     }
-    const wordCount = text.split(/\s+/).length;
+    const wordCount = countWords(text);
     chunks.push({
       id: 'chunk-' + chunks.length.toString().padStart(3, '0'),
       heading: currentHeading,

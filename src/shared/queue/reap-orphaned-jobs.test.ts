@@ -23,7 +23,7 @@ describe('reapOrphanedRunningJobs', () => {
 
     expect(count).toBe(2);
     expect(updateMany).toHaveBeenCalledWith({
-      where: { status: 'running' },
+      where: { status: 'running', OR: [{ leaseExpiresAt: { lt: expect.any(Date) } }, { leaseExpiresAt: null }] },
       data: {
         status: 'failed',
         error: INTERRUPTED_ERROR,

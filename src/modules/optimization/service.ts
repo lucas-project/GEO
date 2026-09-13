@@ -9,7 +9,6 @@
 import { randomId } from '@shared/util/id';
 import { prisma, parseJson } from '@shared/database/client';
 import { logger } from '@shared/logger';
-import type { PageExtraction } from '@modules/extraction';
 import type { CrawlResult } from '@modules/crawling';
 import { generateFaqSchema } from './generators/faq-schema';
 import { generateLlmsTxt } from './generators/llms-txt';
@@ -20,14 +19,14 @@ import { type GeneratedArtifact, type ArtifactType } from './schemas';
 import { pickAdapter } from './cms';
 import type { CmsPatchResult } from './cms';
 import { recordFixApplied } from '@modules/intelligence';
-import type { DimensionScore } from '@modules/geo-audit';
-import { DIMENSIONS } from '@modules/geo-audit';
+import { DIMENSIONS, selectAuditRootPage, type DimensionScore } from '@modules/geo-audit';
 
 const optLogger = logger.child({ module: 'optimization' });
 
 export interface GenerateInput {
   auditId: string;
   type: ArtifactType;
+  targetUrl?: string;
 }
 
 export async function generateArtifact(input: GenerateInput): Promise<GeneratedArtifact> {
@@ -37,12 +36,17 @@ export async function generateArtifact(input: GenerateInput): Promise<GeneratedA
   });
   if (!audit) throw new Error(`audit ${input.auditId} not found`);
 
-  const extraction = audit.extractionResults[0];
+  const targetUrl = input.targetUrl ?? audit.url;
+  const extraction = input.targetUrl
+    ? audit.extractionResults.find(page => page.url.replace(/\/$/, '') === targetUrl.replace(/\/$/, ''))
+    : selectAuditRootPage(audit.extractionResults, targetUrl);
   if (!extraction) throw new Error('no extraction available for audit');
 
   const { parseExtractionRow } = await import('@modules/intelligence/rollup');
   const ext = parseExtractionRow(extraction);
 
+  const sourceEvidence = parseJson<{ evidenceBundle?: { evidence: Array<{ id: string; finalUrl: string; requestedUrl: string }> } }>(audit.scoringMeta, {});
+  const evidenceIds = sourceEvidence.evidenceBundle?.evidence.filter(e => e.finalUrl === targetUrl || e.requestedUrl === targetUrl).map(e => e.id) ?? [];
   let content = '';
   let rationale = '';
   let format: GeneratedArtifact['contentFormat'] = 'text';
@@ -59,7 +63,7 @@ export async function generateArtifact(input: GenerateInput): Promise<GeneratedA
         existingFaqs: ext.faqs,
         siteId: audit.siteId,
       });
-      content = `<script type="application/ld+json">\n${out.jsonLd}\n</script>`;
+      content = out.jsonLd ? `<script type="application/ld+json">\n${out.jsonLd}\n</script>` : '';
       rationale = out.rationale;
       format = 'html';
       break;
@@ -153,7 +157,11 @@ export async function generateArtifact(input: GenerateInput): Promise<GeneratedA
       id: randomId(),
       auditId: input.auditId,
       type: input.type,
-      targetUrl: audit.url,
+      targetUrl,
+      evidenceIds: JSON.stringify(evidenceIds),
+      sourceRevision: audit.revision,
+      contentFormat: format,
+      disposition: content ? 'draft' : 'insufficient_evidence',
       generatedContent: content,
       rationale,
       applied: false,
@@ -169,6 +177,8 @@ export async function generateArtifact(input: GenerateInput): Promise<GeneratedA
     contentFormat: format,
     rationale,
     applied: false,
+    evidenceIds,
+    disposition: row.disposition,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -184,9 +194,12 @@ export async function listArtifactsForAudit(auditId: string): Promise<GeneratedA
     type: r.type as ArtifactType,
     targetUrl: r.targetUrl,
     content: r.generatedContent,
-    contentFormat: 'text',
+    contentFormat: r.contentFormat as GeneratedArtifact['contentFormat'],
     rationale: r.rationale ?? '',
     applied: r.applied,
+    evidenceIds: parseJson<string[]>(r.evidenceIds, []),
+    disposition: r.disposition,
+    recheckAuditId: r.recheckAuditId,
     createdAt: r.createdAt.toISOString(),
   }));
 }
@@ -218,7 +231,7 @@ export async function markOptimizationApplied(optimizationId: string): Promise<v
 
   await prisma.optimizationSuggestion.update({
     where: { id: optimizationId },
-    data: { applied: true },
+    data: { applied: true, disposition: 'applied' },
   });
 
   const audit = row.audit;

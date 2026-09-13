@@ -5,8 +5,9 @@
 import { randomId } from '@shared/util/id';
 import { prisma, parseJson, stringifyJson } from '@shared/database/client';
 import { logger } from '@shared/logger';
-import { ai } from '@shared/ai';
+import { ai, generateCachedStructuredOutput } from '@shared/ai';
 import { normalizeWebsiteUrl, sameTargetSite } from '@/lib/website-url';
+import { selectAuditRootPage } from '@modules/geo-audit';
 import { GeoContentPackSchema, type GeoContentPack } from './schemas';
 import {
   extractRelevantKeywords,
@@ -58,7 +59,7 @@ function pickTargetExtraction(
 ): Promise<{ id: string; metadata: string; headings: string; faqs: string; chunks: string; tables: string; url: string } | null> {
   return prisma.extractionResult
     .findMany({ where: { auditId }, orderBy: { createdAt: 'asc' } })
-    .then((rows) => rows.find((r) => sameTargetSite(r.url, targetUrl)) ?? rows[0] ?? null);
+    .then((rows) => selectAuditRootPage(rows, targetUrl));
 }
 
 export async function generateGeoContentPack(input: GenerateGeoContentInput): Promise<GenerateGeoContentResult> {
@@ -129,14 +130,18 @@ export async function generateGeoContentPack(input: GenerateGeoContentInput): Pr
   let pack: GeoContentPack;
   try {
     const contentModel = resolveGeoContentModel(ai.name);
-    const { data } = await ai.generateStructuredOutput({
-      schema: GeoContentPackSchema,
-      schemaName: 'GeoContentPack',
-      system: GEO_CONTENT_SYSTEM,
-      prompt,
-      temperature: 0.5,
-      ...(contentModel ? { model: contentModel } : {}),
-    });
+    const { data } = await generateCachedStructuredOutput(
+      ai,
+      {
+        schema: GeoContentPackSchema,
+        schemaName: 'GeoContentPack',
+        system: GEO_CONTENT_SYSTEM,
+        prompt,
+        temperature: 0.5,
+        ...(contentModel ? { model: contentModel } : {}),
+      },
+      { namespace: 'geo-content-pack-v1', ttlSeconds: 86_400 },
+    );
     pack = finalizeContentPack(GeoContentPackSchema.parse(data), keywordTerms);
     pack = {
       ...pack,
