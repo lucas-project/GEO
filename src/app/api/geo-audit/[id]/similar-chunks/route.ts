@@ -5,8 +5,11 @@
 import { NextResponse } from 'next/server';
 import { getAudit } from '@modules/geo-audit/server';
 import { findSimilarChunks } from '@modules/embeddings';
+import { authenticationRequired, getRequestOwnerId } from '@/lib/owner-scope';
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const ownerId = await getRequestOwnerId();
+  if (!ownerId) return authenticationRequired();
   const { id } = await ctx.params;
   const url = new URL(req.url);
   const q = url.searchParams.get('q')?.trim() ?? '';
@@ -14,7 +17,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     return NextResponse.json({ error: 'q query parameter is required' }, { status: 400 });
   }
 
-  const audit = await getAudit(id);
+  const audit = await getAudit(id, ownerId);
   if (!audit) return NextResponse.json({ error: 'audit not found' }, { status: 404 });
 
   try {

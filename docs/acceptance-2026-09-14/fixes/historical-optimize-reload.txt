@@ -1,0 +1,143 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+TARGET WEBSITE
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Latest audit report →
+Brand name
+Clear site
+Deployable artifacts
+
+Turn a GEO audit into copy-ready snippets — FAQ JSON-LD, llms.txt, summary blocks, meta tags, and more. Nothing is pushed to your live site; you review and paste (or use CMS integration where configured).
+
+This does not edit your website automatically. It generates files and HTML you can copy into your CMS or theme. Optional WordPress draft apply exists only when CMS credentials are configured.
+
+A GEO audit is a site scan you run on the GEO Audit page. Each finished scan becomes a report (scores, page text, keywords). Tools like this one read that report — you normally only need your website URL in the workspace bar at the top.
+
+Target page
+https://www.mdhome.com.au
+https://www.mdhome.com.au/faqs
+https://www.mdhome.com.au/support
+https://www.mdhome.com.au/product/athena-series
+https://www.mdhome.com.au/product/gaia-series
+https://www.mdhome.com.au/product/atom-t-series
+https://www.mdhome.com.au/product/breezeless-series
+https://www.mdhome.com.au/product/midea-cube-dehumidifier
+https://www.mdhome.com.au/product/venus-series
+https://www.mdhome.com.au/room-sizing-guide
+WHICH AUDIT REPORT?
+Select a report
+https://example.com · 15/09/2026, 19:03:44 · completed
+https://example.com · 15/09/2026, 18:46:22 · completed
+https://www.mdhome.com.au · 14/09/2026, 23:18:28 · completed
+https://example.com · 14/09/2026, 22:47:41 · partial
+https://example.com · 14/09/2026, 22:43:34 · partial
+https://www.mdhome.com.au · 13/09/2026, 23:10:58 · partial
+https://www.mdhome.com.au · 13/09/2026, 22:38:50 · partial
+https://www.mdhome.com.au · 13/09/2026, 22:37:46 · partial
+https://daikin.com.au · 13/09/2026, 21:02:28 · partial
+https://example.com · 13/09/2026, 21:01:50 · completed
+https://mdhome.com.au · 13/09/2026, 01:30:37 · completed
+https://www.daikin.com.au · 13/09/2026, 01:29:46 · completed
+https://www.daikin.com.au · 13/09/2026, 01:23:34 · completed
+https://www.daikin.com.au · 13/09/2026, 01:21:53 · completed
+https://example.com · 13/09/2026, 01:21:25 · completed
+https://www.lg.com/au · 14/06/2026, 13:39:19 · completed
+https://www.lg.com/au · 14/06/2026, 13:39:07 · completed
+https://www.panasonic.com/au · 14/06/2026, 13:38:25 · completed
+https://www.panasonic.com/au · 14/06/2026, 13:38:21 · completed
+https://www.daikin.com.au · 14/06/2026, 13:37:13 · completed
+https://www.daikin.com.au · 14/06/2026, 13:37:13 · completed
+https://mdhome.com.au · 14/06/2026, 13:34:47 · completed
+https://mdhome.com.au · 14/06/2026, 13:34:47 · completed
+https://mdhome.com.au · 14/06/2026, 13:27:52 · completed
+https://mdhome.com.au · 14/06/2026, 13:27:52 · completed
+https://mdhome.com.au · 14/06/2026, 13:27:52 · completed
+https://mdhome.com.au · 14/06/2026, 13:25:28 · completed
+https://mdhome.com.au · 14/06/2026, 13:21:47 · completed
+https://mdhome.com.au · 14/06/2026, 13:21:47 · completed
+https://mdhome.com.au · 14/06/2026, 13:19:10 · completed
+https://www.daikin.com.au · 14/06/2026, 00:16:02 · completed
+https://www.midea.com/au/air-conditioner · 14/06/2026, 00:15:32 · completed
+https://www.midea.com/au/air-conditioner · 14/06/2026, 00:14:50 · completed
+https://www.midea.com/au/air-conditioner · 14/06/2026, 00:14:50 · completed
+https://www.daikin.com.au · 13/06/2026, 23:58:03 · completed
+https://www.daikin.com.au · 13/06/2026, 23:57:52 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 23:57:15 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 23:56:56 · completed
+https://www.daikin.com.au · 13/06/2026, 23:55:19 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 23:54:38 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 23:52:29 · completed
+https://www.daikin.com.au · 13/06/2026, 23:51:19 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 23:50:27 · completed
+https://www.daikin.com.au · 13/06/2026, 23:48:21 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 23:47:40 · completed
+https://www.daikin.com.au · 13/06/2026, 23:45:15 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 23:44:32 · completed
+https://www.daikin.com.au · 13/06/2026, 23:24:10 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 23:23:30 · completed
+https://www.daikin.com.au · 13/06/2026, 23:20:33 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 23:19:52 · completed
+https://www.daikin.com.au · 13/06/2026, 23:17:23 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 23:16:34 · completed
+https://www.daikin.com.au · 13/06/2026, 23:12:38 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 23:11:30 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 12:43:21 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 12:36:20 · completed
+https://www.daikin.com.au · 13/06/2026, 12:24:01 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 12:23:24 · completed
+https://www.midea.com/au/air-conditioner · 13/06/2026, 12:17:49 · completed
+https://daikin.com.au · 13/06/2026, 11:14:30 · completed
+https://mdhome.com.au · 13/06/2026, 11:07:11 · completed
+https://mdhome.com.au · 13/06/2026, 11:05:04 · completed
+https://mdhome.com.au · 13/06/2026, 11:00:37 · completed
+https://daikin.com.au · 13/06/2026, 00:34:49 · completed
+https://mdhome.com.au · 21/05/2026, 00:10:33 · completed
+https://mdhome.com.au · 21/05/2026, 00:02:00 · completed
+https://www.ferrari.com · 19/05/2026, 00:10:57 · completed
+https://www.ferrari.com · 19/05/2026, 00:10:57 · completed
+https://www.ferrari.com · 18/05/2026, 22:35:46 · completed
+https://www.nvidia.com · 18/05/2026, 22:25:32 · completed
+https://mdhome.com.au · 18/05/2026, 22:04:35 · completed
+https://tesla.com · 18/05/2026, 20:11:18 · completed
+https://www.bmwgroup.com · 18/05/2026, 20:03:01 · completed
+https://bmw.com · 18/05/2026, 19:59:46 · completed
+https://mdhome.com.au · 18/05/2026, 01:48:35 · completed
+https://midea.com · 18/05/2026, 01:29:34 · completed
+https://midea.com · 18/05/2026, 01:16:29 · completed
+https://www.polyaire.com.au · 18/05/2026, 01:08:29 · completed
+https://mdhome.com.au · 18/05/2026, 01:01:01 · completed
+https://apple.com · 17/05/2026, 21:14:52 · completed
+https://mdhome.com.au · 17/05/2026, 16:22:56 · completed
+ARTIFACT TYPE
+FAQPage JSON-LD
+Schema.org FAQPage markup ready for <head>
+llms.txt
+AI crawler manifest (Anthropic spec)
+AI Summary Block
+Embeddable summary block for the page top
+Answer-First Rewrite
+Rewrite the lead paragraph in answer-first form
+Product / Organization
+JSON-LD for your brand or product
+Metadata Patches
+Missing meta description, og:title, canonical
+Generate FAQPage JSON-LD

@@ -1,8 +1,16 @@
 import { z } from 'zod';
 
 export const ObservationStatusSchema = z.enum([
-  'observed', 'absent_in_scope', 'blocked', 'timeout', 'rate_limited',
-  'parse_error', 'not_configured', 'not_run', 'legacy_unknown',
+  'observed',
+  'absent_in_scope',
+  'blocked',
+  'timeout',
+  'rate_limited',
+  'parse_error',
+  'unreachable',
+  'not_configured',
+  'not_run',
+  'legacy_unknown',
 ]);
 export type ObservationStatus = z.infer<typeof ObservationStatusSchema>;
 

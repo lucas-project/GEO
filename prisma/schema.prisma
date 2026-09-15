@@ -14,6 +14,74 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Local, invite-only accounts and workspaces. Site.ownerId is a workspace id
+// for authenticated requests; it has no foreign key so legacy local rows keep
+// working during a non-destructive migration.
+model User {
+  id             String                @id @default(cuid())
+  email          String                @unique
+  passwordHash   String
+  passwordSalt   String
+  passwordParams String
+  createdAt      DateTime              @default(now())
+  sessions       AuthSession[]
+  memberships    WorkspaceMembership[]
+}
+
+model Workspace {
+  id          String                @id @default(cuid())
+  name        String
+  createdAt   DateTime              @default(now())
+  memberships WorkspaceMembership[]
+  sessions    AuthSession[]
+  invites     Invite[]
+}
+
+model WorkspaceMembership {
+  id          String    @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        String    @default("viewer") // owner | editor | viewer
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+model AuthSession {
+  id          String    @id @default(cuid())
+  tokenHash   String    @unique
+  userId      String
+  workspaceId String
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([workspaceId])
+  @@index([expiresAt])
+}
+
+model Invite {
+  id          String    @id @default(cuid())
+  codeHash    String    @unique
+  workspaceId String
+  email       String?
+  role        String    @default("viewer") // owner | editor | viewer
+  maxUses     Int       @default(1)
+  uses        Int       @default(0)
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([expiresAt])
+}
+
 // ---------------------------------------------------------------
 // JOBS — generic async work tracking (audits, simulations, etc.)
 // ---------------------------------------------------------------
@@ -53,7 +121,7 @@ model Job {
 model Site {
   userEvidence String @default("[]")
   id          String   @id @default(cuid())
-  url         String   @unique
+  url         String
   name        String?
   ownerId     String   @default("local")
   monitored   Boolean  @default(false)
@@ -98,6 +166,9 @@ model Site {
   fixOutcomes       FixOutcome[]
   patternEmbeddings PatternEmbedding[]
   geoContentPacks   GeoContentPack[]
+
+  @@unique([ownerId, url])
+  @@index([ownerId])
 }
 
 // ---------------------------------------------------------------
@@ -273,11 +344,13 @@ model CompetitorReport {
 // Full comparison payload for UI (one row per queued compare job)
 model ComparisonRun {
   id        String   @id
+  ownerId   String   @default("local")
   targetUrl String
   payload   String // JSON: CompetitorComparison
   createdAt DateTime @default(now())
 
   @@index([targetUrl])
+  @@index([ownerId])
   @@index([createdAt])
 }
 

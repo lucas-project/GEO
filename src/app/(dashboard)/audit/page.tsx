@@ -14,7 +14,8 @@ const RecentAudits = dynamic(
   },
 );
 
-export default function AuditPage() {
+export default async function AuditPage({ searchParams }: { searchParams: Promise<{ url?: string }> }) {
+  const { url } = await searchParams;
   return (
     <div className="max-w-5xl mx-auto px-8 py-10">
       <div className="mb-8">
@@ -27,7 +28,7 @@ export default function AuditPage() {
 
       <AuditResumeBanner />
 
-      <AuditEntry />
+      <AuditEntry initialUrl={url} />
 
       <div className="mt-8">
         <RecentAudits />

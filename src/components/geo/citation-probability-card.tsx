@@ -23,7 +23,7 @@ export function CitationProbabilityCard({ scoringMeta, className }: CitationProb
         Citation-related signals
       </div>
       <div className={cn('text-5xl font-semibold tabular-nums', probColorClass(scoringMeta.citationProbability))}>
-        {pct}%
+        {hasSnapshot ? `${pct}%` : <span className="text-xl text-fg-muted">Not measured</span>}
       </div>
       <p className="mt-2 text-xs text-fg-muted leading-relaxed max-w-[240px]">
         {hasSnapshot

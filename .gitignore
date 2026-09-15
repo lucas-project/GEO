@@ -22,8 +22,20 @@ prisma/*.db-shm
 prisma/*.db-wal
 prisma/migrations/dev/
 
-# cursor / IDE local debug dumps
-.cursor/*.log
+# sqlite at repo root (e.g. DATABASE_URL=file:./dev.db)
+/*.db
+/*.db-journal
+/*.db-shm
+/*.db-wal
+
+# local runtime data (db backups, probe session state — see GEO_DB_BACKUP_DIR)
+data/
+
+# codegraph local index (machine-specific; see .codegraph/.gitignore)
+.codegraph/
+
+# cursor / IDE local state
+.cursor/
 
 # logs
 *.log

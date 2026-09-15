@@ -9,7 +9,7 @@ const ARTIFACT_PATTERN_MATCH: Record<
   'answer-first': { types: ['chunk', 'readability'], keyIncludes: ['chunk', 'answer'] },
   'product-schema': { types: ['schema', 'entity'], keyIncludes: ['product', 'organization'] },
   'ai-summary': { types: ['readability', 'chunk'], keyIncludes: ['summary'] },
-  metadata: { types: ['structure', 'readability'], keyIncludes: ['meta', 'title'] },
+  metadata: { keyIncludes: ['meta', 'title', 'canonical'] },
 };
 
 function matchesArtifact(

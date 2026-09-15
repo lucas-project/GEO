@@ -9,7 +9,7 @@ interface MonitoredBadgeProps {
   href?: string;
 }
 
-export function MonitoredBadge({ className, href = '/monitor' }: MonitoredBadgeProps) {
+export function MonitoredBadge({ className, href }: MonitoredBadgeProps) {
   const badge = (
     <Badge variant="accent" className={cn('shrink-0 gap-1', className)}>
       <Activity className="w-3 h-3" />

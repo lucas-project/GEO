@@ -30,6 +30,7 @@ const SOURCE_LABEL: Record<GeoContentKeyword['source'], string> = {
   description: 'Description',
   faq: 'FAQ',
   body: 'Page text',
+  json_ld: 'Structured data',
 };
 
 function sortSections(sections: GeoContentSection[]): GeoContentSection[] {
@@ -230,7 +231,7 @@ export function GeoContentWorkspace() {
                 onCancel={isRunning ? () => void cancelGeneration() : undefined}
               />
             )}
-            {errorMessage && (
+            {errorMessage && !failedError && (
               <p className="text-sm text-danger" role="alert">
                 {errorMessage}
               </p>

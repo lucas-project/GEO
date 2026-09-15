@@ -24,6 +24,26 @@ export {
 } from './sitemap';
 export { discoverInternalLinks, buildCrawlQueue } from './discover-links';
 export { isAuditablePageUrl } from './url-filters';
+export {
+  classifyNavigationError,
+  buildAcquisitionDetail,
+  resolveAcquisitionCopy,
+  copyForReasonCode,
+  copyForFetchStatus,
+  assertSafeUserFacingCopy,
+  detailForBlocked,
+  detailForObserved,
+  FETCH_STATUSES,
+  ACQUISITION_REASON_CODES,
+} from './acquisition';
+export type {
+  AcquisitionDetail,
+  AcquisitionReasonCode,
+  AcquisitionStage,
+  AcquisitionCopy,
+  FetchStatus,
+  FetchChannel,
+} from './acquisition';
 export type {
   CrawlOptions,
   CrawlResult,

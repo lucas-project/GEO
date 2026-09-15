@@ -21,7 +21,8 @@
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "presence:probe": "tsx scripts/presence-probe.ts",
     "ollama:check": "tsx scripts/check-ollama-simulation.ts",
-    "db:backup": "tsx scripts/backup-database.ts",
+    "db:backup": "node scripts/backup-database.mjs",
+    "db:verify-backup": "node scripts/verify-sqlite-backup.mjs",
     "maintenance:prune": "tsx scripts/prune-artifacts.ts"
   },
   "dependencies": {

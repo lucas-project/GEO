@@ -45,6 +45,7 @@ import type { SerperBoostResult } from './serper-boost';
 import type { SearchSupplementResult } from './search-supplement';
 import type { PresenceSearchPlan } from './search-plan-types';
 import { buildPresenceInsights } from './insights';
+import { enforcePresenceEvidence } from './evidence-policy';
 
 const PLATFORM_DISPLAY: Record<string, string> = {
   reddit: 'Reddit',
@@ -63,6 +64,7 @@ function displayPlatform(id: PlatformId): string {
 }
 
 export function buildPresenceSummary(report: OffSitePresenceReport): string {
+  if (report.scores.total == null) return 'Insufficient evidence to rate off-site visibility. Citation frequency is not measured.';
   const brand = report.entity.primaryBrand;
   const found: string[] = [];
   const skipped: string[] = [];
@@ -108,6 +110,7 @@ export function buildPresenceSummary(report: OffSitePresenceReport): string {
 export function buildRecommendations(
   report: Pick<OffSitePresenceReport, 'platforms' | 'entity' | 'scores' | 'engagement' | 'meta'>,
 ): Recommendation[] {
+  if (report.scores.total == null || report.scores.media == null || report.scores.reviews == null || report.scores.community == null) return [];
   const recs: Recommendation[] = [];
 
   if (report.entity.needsReview) {
@@ -203,7 +206,7 @@ export function buildRecommendations(
     text: 'Add sameAs schema.org links on your site footer pointing to Reddit, Trustpilot, LinkedIn, and other verified profiles.',
   });
 
-  if (report.scores.band === 'needs_work' && report.scores.total < 50) {
+  if (report.scores.band === 'needs_work' && report.scores.total != null && report.scores.total < 50) {
     const focus =
       report.scores.reviews <= report.scores.community && report.scores.reviews <= report.scores.media
         ? 'review-site profiles and Trustpilot'
@@ -446,14 +449,16 @@ export async function assembleReport(input: {
     }
   }
 
-  return OffSitePresenceReportSchema.parse(partial);
+  return enforcePresenceEvidence(OffSitePresenceReportSchema.parse(partial));
 }
 
 export function toJson(report: OffSitePresenceReport): string {
-  return JSON.stringify(report, null, 2);
+  const safe = enforcePresenceEvidence(report);
+  return JSON.stringify({ ...safe, scores: { total: null, reviews: null, community: null, media: null, band: 'insufficient_evidence' } }, null, 2);
 }
 
 export function toMarkdown(report: OffSitePresenceReport): string {
+  report = enforcePresenceEvidence(report);
   const lines: string[] = [];
   lines.push(`# Off-site presence report: ${report.entity.primaryBrand}`);
   lines.push('');
@@ -462,7 +467,7 @@ export function toMarkdown(report: OffSitePresenceReport): string {
   lines.push(`- **Duration:** ${(report.meta.durationMs / 1000).toFixed(1)}s`);
   lines.push(`- **Sources:** ${report.meta.sources.join(', ')}`);
   lines.push(
-    `- **Influence score:** ${report.scores.total}/100 (${report.scores.band.replace('_', ' ')}) — Reviews ${report.scores.reviews}/40, Community ${report.scores.community}/35, Media ${report.scores.media}/25`,
+    '- **Visibility:** Insufficient evidence. Citation frequency: not measured.',
   );
   lines.push('');
 

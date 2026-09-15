@@ -15,11 +15,11 @@ const RefineSiteKeywordsSchema = z.object({
 const REFINE_SYSTEM = `You refine website keywords for off-site brand presence search.
 
 Rules:
-- Return 5–10 short keywords (1–4 words each).
-- KEEP product/service phrases customers search (e.g. "split system", "air conditioning", "HVAC dealer").
+- Return 5–10 short keywords (2–5 words each).
+- KEEP product/service or topic phrases customers search for this specific site.
 - DROP: error code lists, support doc fragments, nav words (home, contact, about), bare numbers, page titles, brand-only tokens.
 - DROP meaningless fragments; keep multi-word phrases intact.
-- Prefer industry terms relevant to how people discuss the brand online.`;
+- Prefer terms evidenced by the page — do not invent unrelated industries.`;
 
 export function shouldRefineSiteKeywords(): boolean {
   const provider = resolvedSiteKeywordsProviderName();

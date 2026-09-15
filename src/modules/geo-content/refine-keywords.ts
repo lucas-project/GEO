@@ -19,7 +19,7 @@ const RefineKeywordsSchema = z.object({
 const REFINE_SYSTEM = `You refine SEO/GEO keyword candidates extracted from a website page.
 
 Rules:
-- Return 5–12 keywords, each 1–3 words only.
+- Return 5–12 keywords, each 2–5 words only.
 - KEEP meaningful multi-word phrases intact (e.g. "data types", "customer support").
 - DROP meaningless fragments split from a phrase (e.g. if "data types" exists, do NOT also return "data" and "types" alone).
 - DROP brand names, page titles, taglines, and generic words (home, page, contact).
@@ -56,7 +56,7 @@ Return JSON: { "keywords": ["...", ...] }`;
     });
 
     const parsed = RefineKeywordsSchema.parse(data);
-    const sourceByTerm = new Map(pruned.map((k) => [k.term.toLowerCase(), k.source]));
+    const byTerm = new Map(pruned.map((k) => [k.term.toLowerCase(), k]));
     const out: GeoContentKeyword[] = [];
 
     for (const raw of parsed.keywords) {
@@ -64,10 +64,13 @@ Return JSON: { "keywords": ["...", ...] }`;
       if (!term || !isValidKeywordTerm(term)) continue;
       const key = term.toLowerCase();
       if (out.some((k) => k.term.toLowerCase() === key)) continue;
+      const prev = byTerm.get(key);
       out.push({
         term,
         relevance: Math.max(0.5, 1 - out.length * 0.06),
-        source: sourceByTerm.get(key) ?? 'body',
+        confidence: prev?.confidence ?? Math.max(0.55, 0.85 - out.length * 0.04),
+        source: prev?.source ?? 'body',
+        evidence: prev?.evidence ?? term,
       });
     }
 

@@ -8,7 +8,7 @@ import { api } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MonitoredBadge } from '@/components/geo/monitored-badge';
-import { cn, formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import type { SiteAuditGroup } from '@modules/geo-audit';
 
 const SITES_PER_PAGE = 8;
@@ -20,26 +20,6 @@ interface SiteGroupsResponse {
   totalSites: number;
   totalPages: number;
   hasMore: boolean;
-}
-
-function scoreTone(score: number): string {
-  if (score >= 80) return 'text-success';
-  if (score >= 60) return 'text-amber-600 dark:text-amber-400';
-  return 'text-danger';
-}
-
-function ScoreBadge({ score }: { score: number }) {
-  const clamped = Math.max(0, Math.min(100, score));
-  return (
-    <span
-      className={cn(
-        'inline-flex h-7 w-9 shrink-0 items-center justify-center rounded-md bg-bg-muted text-xs font-semibold tabular-nums',
-        scoreTone(clamped),
-      )}
-    >
-      {clamped}
-    </span>
-  );
 }
 
 function RecentAuditsSkeleton() {
@@ -110,7 +90,7 @@ export function RecentAudits() {
                       href={`/audit/${latest.id}`}
                       className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-bg-muted/50 transition-colors min-w-0"
                     >
-                      <ScoreBadge score={latest.overallScore} />
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-label="Audit report" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span className="text-sm font-medium text-fg truncate">
@@ -124,10 +104,22 @@ export function RecentAudits() {
                           {group.auditCount} audit{group.auditCount === 1 ? '' : 's'}
                           <span className="text-fg-subtle/50 mx-1">·</span>
                           {formatDate(latest.createdAt)}
+                          {latest.status === 'partial' && (
+                            <>
+                              <span className="text-fg-subtle/50 mx-1">·</span>
+                              <span className="text-amber-600 dark:text-amber-400 font-medium">Partial</span>
+                            </>
+                          )}
+                          {latest.status === 'failed' && (
+                            <>
+                              <span className="text-fg-subtle/50 mx-1">·</span>
+                              <span className="text-danger font-medium">Failed</span>
+                            </>
+                          )}
                           {latest.citationProbability != null && (
                             <>
                               <span className="text-fg-subtle/50 mx-1">·</span>
-                              {Math.round(latest.citationProbability * 100)}% cite
+                              Historical citation heuristic (not measured)
                             </>
                           )}
                         </p>

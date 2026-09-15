@@ -17,12 +17,23 @@ export function buildMockGeoContentPack(prompt: string) {
   const keywords: GeoContentKeyword[] = terms.map((term, i) => ({
     term,
     relevance: Math.max(0.5, 1 - i * 0.08),
-    source: 'body',
+    confidence: Math.max(0.55, 0.9 - i * 0.05),
+    source: 'body' as const,
+    evidence: term,
   }));
+
+  // Never invent a filler topic when the site provided no keywords.
+  if (keywords.length === 0) {
+    return packFromFallback({
+      url,
+      title,
+      keywords: [],
+    });
+  }
 
   return packFromFallback({
     url,
     title,
-    keywords: keywords.length > 0 ? keywords : [{ term: 'this topic', relevance: 0.5, source: 'body' }],
+    keywords,
   });
 }

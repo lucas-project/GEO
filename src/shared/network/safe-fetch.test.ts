@@ -6,6 +6,12 @@ describe('safe fetch URL policy', () => {
     expect(isPrivateAddress('127.0.0.1')).toBe(true);
     expect(isPrivateAddress('10.0.0.4')).toBe(true);
     expect(isPrivateAddress('192.168.1.10')).toBe(true);
+    expect(isPrivateAddress('192.0.0.9')).toBe(true);
+    expect(isPrivateAddress('198.18.0.1')).toBe(true);
+    expect(isPrivateAddress('198.51.100.9')).toBe(true);
+    expect(isPrivateAddress('203.0.113.9')).toBe(true);
+    expect(isPrivateAddress('2001:db8::1')).toBe(true);
+    expect(isPrivateAddress('::ffff:198.51.100.9')).toBe(true);
     expect(isPrivateAddress('93.184.216.34')).toBe(false);
   });
 

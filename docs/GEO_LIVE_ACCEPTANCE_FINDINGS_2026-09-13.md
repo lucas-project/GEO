@@ -320,3 +320,144 @@ Python.org 实测还将安装包、压缩包等非 HTML URL 送入 Playwright，
 - free-deterministic + mock 运行回归已验证：无模型 token 消耗，Python.org 内容关键词不再出现 HVAC 领域污染模板。
 
 结论：本轮 P0/P1 修复和构建级验收通过；真实站点的长期稳定性、浏览器 UI 交互和外部搜索供应商效果仍需在部署环境持续观察，不能仅凭本地 mock 结果宣称全部生产场景通过。
+
+## 9. 2026-09-13 重新功能验收
+
+环境：`free-deterministic`、`AI_PROVIDER=mock`、内存队列、SQLite。
+
+| 功能 | 结果 | 证据 / 结论 |
+| --- | --- | --- |
+| 单页抓取 | 通过 | `https://example.com`、`maxPages=1` 异步任务完成，返回 1 页。 |
+| 页面发现 | 通过 | 返回根页作为唯一候选；未发现非 HTML URL。 |
+| GEO 审计 | 基础链路通过 | 任务完成；sample coverage 为 1/1，completion 为 complete，实体为 Example Domain 且 offerings 为空，未注入 mock 品牌。 |
+| 内容生成 | 未通过质量验收 | 不再出现 HVAC 模板，但把正文句子片段（例如 `documentation examples without`）当关键词，生成问题不可直接使用。 |
+| 竞品比较 | 基础链路通过 | Example Domain 与 IANA 的比较任务完成并返回维度差距；结论仅适合作为 crawl-only 的方向性比较。 |
+| 站外存在 | 部分通过 | crawl-only 任务完成并明确 source 为 crawl；但同样继承了低质量关键词，不能据此给出可信的站外策略。 |
+| AI 模拟 | 通过预期降级 | 配置返回 `mode_disabled`，调用返回 HTTP 409 和可解释信息，没有伪造模型结果。 |
+| partial API 贯通 | 未通过 | `getAudit()` 未从数据库 select / 返回 `GeoAudit.status`；报告可依赖 `scoringMeta.completion` 显示部分状态，但 API 四层一致性尚未达标。 |
+
+本次重新验收结论：异步任务、抓取、审计、发现、竞品比较和受控降级均能运行；内容关键词提纯，以及 `GeoAudit.status` 的 API 映射仍是阻止“结果可依赖”发布的两个明确缺口。
+
+## 10. 下一步详细修复计划（以达到可交付预期为目标）
+
+### 阻塞项 A：关键词必须代表主题，而不是正文偶然三元组
+
+当前问题：`example.com` 产生了 `documentation examples without`、`examples without needing` 等跨句或导航语义片段。它们虽然来自页面正文，但不能作为主题关键词，也会污染内容包、站外搜索计划和推荐。
+
+根因判断：当前候选词流程主要依赖 n-gram/频次和少量停用词；缺少句法边界、词组质量、页面信号权重、重复短语压缩和“主题不足时返回空结果”的安全阀。
+
+实施步骤：
+
+1. 在 `src/modules/geo-content/keywords.ts` 增加统一候选词管线：先按 HTML/句子边界切分，再生成词组；禁止跨句、跨标签、跨导航项拼接。候选词必须由 2–5 个词组成，且不能以介词、连词、冠词、代词或动词残片开头/结尾。
+2. 扩展质量规则：拒绝包含 `without/with/and/or/the/for/to/of/is/are/you/your` 等功能词的低信息短语；拒绝 CSS、HTML、导航、cookie、权限说明、下载说明、模板文本和完整问句；拒绝只由通用词组成的候选词。
+3. 引入来源权重：`title`、`h1`、JSON-LD、meta description 的权重高于正文；正文候选词必须在至少两个独立上下文出现，或同时出现在标题/heading 中才可进入最终关键词集合。
+4. 增加实体/主题置信度门槛：当页面只有通用占位内容（如 Example Domain）或有效候选词不足 3 个时，返回空或“insufficient topic evidence”，不得用低质量短语填满 5 个关键词。内容生成应使用中性主题提示，而不是生成看似确定的行业问题。
+5. 在 `src/modules/geo-content/mock-pack.ts`、站外 presence 规划和其他关键词消费者中统一读取清洗后的关键词，并保留每个词的 `source`、`evidence`、`confidence`；低置信度词不得进入搜索查询或推荐。
+6. 增加固定 fixture：Example Domain、Python.org、带 JSON-LD 产品页、包含导航/下载链接的文档页。每个 fixture 都验证关键词不能跨句、不能包含 HVAC/其他领域模板、不能包含 CSS/导航片段，并验证低证据页面会返回 insufficient 状态。
+
+完成标准：
+
+- Example Domain 不再产生上述两个错误短语，也不再产生 `body{background`、`vh auto;font-family` 等代码片段。
+- Python.org 关键词只来自页面真实主题或明确结构化数据，不出现 HVAC、模板行业词或导航句子。
+- 关键词进入内容包和站外搜索计划前均有可追溯 evidence；证据不足时显示不足，而不是填充猜测。
+- 新增单元测试、API 集成测试和两次真实 HTTP 回归均通过。
+
+### 阻塞项 B：GeoAudit.status 必须贯通数据库、服务、API、队列和 UI
+
+当前问题：数据库已写入 `partial`，但 `getAudit()` 的 select 和返回对象没有包含 `status`，因此 `/api/geo-audit/:id` 返回中缺少状态字段。UI 目前只能依赖 `scoringMeta.completion`，四层状态并不一致。
+
+实施步骤：
+
+1. 在 `src/modules/geo-audit/service.ts` 的 `getAudit()` 查询中选择 `status`，并将其映射到 `GeoAuditResult`；同时检查列表接口、报告导出接口和 recompute/extend 路径，确保都使用同一状态值。
+2. 统一状态枚举：数据库/API/UI 使用 `completed | partial | failed`；队列的 `cancelled` 保留为 job 状态，不伪装成审计报告 completed。任务取消或预算耗尽时，报告必须是 partial 或 failed，并保留 `stopReason`。
+3. 把 `completion`、`stopReason`、`requestedPages`、`auditedPages`、`sampleCoverage` 作为同一份派生状态写入 `scoringMeta`，避免 UI 通过多个不一致字段自行推断。
+4. 为 `getAudit()`、`/api/geo-audit/:id`、报告导出和审计列表增加契约测试：普通任务返回 completed；预算耗尽返回 partial + stopReason；异常失败返回 failed；旧报告缺少 status 时按兼容规则推导并明确标记。
+5. 在报告 UI、最近审计列表、导出摘要和 job 完成通知中显示同一状态文案；partial 必须明确说明“结果方向性、证据不完整、建议重新运行”。
+
+完成标准：
+
+- 数据库中的 status、API JSON、导出报告和 UI 文案完全一致。
+- 人为触发预算停止后，用户不会看到“任务完成”与“审计完整”混淆的结果。
+- 旧数据仍可读取，且不会被静默标为完整可信。
+
+### 实施顺序与发布门槛
+
+1. 先完成阻塞项 A 的清洗管线和 fixtures；在关键词质量测试通过前，不开放内容包和站外搜索建议作为可信结果。
+2. 完成阻塞项 B 的状态映射和契约测试；在 API/UI 四层一致前，不宣称 partial 语义已经交付。
+3. 运行质量门禁：`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd test`、`npm.cmd run build`。
+4. 使用隔离 SQLite + memory queue 进行真实 HTTP 回归：审计、发现、抓取、内容、竞品、站外 presence、模拟不可用分支各至少一次；保存 job ID、HTTP 状态、completion、coverage、provenance 和关键输出摘要。
+5. 最终发布条件：107+ 现有测试全部通过；新增 fixture/API 测试全部通过；Example Domain 与 Python.org 回归不再出现低质量关键词；partial 状态在 DB/API/UI/export 全链路一致；证据不足显示 insufficient，而不是生成伪确定性结论。
+
+在以上条件全部满足前，产品可以演示流程，但不应把内容建议、站外策略或部分审计分数标记为可直接用于客户决策的可信结果。
+
+## 11. 2026-09-13 计划执行后的复验结果
+
+- 静态质量门禁通过：109 个测试文件、339 个测试通过；typecheck、lint、production build 全部通过，生产构建生成 38 个静态页面。
+- `GeoAudit.status` 已贯通：真实 HTTP 审计返回 `status=completed`，同时返回 `completion=complete`、`sampleCoverage=1`、`sampleCoverageStatus=ready`；报告导出 HTTP 200 且包含状态/coverage 信息。
+- partial 状态已有专门解析函数和契约测试，数据库状态与旧报告的 `scoringMeta` 可兼容映射；本次真实回归未触发预算耗尽场景，因此 partial 的真实运行回写仍应在部署前用受控低预算再验证一次。
+- Example Domain 内容任务现在拒绝占位站点并返回明确错误 `Page looks like placeholder or generic example content.`，不再生成错误关键词；这符合“不猜测主题”的安全预期，但 UI 应将该错误呈现为 `insufficient_topic_evidence`，而不是普通失败，作为后续体验优化项。
+- Python.org 内容任务成功完成，输出关键词包括 `Compound Data Types`、`Python Software Foundation`、`Python Programming Language` 等真实主题词；未出现此前的 `documentation examples without`、CSS 片段或 HVAC 模板污染。
+- free-deterministic 模式下内容任务使用确定性 fallback pack，模型不可用仅记录 warning，不伪造模型调用成功。
+
+复验结论：本轮计划的两个主要阻塞项已达到预期核心行为，尤其是关键词质量和审计状态 API 已通过真实 HTTP 验证。剩余工作是把“占位内容被安全拒绝”从 job failed 提升为产品级 `insufficient_topic_evidence` 展示，并补做一次人为预算耗尽的端到端 partial 回归；完成这两项后，才可将本地验收结论升级为完整发布门槛通过。
+## 12. 抓取错误提示可理解性改进计划
+
+### 目标
+
+用户看到页面列表中的红色或黄色信息后，应能立即回答三个问题：
+
+1. 这是网站本身有问题，还是 GEO 抓取器没有拿到页面？
+2. GEO 实际尝试了什么，失败发生在哪一步？
+3. 用户现在应该重试、选择其他页面，还是检查网站/CDN 配置？
+
+内部状态名（例如 `legacy_unknown`、`parse_error`、`domcontentloaded`）只能作为“技术详情”展开内容，不能直接作为主要提示文案。
+
+### 用户可读的状态模型
+
+将 `CrawledPage.fetchStatus` 映射为稳定的用户状态和行动建议：
+
+| 内部状态 | 用户主提示 | 白话解释 | 下一步建议 | 是否计入评分 |
+| --- | --- | --- | --- | --- |
+| `observed` | 页面已成功读取 | GEO 已取得页面内容，可以分析标题、正文和结构化数据。 | 无需操作 | 可以 |
+| `timeout` | 页面响应太慢 | 页面在规定时间内没有完成加载；这不等于页面不存在。 | 重试；若持续发生，检查 CDN、脚本和首屏加载时间 | 不计入本页证据 |
+| `blocked` | 网站拒绝了自动读取 | 网站/WAF 允许普通浏览器访问，但拒绝或挑战了自动化请求。 | 检查 WAF、Bot 管理、CloakBrowser/白名单；用户也可手动提供页面证据 | 不计入本页证据 |
+| `rate_limited` | 网站暂时限制访问 | 请求频率或来源触发了站点限流。 | 等待后重试，减少页面数量或降低并发 | 不计入本页证据 |
+| `unreachable` | 暂时无法连接网站 | DNS、TLS、连接重置或网络路径没有建立成功。 | 从服务器环境检查 DNS/TLS/代理；稍后重试 | 不计入本页证据 |
+| `parse_error` | 页面打开了，但内容无法识别 | 收到了响应，但 HTML/编码/渲染结果无法安全解析。 | 检查页面响应类型、编码和 JS 渲染；重试 | 不计入本页证据 |
+| `legacy_unknown` | 旧记录缺少读取结果 | 这是历史数据，系统没有保存足够信息判断当时发生了什么。 | 重新抓取该页面以获得新证据 | 不计入本页证据 |
+| `not_run` | 尚未读取此页面 | 页面只是从 sitemap 或链接中发现，尚未进入实际抓取。 | 选择页面并运行审计 | 不计入本页证据 |
+
+### 详细技术设计
+
+1. 在 `CrawledPage` 增加结构化 `acquisitionDetail`，至少包含 `stage`（robots/sitemap/navigation/render/parse）、`reasonCode`、`technicalMessage`、`elapsedMs`、`httpStatus`、`finalUrl`、`fetchChannel`、`retryCount`、`attemptedAt` 和 `nextAction`。原始 Playwright 错误保留在详情中，不直接作为主文案。
+2. 在 `src/modules/crawling/browser/pool.ts` 将 `page.goto` 异常分类：超时、连接重置、DNS/TLS、响应被取消、HTTP 阻断、浏览器渲染异常。`ERR_FAILED` 只能作为底层 `technicalMessage`，必须同时产出稳定 `reasonCode`。
+3. 对 `page.goto` 导航失败执行受控恢复：先记录失败阶段，再尝试一次 HTTP HEAD/GET 元数据探测；若页面可通过 HTTP 读取，标记为 `http_observed` 并明确“未完成浏览器渲染，动态内容可能缺失”，不能冒充完整 rendered evidence。
+4. 对可重试错误使用有限重试策略：最多一次 headed/CloakBrowser retry + 一次短 HTTP fallback；每次尝试都记录耗时和结果，避免同一个页面消耗完整预算多次。重试失败后停止，不让单页卡住整批审计。
+5. 在 `src/modules/geo-audit/evidence.ts` 中把“页面未取得证据”和“页面内容存在但发现问题”明确区分：前者显示 `unknown / insufficient evidence`，后者才产生可评分的 fail。评分页面不得把采集失败解释成网站质量差。
+6. 在 `src/features/audit/audit-pages-panel.tsx` 替换当前 `Acquisition: legacy unknown; evidence excluded from score` 单行文本：主行显示白话提示；增加“查看详情”展开区域，显示“我们尝试了什么 / 失败原因 / 是否重试 / 对评分影响 / 建议操作”。
+7. 页面列表增加可读的状态徽章：`已读取`、`读取超时`、`被网站拦截`、`暂时不可连接`、`等待审计`。`GEO priority`、`Probed`、`Sitemap` 保留为次要元数据并提供 tooltip，不能和失败原因混在同一视觉层级。
+8. 审计顶部增加汇总说明，例如：“12 个发现页面中 8 个已读取，3 个读取超时，1 个尚未审计。以下评分只使用 8 个已读取页面。” 点击汇总可过滤失败原因。
+9. 对旧记录显示迁移提示：“这是旧审计，缺少详细读取记录；重新运行即可获得可解释的采集状态。” 不再把 `legacy_unknown` 暴露给普通用户。
+10. API 和导出报告同时返回 `userMessage`、`reasonCode`、`technicalMessage`、`nextAction`，前端只用 `userMessage` 做主展示；日志和诊断页面使用完整技术详情。
+
+### Daikin 场景的预期展示
+
+对于当前三个 Daikin URL，用户不应看到一串难以理解的红字，而应看到类似：
+
+> 页面本身可能正常，但 GEO 的自动浏览器在 2 分钟内没有完成页面加载。我们尝试了无头浏览器读取，未取得可验证的页面正文，因此没有把这页算进评分。建议先重试一次；如果仍失败，请检查 CDN/WAF 是否拦截自动化访问，或使用“查看技术详情”把诊断信息交给管理员。
+
+展开详情后再显示：
+
+> 阶段：页面导航；等待条件：domcontentloaded；耗时：120 秒；底层错误：`net::ERR_FAILED`；已尝试：stealth Chromium；重试：未执行/已执行；HTTP fallback：成功/失败；最终 URL 和 HTTP 状态。
+
+### 测试与验收标准
+
+- 单元测试覆盖所有 `reasonCode` 到用户文案的映射，禁止任何主要 UI 文案直接输出 `legacy_unknown`、`domcontentloaded` 或原始 `ERR_FAILED`。
+- 使用模拟错误测试 timeout、WAF block、rate limit、DNS/TLS、parse error 和 legacy 数据；每种状态都验证 `userMessage`、`nextAction` 和评分是否正确排除。
+- 使用 Daikin 三个 URL 做真实回归，记录每次尝试的阶段、耗时、重试路径和最终分类；即使仍然失败，用户也必须能理解“页面正常但自动采集失败”的区别。
+- 测试一个正常可读页面，确认显示“已读取”，并且证据继续进入评分。
+- 测试一个 sitemap 发现但未审计页面，确认显示“尚未读取此页面”，而不是“抓取失败”。
+- 测试旧数据库记录，确认 UI 显示迁移提示而不是 `legacy unknown`。
+- 完整门禁继续通过：`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd test`、`npm.cmd run build`。
+
+完成标准：普通用户只看主提示就能判断页面问题属于“网站内容问题”还是“GEO 读取问题”，知道下一步该重试还是联系站点管理员；技术人员展开详情后能复现和定位问题；任何采集失败都不会被误算为网站质量失败。

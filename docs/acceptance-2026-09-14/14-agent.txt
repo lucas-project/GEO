@@ -1,0 +1,45 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+YOUR WEBSITE (USED IN EVERY PHASE)
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Brand name
+Clear site
+Autonomous GEO Agent
+
+Describe a goal. The planner decomposes it into module calls and orchestrates execution.
+
+⌘ Enterto dispatch agent
+Insert workspace URL
+Dispatch
+Analyze my website example.com for AI visibility
+Why is my competitor cited more than me in ChatGPT?
+Compare mysite.com vs competitor.com for AI search
+Best VRF air conditioning Australia — am I being cited?
+HOW THE AGENT WORKS
+
+1. Planner converts your goal into 1-6 typed steps (audit, simulate, compare, fix, monitor).
+
+2. Each step is a strongly-typed module operation — the LLM cannot invent untrusted actions.
+
+3. Executor runs steps sequentially, threading outputs forward (e.g. auditId → fix generation).
+
+4. You watch progress live; final results aggregate into a single workspace.

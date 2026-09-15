@@ -1,0 +1,21 @@
+[
+  {
+    "test": "failed-page-retry",
+    "passed": true,
+    "auditId": "cmtzu16ys0006acuk38s99e21",
+    "url": "https://www.mdhome.com.au/product/athena-series",
+    "beforeAttempts": 1,
+    "afterAttempts": 2,
+    "beforeIncluded": 9,
+    "afterIncluded": 10,
+    "extension": {
+      "observed": 1,
+      "failed": 0,
+      "skipped": []
+    }
+  },
+  {
+    "test": "successful-page-duplicate-no-op",
+    "passed": true
+  }
+]

@@ -54,6 +54,23 @@ function status(page: CrawledPage): CriterionResult['outcome'] {
   return page.fetchStatus === 'observed' || page.renderedHtml ? 'pass' : 'unknown';
 }
 
+function inaccessibleReason(page: CrawledPage): string {
+  if (page.acquisitionDetail?.userMessage) return page.acquisitionDetail.userMessage;
+  if (page.fetchStatus === 'timeout') {
+    return 'The page may work normally for visitors, but GEO could not finish loading it within the time limit.';
+  }
+  if (page.fetchStatus === 'blocked') {
+    return 'The website or WAF rejected or challenged GEO\'s automated request.';
+  }
+  if (page.fetchStatus === 'unreachable') {
+    return 'GEO could not connect to this page.';
+  }
+  if (page.fetchStatus === 'legacy_unknown' || !page.fetchStatus) {
+    return 'This older audit has no detailed crawl record, so GEO cannot determine what happened.';
+  }
+  return 'GEO could not retrieve verifiable page content.';
+}
+
 /**
  * Evaluate only claims that can be reproduced from captured pages. FAQ,
  * author, pricing and off-site signals deliberately stay outside this v3
@@ -73,7 +90,9 @@ export function evaluateReadinessCriteria(input: {
       scope: 'page', applicability: 'applicable', outcome: observed ? 'pass' : 'unknown',
       earned: observed ? 20 : null, possible: 20,
       confidence: observed ? 'high' : 'unrated',
-      confidenceReason: observed ? 'A rendered page snapshot is available.' : `Page acquisition status: ${page.fetchStatus ?? 'legacy_unknown'}.`,
+      confidenceReason: observed
+        ? 'A rendered page snapshot is available.'
+        : inaccessibleReason(page),
       evidenceIds, ...(observed ? {} : { missingReason: 'No rendered page snapshot is available.' }),
     });
     for (const rule of RULES) {

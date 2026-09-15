@@ -2,7 +2,7 @@
 import { copyFile, mkdir, stat } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
 
-function sqlitePath(databaseUrl: string): string {
+function sqlitePath(databaseUrl) {
   if (!databaseUrl.startsWith('file:')) {
     throw new Error('db:backup supports SQLite DATABASE_URL values only. Use your managed PostgreSQL backup process instead.');
   }
@@ -21,7 +21,7 @@ await stat(source).catch(() => { throw new Error(`SQLite database was not found 
 await mkdir(backupDir, { recursive: true });
 await copyFile(source, destination);
 for (const suffix of ['-wal', '-shm']) {
-  await copyFile(`${source}${suffix}`, `${destination}${suffix}`).catch((error: NodeJS.ErrnoException) => {
+  await copyFile(`${source}${suffix}`, `${destination}${suffix}`).catch((error) => {
     if (error.code !== 'ENOENT') throw error;
   });
 }

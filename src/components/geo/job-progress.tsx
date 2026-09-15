@@ -3,15 +3,8 @@
 import type { JobStatus } from '@/lib/jobs';
 import { Button } from '@/components/ui/button';
 
-export interface JobProgressLabels {
-  queued?: string;
-  fetchError?: string;
-  pending?: string;
-  running?: (progress: number) => string;
-  completed?: string;
-  failed?: string;
-  cancelled?: string;
-}
+export { resolveJobProgressLabel } from './job-progress-state';
+export type { JobProgressLabels } from './job-progress-state';
 
 interface JobProgressProps {
   jobId: string | null;
@@ -37,30 +30,6 @@ interface JobProgressProps {
   className?: string;
 }
 
-export function resolveJobProgressLabel(opts: {
-  jobId: string | null;
-  forceShow?: boolean;
-  status?: JobStatus;
-  progress?: number;
-  isQueryPending?: boolean;
-  isQueryError?: boolean;
-  labels: JobProgressLabels;
-}): string {
-  const { jobId, forceShow, status, progress = 0, isQueryPending, isQueryError, labels } = opts;
-  if (!jobId && !forceShow) return '';
-  if (isQueryPending) return labels.queued ?? 'Queued…';
-  if (isQueryError) return labels.fetchError ?? 'Could not reach server';
-  if (!status) return '';
-  if (status === 'pending') return labels.pending ?? 'Waiting in queue…';
-  if (status === 'running') {
-    return labels.running ? labels.running(progress) : `Running… ${progress}%`;
-  }
-  if (status === 'completed') return labels.completed ?? 'Complete';
-  if (status === 'failed') return labels.failed ?? 'Failed';
-  if (status === 'cancelled') return labels.cancelled ?? 'Cancelled';
-  return '';
-}
-
 export function JobProgress({
   jobId,
   forceShow = false,
@@ -83,7 +52,7 @@ export function JobProgress({
   const isFailed = status === 'failed';
   const isCancelled = status === 'cancelled';
   const inProgress =
-    active || status === 'running' || status === 'pending' || (forceShow && !isFailed && !isCancelled);
+    status !== 'completed' && !isFailed && !isCancelled && (active || status === 'running' || status === 'pending' || forceShow);
   const barProgress = inProgress ? Math.max(progress, progress > 0 ? progress : 3) : 0;
   const showCancel =
     Boolean(onCancel) &&
@@ -91,6 +60,8 @@ export function JobProgress({
 
   return (
     <div
+      role="status"
+      aria-live="polite"
       className={`mt-4 p-3 rounded-lg border ${
         isFailed || isCancelled
           ? 'bg-danger/10 border-danger/30'
@@ -106,7 +77,7 @@ export function JobProgress({
           >
             {label}
           </span>
-          {inProgress && statusMessage && (
+          {inProgress && statusMessage && statusMessage !== label && (
             <p className="text-[11px] text-fg-subtle mt-0.5 truncate">{statusMessage}</p>
           )}
           {inProgress && remainingLabel != null && (

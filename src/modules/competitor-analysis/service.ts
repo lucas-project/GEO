@@ -19,11 +19,12 @@ const compLogger = logger.child({ module: 'competitor-analysis' });
 export interface RunComparisonInput {
   targetUrl: string;
   competitorUrls: string[];
+  ownerId?: string;
   onProgress?: (progress: number, message: string) => void;
 }
 
-async function auditAsSummary(url: string): Promise<SiteSummary> {
-  const result = await runAudit({ url });
+async function auditAsSummary(url: string, ownerId: string): Promise<SiteSummary> {
+  const result = await runAudit({ url, ownerId });
   const audit = await prisma.geoAudit.findUnique({
     where: { id: result.id },
     include: { extractionResults: true },
@@ -96,6 +97,7 @@ function computeGap(target: SiteSummary, competitor: SiteSummary): CompetitorCom
 }
 
 export async function runComparison(input: RunComparisonInput): Promise<CompetitorComparison> {
+  const ownerId = input.ownerId ?? 'local';
   const id = randomId();
   const targetUrl = normalizeWebsiteUrl(input.targetUrl.trim());
   const candidates = validateCompetitorCandidates({ targetUrl, candidateUrls: input.competitorUrls });
@@ -103,7 +105,7 @@ export async function runComparison(input: RunComparisonInput): Promise<Competit
   compLogger.info({ id, targetUrl, competitorCount: competitorUrls.length }, 'comparison starting');
 
   input.onProgress?.(5, `Auditing target ${targetUrl}…`);
-  const target = await auditAsSummary(targetUrl);
+  const target = await auditAsSummary(targetUrl, ownerId);
 
   const competitors: SiteSummary[] = [];
   const failedCompetitors: FailedCompetitor[] = [];
@@ -112,7 +114,7 @@ export async function runComparison(input: RunComparisonInput): Promise<Competit
     const url = competitorUrls[i]!;
     input.onProgress?.(10 + Math.round(step * i), `Auditing competitor ${url}…`);
     try {
-      competitors.push(await auditAsSummary(url));
+      competitors.push(await auditAsSummary(url, ownerId));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       compLogger.warn({ url, err: message }, 'competitor audit failed');
@@ -134,7 +136,7 @@ export async function runComparison(input: RunComparisonInput): Promise<Competit
   };
 
   // Persist per-competitor rows (reports, other features) + full run for UI
-  const targetSite = await prisma.site.findUnique({ where: { url: target.url } });
+  const targetSite = await prisma.site.findUnique({ where: { ownerId_url: { ownerId, url: target.url } } });
   for (const gap of gaps) {
     await prisma.competitorReport.create({
       data: {
@@ -149,6 +151,7 @@ export async function runComparison(input: RunComparisonInput): Promise<Competit
   await prisma.comparisonRun.create({
     data: {
       id,
+      ownerId,
       targetUrl: target.url,
       payload: stringifyJson(out),
     },
@@ -157,7 +160,7 @@ export async function runComparison(input: RunComparisonInput): Promise<Competit
   return out;
 }
 
-export async function listRecentComparisons(limit = 20): Promise<
+export async function listRecentComparisons(limit = 20, ownerId?: string): Promise<
   Array<{
     id: string;
     targetUrl: string;
@@ -166,6 +169,7 @@ export async function listRecentComparisons(limit = 20): Promise<
   }>
 > {
   const rows = await prisma.comparisonRun.findMany({
+    where: ownerId ? { ownerId } : undefined,
     orderBy: { createdAt: 'desc' },
     take: limit,
     select: { id: true, targetUrl: true, payload: true, createdAt: true },
@@ -184,8 +188,8 @@ export async function listRecentComparisons(limit = 20): Promise<
   });
 }
 
-export async function getComparisonRun(id: string): Promise<CompetitorComparison | null> {
-  const row = await prisma.comparisonRun.findUnique({ where: { id } });
+export async function getComparisonRun(id: string, ownerId?: string): Promise<CompetitorComparison | null> {
+  const row = await prisma.comparisonRun.findFirst({ where: ownerId ? { id, ownerId } : { id } });
   if (!row) return null;
   const data = parseJson<CompetitorComparison | null>(row.payload, null);
   return data && Array.isArray(data.gaps) && data.target ? data : null;

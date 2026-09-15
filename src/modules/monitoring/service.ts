@@ -96,6 +96,7 @@ export async function addMonitoredSite(
   opts?: AddMonitorOpts,
 ): Promise<{ siteId: string; url: string }> {
   const canonical = normalizeWebsiteUrl(url.trim());
+  const ownerId = opts?.ownerId ?? 'local';
   const preset = opts?.monitorSchedulePreset ?? 'daily';
   const interval =
     opts?.monitorIntervalHours ?? resolveHoursFromPreset(preset, opts?.monitorIntervalHours);
@@ -107,10 +108,10 @@ export async function addMonitoredSite(
       : undefined;
 
   const site = await prisma.site.upsert({
-    where: { url: canonical },
+    where: { ownerId_url: { ownerId, url: canonical } },
     create: {
       url: canonical,
-      ownerId: opts?.ownerId ?? 'local',
+      ownerId,
       monitored: true,
       monitorEnabled: opts?.monitorEnabled ?? true,
       monitorSchedulePreset: preset,
@@ -466,6 +467,7 @@ export async function runMonitoringFor(
     onProgress?.(18, 'Running GEO audit…');
     const auditResult = await runAudit({
       url: site.url,
+      ownerId: site.ownerId,
       maxPages: monitorPageUrls.length > 0 ? monitorPageUrls.length : maxPages,
       pageUrls: monitorPageUrls.length > 0 ? monitorPageUrls : undefined,
       onProgress: (p, m) => onProgress?.(18 + Math.round(p * 0.62), m),

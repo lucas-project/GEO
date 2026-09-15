@@ -19,11 +19,11 @@ export default function Home() {
         Audit your site, follow your improvement plan, then check whether AI search engines actually cite you.
       </p>
 
-      <div className="mt-8">
-        <GoalInput />
-      </div>
-
       <HomeJourney />
+      <details className="mt-8">
+        <summary className="cursor-pointer text-sm text-fg-muted">Advanced: plan work with Agent</summary>
+        <GoalInput />
+      </details>
     </div>
   );
 }

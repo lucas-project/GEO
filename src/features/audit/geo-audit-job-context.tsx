@@ -83,6 +83,8 @@ export interface GeoAuditJobPayload {
 
 interface AuditJobResult {
   auditId?: string;
+  completion?: 'complete' | 'partial';
+  stopReason?: string;
 }
 
 function readSubmittedUrl(): string {
@@ -127,6 +129,7 @@ export function GeoAuditJobProvider({ children }: { children: ReactNode }) {
   const { registerCompletedAudit } = useWorkspaceTarget();
   const handledCompleteRef = useRef<string | null>(null);
   const discoverGenerationRef = useRef(0);
+  const discoveryAbort = useRef<AbortController | null>(null);
 
   const finishAudit = useCallback(
     (auditId: string, submittedUrl: string) => {
@@ -177,6 +180,7 @@ export function GeoAuditJobProvider({ children }: { children: ReactNode }) {
   );
 
   const clearPageDiscovery = useCallback(() => {
+    discoveryAbort.current?.abort();
     discoverGenerationRef.current += 1;
     setDiscovering(false);
     setDiscoverError(null);
@@ -191,6 +195,9 @@ export function GeoAuditJobProvider({ children }: { children: ReactNode }) {
       const siteUrl = normalizeAuditSiteUrl(rawSiteUrl);
       if (!siteUrl) return;
       const generation = ++discoverGenerationRef.current;
+      discoveryAbort.current?.abort();
+      const controller = new AbortController();
+      discoveryAbort.current = controller;
       setDiscovering(true);
       setDiscoverError(null);
       setDiscovered(null);
@@ -198,7 +205,7 @@ export function GeoAuditJobProvider({ children }: { children: ReactNode }) {
       setSelected(new Set());
       writeStoredDiscovery(null);
       try {
-        const result = await discoverSitePages(rawSiteUrl.trim());
+        const result = await discoverSitePages(rawSiteUrl.trim(), controller.signal);
         if (discoverGenerationRef.current !== generation) return;
         const selection = defaultGeoSelection(result);
         setDiscovered(result);

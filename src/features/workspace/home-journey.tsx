@@ -58,7 +58,7 @@ export function HomeJourney() {
       href: `/audit/${audit.id}`,
       icon: FileText,
       title: 'View your improvement plan',
-      desc: `Score ${audit.overallScore}/100 — see your ranked actions on the audit report.`,
+      desc: audit.scoringMeta?.readiness ? `Content readiness ${audit.scoringMeta.readiness.score ?? 'unrated'} — review the sample and evidence.` : `Historical heuristic ${audit.overallScore}/100 — review the captured evidence.`,
     });
 
     for (const item of planItems.slice(0, 5)) {

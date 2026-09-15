@@ -15,6 +15,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import { ai, allowsCapability } from '@shared/ai';
+import { currentTaskBudget } from '@shared/ai/budget';
 import { config } from '@shared/config';
 import {
   canonicalPageUrl,
@@ -52,6 +53,7 @@ import { scoreTechnicalPerformance, scoreTopicCoverage } from './auxiliary-score
 import { getCalibrationWeights } from './calibration';
 import { deriveScoringMetaFromDimensions } from './hierarchical-scoring';
 import { parseScoringMeta, readSimulationVisibilityCheck } from './parse-scoring-meta';
+import { currentObservations } from './current-observations';
 import { scoreAll, deriveIssuesAndFixes, type PageExtractionInput } from './scoring';
 import {
   deriveSiteKeywordsFromExtraction,
@@ -79,6 +81,11 @@ import { plainIssueRecommendation } from './plain-language';
 import { recomputeAuditPresentation } from './recompute';
 import { commitAuditReportWithRevision } from './revisioned-update';
 import { selectAuditRootPage } from './root-page';
+import {
+  applyExecutionStateToMeta,
+  resolveAuditExecutionState,
+  resolveDisplayedAuditStatus,
+} from './resolve-audit-execution-state';
 
 /** Pages rendered + extracted per audit (capped for Playwright runtime). */
 const AUDIT_MAX_PAGES = Math.min(config.crawl.maxPages, 5);
@@ -89,6 +96,8 @@ const NarrativeResponseSchema = z.object({ narrative: z.string() });
 
 export interface RunAuditInput {
   url: string;
+  /** Workspace identity captured when the job is enqueued. */
+  ownerId?: string;
   /** When the agent goal is a bare domain, pass it here to override truncated step URLs. */
   goalHint?: string;
   /** Cap crawl depth (monitoring health-check uses fewer pages). */
@@ -101,6 +110,7 @@ export interface RunAuditInput {
 }
 
 export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
+  const ownerId = input.ownerId ?? 'local';
   let normalizedUrl =
     (input.goalHint ? canonicalSiteUrlFromGoal(input.goalHint, input.url) : null) ??
     normalizeWebsiteUrl(input.url);
@@ -120,8 +130,8 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
 
   // Ensure Site row exists
   const site = await prisma.site.upsert({
-    where: { url: normalizedUrl },
-    create: { url: normalizedUrl },
+    where: { ownerId_url: { ownerId, url: normalizedUrl } },
+    create: { ownerId, url: normalizedUrl },
     update: {},
   });
 
@@ -208,12 +218,16 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
     );
     // Preserve acquisition outcomes for re-score/replay even while the Prisma
     // client is being regenerated during migration rollout.
+    // acquisitionDetail is JSON-serialized into blockReason when present so
+    // inventory rebuilds can restore user-facing copy without a schema migration.
     await Promise.all(
       crawl.pages.map((page) =>
         prisma.$executeRawUnsafe(
           `UPDATE "CrawlResult" SET "fetchStatus" = ?, "blockReason" = ?, "contentHash" = ?, "htmlTruncated" = ?, "rawHtmlAvailable" = ?, "renderedHtmlAvailable" = ?, "fetchProfile" = ?, "fetchChannel" = ? WHERE "auditId" = ? AND "url" = ?`,
           page.fetchStatus ?? null,
-          page.blockReason ?? null,
+          page.acquisitionDetail
+            ? JSON.stringify(page.acquisitionDetail)
+            : page.blockReason ?? null,
           page.contentHash ?? null,
           page.htmlTruncated ? 1 : 0,
           page.rawHtmlAvailable ? 1 : 0,
@@ -418,26 +432,24 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
     const suggestedSimulationPrompts = auditSuggestions.prompts;
     const suggestedCompetitors = auditSuggestions.competitors;
 
-    const enrichedScoringMeta: ScoringMeta = {
-      ...evidenceScoringMeta,
-      requestedPages: maxPages,
+    // pageUrls is the customer-selected scope. Discovery may find more pages,
+    // but its budget must not redefine whether that contracted sample finished.
+    const requestedPages = input.pageUrls?.length || maxPages;
+    const executionState = resolveAuditExecutionState({
+      maxPages: requestedPages,
       auditedPages: pageInventory.auditedCount,
       discoveredPages: pageInventory.discoveredCount,
-      sampleCoverage: maxPages > 0 ? Math.min(1, pageInventory.auditedCount / maxPages) : 1,
-      discoveryCoverage:
-        pageInventory.discoveredCount > 0
-          ? Math.min(1, pageInventory.auditedCount / pageInventory.discoveredCount)
-          : 0,
-      sampleCoverageStatus:
-        pageInventory.auditedCount >= Math.min(maxPages, pageInventory.discoveredCount)
-          ? 'ready'
-          : pageInventory.auditedCount > 0
-            ? 'partial'
-            : 'insufficient_evidence',
-      completion: 'complete',
-      ...(suggestedSimulationPrompts.length > 0 ? { suggestedSimulationPrompts } : {}),
-      ...(suggestedCompetitors.length > 0 ? { suggestedCompetitors } : {}),
-    };
+      stopReason: currentTaskBudget()?.stopReason,
+    });
+
+    const enrichedScoringMeta: ScoringMeta = applyExecutionStateToMeta(
+      {
+        ...evidenceScoringMeta,
+        ...(suggestedSimulationPrompts.length > 0 ? { suggestedSimulationPrompts } : {}),
+        ...(suggestedCompetitors.length > 0 ? { suggestedCompetitors } : {}),
+      },
+      executionState,
+    );
 
     input.onProgress?.(97, 'Saving report…');
     await commitAuditReportWithRevision(audit.id, {
@@ -448,7 +460,7 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
       topIssues: stringifyJson(issues),
       topFixes: stringifyJson(fixes),
       screenshotUrl: rootPage.screenshotPath,
-      status: 'completed',
+      status: executionState.status,
       scoreVersion: 'content-readiness-v3',
       coverage: readiness.coverage,
       sampleManifest: stringifyJson(pageInventory.pages.map((p) => p.url)),
@@ -456,7 +468,10 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
     });
 
     input.onProgress?.(100, 'Done!');
-    auditLogger.info({ auditId: audit.id, overallScore }, 'audit complete');
+    auditLogger.info(
+      { auditId: audit.id, overallScore, status: executionState.status },
+      'audit complete',
+    );
 
     await ingestAuditSync(audit.id).catch((err) => {
       auditLogger.warn({ err: (err as Error).message, auditId: audit.id }, 'intelligence sync ingest skipped');
@@ -477,6 +492,7 @@ export async function runAudit(input: RunAuditInput): Promise<GeoAuditResult> {
       topFixes: fixes,
       pageInventory,
       screenshotUrl: rootPage.screenshotPath,
+      status: executionState.status,
       createdAt: audit.createdAt.toISOString(),
     };
   } catch (err) {
@@ -509,9 +525,9 @@ async function generateNarrative(input: {
   }
 }
 
-export async function getAudit(auditId: string): Promise<GeoAuditResult | null> {
-  const row = await prisma.geoAudit.findUnique({
-    where: { id: auditId },
+export async function getAudit(auditId: string, ownerId?: string): Promise<GeoAuditResult | null> {
+  const row = await prisma.geoAudit.findFirst({
+    where: ownerId ? { id: auditId, site: { is: { ownerId } } } : { id: auditId },
     select: {
       id: true,
       siteId: true,
@@ -522,6 +538,7 @@ export async function getAudit(auditId: string): Promise<GeoAuditResult | null> 
       topIssues: true,
       topFixes: true,
       screenshotUrl: true,
+      status: true,
       createdAt: true,
     },
   });
@@ -565,6 +582,8 @@ export async function getAudit(auditId: string): Promise<GeoAuditResult | null> 
     pageInventory,
   );
 
+  const status = resolveDisplayedAuditStatus(row.status, scoringMeta);
+
   return {
     id: row.id,
     revision: rawCols?.revision,
@@ -578,6 +597,7 @@ export async function getAudit(auditId: string): Promise<GeoAuditResult | null> 
     topFixes: parseJson<Fix[]>(row.topFixes, []),
     pageInventory,
     screenshotUrl: row.screenshotUrl,
+    status,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -827,24 +847,88 @@ function parsePageInventory(raw: string | null | undefined): PageInventory | und
 export async function getAuditPageInventoryFallback(auditId: string): Promise<PageInventory | undefined> {
   const rows = await prisma.crawlResult.findMany({
     where: { auditId },
-    select: { url: true, statusCode: true, error: true },
+    select: { url: true, statusCode: true, error: true, fetchStatus: true, blockReason: true },
   });
   if (rows.length === 0) return undefined;
   return {
-    pages: rows.map((r) => ({
-      url: r.url,
-      statusCode: r.statusCode,
-      source: 'seed' as const,
-      audited: true,
-      error: r.error,
-    })),
+    pages: rows.map((r) => {
+      const detail = parseAcquisitionDetailJson(r.blockReason);
+      return {
+        url: r.url,
+        statusCode: r.statusCode,
+        source: 'seed' as const,
+        audited: true,
+        error: r.error,
+        observationStatus: (r.fetchStatus as PageInventory['pages'][number]['observationStatus']) ?? undefined,
+        acquisitionDetail: detail ?? undefined,
+      };
+    }),
     auditedCount: rows.length,
     discoveredCount: rows.length,
   };
 }
 
+function parseAcquisitionDetailJson(raw: string | null | undefined) {
+  if (!raw?.trim().startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(raw) as { reasonCode?: string; userMessage?: string; nextAction?: string };
+    if (parsed?.reasonCode && parsed.userMessage && parsed.nextAction) {
+      return parsed as NonNullable<CrawledPage['acquisitionDetail']>;
+    }
+  } catch {
+    /* plain blockReason string */
+  }
+  return null;
+}
+
+function crawledPageFromDbRow(r: {
+  url: string;
+  statusCode: number;
+  contentType: string | null;
+  html: string | null;
+  renderedHtml: string | null;
+  screenshotPath: string | null;
+  durationMs: number | null;
+  error: string | null;
+  fetchStatus?: string | null;
+  blockReason?: string | null;
+  fetchChannel?: string | null;
+  contentHash?: string | null;
+  fetchProfile?: string | null;
+  rawHtmlAvailable?: boolean | null;
+  renderedHtmlAvailable?: boolean | null;
+}): CrawledPage {
+  const acquisitionDetail = parseAcquisitionDetailJson(r.blockReason);
+  return {
+    url: r.url,
+    finalUrl: r.url,
+    statusCode: r.statusCode,
+    contentType: r.contentType,
+    html: r.html,
+    renderedHtml: r.renderedHtml,
+    title: null,
+    fetchedAt: new Date().toISOString(),
+    durationMs: r.durationMs ?? 0,
+    screenshotPath: r.screenshotPath,
+    error: r.error,
+    hydrationDelta: null,
+    fetchStatus: (r.fetchStatus as CrawledPage['fetchStatus']) ?? undefined,
+    blockReason: acquisitionDetail ? acquisitionDetail.technicalMessage : r.blockReason ?? undefined,
+    fetchChannel: (r.fetchChannel as CrawledPage['fetchChannel']) ?? undefined,
+    contentHash: r.contentHash ?? undefined,
+    fetchProfile: r.fetchProfile ?? undefined,
+    rawHtmlAvailable: r.rawHtmlAvailable ?? undefined,
+    renderedHtmlAvailable: r.renderedHtmlAvailable ?? undefined,
+    acquisitionDetail: acquisitionDetail ?? undefined,
+  };
+}
+
 /** Latest completed audit id for a site URL (hostname + TLD aware). */
-export async function findLatestCompletedAuditForUrl(rawUrl: string): Promise<string | null> {
+export async function findLatestCompletedAuditForUrl(
+  rawUrl: string,
+  preferredId?: string,
+  ownerId?: string,
+): Promise<string | null> {
   let normalized: string;
   try {
     normalized = normalizeWebsiteUrl(rawUrl.trim());
@@ -852,15 +936,24 @@ export async function findLatestCompletedAuditForUrl(rawUrl: string): Promise<st
     return null;
   }
 
-  const audits = await listRecentAudits(60);
+  const audits = await prisma.geoAudit.findMany({
+    where: {
+      status: { in: ['completed', 'partial'] },
+      extractionResults: { some: {} },
+      ...(ownerId ? { site: { is: { ownerId } } } : {}),
+    },
+    select: { id: true, url: true, status: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  const preferred = audits.find(audit => audit.id === preferredId && sameTargetSite(audit.url, normalized));
+  if (preferred) return preferred.id;
   for (const audit of audits) {
-    if (audit.status !== 'completed') continue;
     if (sameTargetSite(audit.url, normalized)) return audit.id;
   }
   return null;
 }
 
-export async function listRecentAudits(limit = 20): Promise<Array<{
+export async function listRecentAudits(limit = 20, ownerId?: string): Promise<Array<{
   id: string;
   url: string;
   overallScore: number;
@@ -871,6 +964,7 @@ export async function listRecentAudits(limit = 20): Promise<Array<{
   monitored: boolean;
 }>> {
   const rows = await prisma.geoAudit.findMany({
+    where: ownerId ? { site: { is: { ownerId } } } : undefined,
     orderBy: { createdAt: 'desc' },
     take: limit,
     select: {
@@ -916,6 +1010,7 @@ const SITE_GROUP_AUDIT_SCAN = 500;
 export async function listRecentAuditSiteGroups(
   page: number,
   pageSize: number,
+  ownerId?: string,
 ): Promise<{
   groups: SiteAuditGroup[];
   page: number;
@@ -924,7 +1019,7 @@ export async function listRecentAuditSiteGroups(
   totalPages: number;
   hasMore: boolean;
 }> {
-  const audits = await listRecentAudits(SITE_GROUP_AUDIT_SCAN);
+  const audits = await listRecentAudits(SITE_GROUP_AUDIT_SCAN, ownerId);
   const allGroups = groupAuditsBySite(
     audits.map(({ id, url, overallScore, citationProbability, status, createdAt, monitored }) => ({
       id,
@@ -964,29 +1059,41 @@ export async function extendAudit(
   auditId: string,
   pageUrls: string[],
   onProgress?: (progress: number, message: string) => void,
-): Promise<GeoAuditResult> {
+): Promise<GeoAuditResult & { extension: { observed: number; failed: number; skipped: Array<{ url: string; reason: string }> } }> {
   const audit = await prisma.geoAudit.findUnique({
     where: { id: auditId },
     select: { id: true, siteId: true, url: true, status: true, screenshotUrl: true, createdAt: true },
   });
   if (!audit) throw new Error('Audit not found');
-  if (audit.status !== 'completed') throw new Error('Audit is not complete');
+  if (audit.status !== 'completed' && audit.status !== 'partial') {
+    throw new Error(
+      audit.status === 'failed'
+        ? 'This audit failed and cannot be extended. Run a new audit first.'
+        : 'This audit is still running. Wait for it to finish before adding pages.',
+    );
+  }
 
   const normalizedUrl = audit.url;
   const existingRows = await prisma.crawlResult.findMany({
     where: { auditId },
-    select: { url: true },
+    orderBy: [{ fetchedAt: 'asc' }, { id: 'asc' }],
   });
   const auditedSet = new Set(
-    existingRows.map((r) => canonicalPageUrl(r.url, normalizedUrl)),
+    currentObservations(existingRows, normalizedUrl)
+      .filter((r) => crawledPageFromDbRow(r).fetchStatus === 'observed')
+      .map((r) => canonicalPageUrl(r.url, normalizedUrl)),
   );
 
-  const toCrawl = pageUrls
+  const toCrawl = [...new Set(pageUrls
     .map((u) => canonicalPageUrl(u, normalizedUrl))
-    .filter((u) => sameTargetSite(u, normalizedUrl) && !auditedSet.has(u));
+    .filter((u) => sameTargetSite(u, normalizedUrl) && !auditedSet.has(u)))];
+  const skipped = [...new Set(pageUrls.map(u => canonicalPageUrl(u, normalizedUrl)))].filter(u => !toCrawl.includes(u)).map(url => ({ url, reason: sameTargetSite(url, normalizedUrl) ? 'Already read successfully; use a new audit to recheck.' : 'Outside the target website.' }));
+  let observed = 0;
 
   if (toCrawl.length === 0) {
-    throw new Error('All selected pages were already audited');
+    const existing = await getAudit(auditId);
+    if (!existing) throw new Error('Audit not found');
+    return { ...existing, extension: { observed: 0, failed: 0, skipped } };
   }
 
   onProgress?.(5, `Crawling ${toCrawl.length} new page(s)…`);
@@ -998,7 +1105,7 @@ export async function extendAudit(
       auditId,
     });
 
-    await prisma.crawlResult.create({
+    const attempt = await prisma.crawlResult.create({
       data: {
         auditId,
         url: pageUrl,
@@ -1011,8 +1118,23 @@ export async function extendAudit(
         error: crawled.error,
       },
     });
+    await prisma.$executeRawUnsafe(
+      `UPDATE "CrawlResult" SET "fetchStatus" = ?, "blockReason" = ?, "contentHash" = ?, "htmlTruncated" = ?, "rawHtmlAvailable" = ?, "renderedHtmlAvailable" = ?, "fetchProfile" = ?, "fetchChannel" = ? WHERE "id" = ?`,
+      crawled.fetchStatus ?? null,
+      crawled.acquisitionDetail
+        ? JSON.stringify(crawled.acquisitionDetail)
+        : crawled.blockReason ?? null,
+      crawled.contentHash ?? null,
+      crawled.htmlTruncated ? 1 : 0,
+      crawled.rawHtmlAvailable ? 1 : 0,
+      crawled.renderedHtmlAvailable ? 1 : 0,
+      crawled.fetchProfile ?? null,
+      crawled.fetchChannel ?? null,
+      attempt.id,
+    ).catch(() => {});
 
-    if (crawled.renderedHtml) {
+    if (crawled.fetchStatus === 'observed' && crawled.renderedHtml) {
+      observed++;
       const extraction = await extractionService.extractPage({
         url: canonicalPageUrl(crawled.finalUrl || pageUrl, normalizedUrl),
         html: crawled.renderedHtml,
@@ -1041,23 +1163,10 @@ export async function extendAudit(
   }
 
   onProgress?.(55, 'Re-scoring audit…');
-  const crawlRows = await prisma.crawlResult.findMany({ where: { auditId } });
-  const extractionRows = await prisma.extractionResult.findMany({ where: { auditId } });
+  const crawlRows = currentObservations(await prisma.crawlResult.findMany({ where: { auditId }, orderBy: [{ fetchedAt: 'asc' }, { id: 'asc' }] }), normalizedUrl);
+  const extractionRows = currentObservations(await prisma.extractionResult.findMany({ where: { auditId }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] }), normalizedUrl);
 
-  const pages: CrawledPage[] = crawlRows.map((r) => ({
-    url: r.url,
-    finalUrl: r.url,
-    statusCode: r.statusCode,
-    contentType: r.contentType,
-    html: r.html,
-    renderedHtml: r.renderedHtml,
-    title: null,
-    fetchedAt: new Date().toISOString(),
-    durationMs: r.durationMs ?? 0,
-    screenshotPath: r.screenshotPath,
-    error: r.error,
-    hydrationDelta: null,
-  }));
+  const pages: CrawledPage[] = crawlRows.map((r) => crawledPageFromDbRow(r));
 
   const rootPage = selectAuditRootPage(pages, normalizedUrl);
   if (!rootPage?.renderedHtml) {
@@ -1186,13 +1295,21 @@ export async function extendAudit(
   const evidenceScoringMeta = presentation.scoringMeta;
   const readiness = presentation.readiness;
 
+  const executionState = resolveAuditExecutionState({
+    maxPages: Math.max(crawlRows.length, 1),
+    auditedPages: pageInventory.auditedCount,
+    discoveredPages: pageInventory.discoveredCount,
+    stopReason: currentTaskBudget()?.stopReason,
+  });
+  const enrichedMeta = applyExecutionStateToMeta(evidenceScoringMeta, executionState);
+
   onProgress?.(85, 'Updating narrative…');
   const narrative = allowsCapability('remote_ai')
     ? await generateNarrative({
         url: normalizedUrl,
         overallScore: readiness.score ?? overallScore,
         dimensions,
-        scoringMeta: evidenceScoringMeta,
+        scoringMeta: enrichedMeta,
         siteId: siteId ?? undefined,
       })
     : readiness.score == null
@@ -1202,12 +1319,12 @@ export async function extendAudit(
   await commitAuditReportWithRevision(auditId, {
     overallScore,
     dimensions: stringifyJson(dimensions),
-    scoringMeta: stringifyJson(evidenceScoringMeta),
+    scoringMeta: stringifyJson(enrichedMeta),
     narrative,
     topIssues: stringifyJson(issues),
     topFixes: stringifyJson(fixes),
     screenshotUrl: audit.screenshotUrl,
-    status: 'completed',
+    status: executionState.status,
     scoreVersion: 'content-readiness-v3',
     coverage: readiness.coverage,
     sampleManifest: stringifyJson(pageInventory.pages.map((p) => p.url)),
@@ -1221,16 +1338,18 @@ export async function extendAudit(
 
   return {
     id: auditId,
+    extension: { observed, failed: toCrawl.length - observed, skipped },
     siteId: audit.siteId,
     url: normalizedUrl,
     overallScore,
     dimensions,
-    scoringMeta: evidenceScoringMeta,
+    scoringMeta: enrichedMeta,
     narrative,
     topIssues: issues,
     topFixes: fixes,
     pageInventory,
     screenshotUrl: audit.screenshotUrl,
+    status: executionState.status,
     createdAt: audit.createdAt.toISOString(),
   };
 }

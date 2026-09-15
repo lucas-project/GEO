@@ -1,0 +1,35 @@
+{
+  "job": {
+    "id": "adddbad2-2a7f-4cca-9ea5-c2a605fce084",
+    "type": "geo-audit.extend",
+    "payload": {
+      "auditId": "cmtzu16ys0006acuk38s99e21",
+      "pageUrls": [
+        "https://www.mdhome.com.au/room-sizing-guide"
+      ]
+    },
+    "status": "completed",
+    "progress": 100,
+    "result": {
+      "auditId": "cmtzu16ys0006acuk38s99e21"
+    },
+    "usage": {
+      "httpRequests": 94,
+      "searchRequests": 0,
+      "browserMs": 7199,
+      "tokens": 0,
+      "limits": {
+        "httpRequests": 300,
+        "searchRequests": 30,
+        "browserMs": 300000,
+        "tokens": 30000
+      },
+      "durationMs": 10446,
+      "completion": "complete",
+      "attempt": 1
+    },
+    "createdAt": "2026-09-14T12:51:07.240Z",
+    "startedAt": "2026-09-14T12:51:07.619Z",
+    "finishedAt": "2026-09-14T12:51:18.071Z"
+  }
+}

@@ -4,14 +4,14 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   html,
   body {
     height: 100%;
-    background: #0a0a0b;
-    color: #e8e8ec;
+    background: #f8fafc;
+    color: #172033;
   }
 
   body {
@@ -22,7 +22,7 @@
 
   ::selection {
     background: rgba(56, 189, 248, 0.35);
-    color: #fff;
+    color: #172033;
   }
 
   ::-webkit-scrollbar {
@@ -33,17 +33,17 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #26262e;
+    background: #cbd5e1;
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #3a3a44;
+    background: #94a3b8;
   }
 }
 
 @layer components {
   .glass {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.005));
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.82));
     backdrop-filter: blur(12px);
   }
 

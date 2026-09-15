@@ -28,6 +28,20 @@ function bundledChromiumOptions(headless: boolean) {
   };
 }
 
+async function launchAuditChromium(chromium: typeof playwrightChromium, headless: boolean): Promise<Browser> {
+  try {
+    return await chromium.launch(bundledChromiumOptions(headless));
+  } catch (error) {
+    if (!/executable doesn't exist|browser.*not found/i.test(String(error))) throw error;
+    crawlLogger.warn('Bundled browser is missing; checking installed Chrome');
+    try {
+      return await chromium.launch({ ...bundledChromiumOptions(headless), channel: config.crawl.wafRetryChromeChannel });
+    } catch {
+      throw new Error('GEO browser dependency is unavailable. Install the Playwright Chromium browser or Google Chrome on the server, then retry. The target website has not been assessed.');
+    }
+  }
+}
+
 async function ensureStealthChromium(): Promise<typeof playwrightChromium> {
   const { chromium: chromiumExtra } = await import(
     /* webpackIgnore: true */ 'playwright-extra'
@@ -74,15 +88,15 @@ export async function launchBrowser(stealth: boolean): Promise<Browser> {
     if (!stealthBrowserPromise) {
       crawlLogger.info('launching Chromium (playwright-extra stealth, headless)');
       stealthBrowserPromise = ensureStealthChromium().then((chromium) =>
-        chromium.launch(bundledChromiumOptions(headless)),
-      );
+        launchAuditChromium(chromium, headless),
+      ).catch(error => { stealthBrowserPromise = null; throw error; });
     }
     return stealthBrowserPromise;
   }
 
   if (!plainBrowserPromise) {
     crawlLogger.info({ headless }, 'launching bundled Chromium');
-    plainBrowserPromise = playwrightChromium.launch(bundledChromiumOptions(headless));
+    plainBrowserPromise = launchAuditChromium(playwrightChromium, headless).catch(error => { plainBrowserPromise = null; throw error; });
   }
   return plainBrowserPromise;
 }

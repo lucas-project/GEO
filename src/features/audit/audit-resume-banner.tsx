@@ -75,21 +75,35 @@ export function AuditResumeBanner() {
 
   if (failedError || !pendingReportId) return null;
 
+  const jobResult = job?.result as { completion?: string; stopReason?: string } | undefined;
+  const isPartial =
+    jobResult?.completion === 'partial' ||
+    (typeof jobResult === 'object' && jobResult != null && 'stopReason' in jobResult && Boolean(jobResult.stopReason));
+
   const dismissPending = () => {
     sessionStorage.removeItem(PENDING_AUDIT_REPORT_KEY);
     setPendingReportId(null);
   };
 
   return (
-    <Card className="mb-6 border-success/30 bg-success/5 p-4">
+    <Card
+      className={`mb-6 p-4 ${
+        isPartial ? 'border-amber-400/30 bg-amber-400/5' : 'border-success/30 bg-success/5'
+      }`}
+    >
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-start gap-3 flex-1 min-w-0">
-          <CheckCircle2 className="w-5 h-5 text-success shrink-0 mt-0.5" />
+          <CheckCircle2
+            className={`w-5 h-5 shrink-0 mt-0.5 ${isPartial ? 'text-amber-500' : 'text-success'}`}
+          />
           <div>
-            <p className="text-sm font-medium text-fg">Your audit report is ready</p>
+            <p className="text-sm font-medium text-fg">
+              {isPartial ? 'Partial report ready' : 'Your audit report is ready'}
+            </p>
             <p className="text-xs text-fg-muted mt-1">
-              Open the report to see scores, issues, and your improvement plan. It stays in Recent
-              audits below.
+              {isPartial
+                ? 'The audit stopped before full coverage. Open the report for directional findings, then rerun for a complete sample.'
+                : 'Open the report to see scores, issues, and your improvement plan. It stays in Recent audits below.'}
             </p>
           </div>
         </div>

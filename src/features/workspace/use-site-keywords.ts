@@ -30,6 +30,7 @@ export function useSiteKeywords(
   siteUrl: string,
   hydrated: boolean,
   onDetected: (result: SiteKeywordsDetected | null) => void,
+  enabled = true,
 ) {
   const [loading, setLoading] = useState(false);
   const requestId = useRef(0);
@@ -73,7 +74,10 @@ export function useSiteKeywords(
   );
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !enabled) {
+      setLoading(false);
+      return;
+    }
     const trimmed = siteUrl.trim();
     if (!trimmed) {
       setLoading(false);
@@ -86,7 +90,7 @@ export function useSiteKeywords(
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [siteUrl, hydrated, fetchKeywords, onDetected]);
+  }, [siteUrl, hydrated, enabled, fetchKeywords, onDetected]);
 
   return {
     loading,

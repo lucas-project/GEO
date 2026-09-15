@@ -1,6 +1,7 @@
 'use client';
 
 import { Globe, Loader2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -8,8 +9,15 @@ import { useWorkspaceTarget } from '@/features/workspace/workspace-target-contex
 import { normalizeAuditSiteUrl, useGeoAuditJob } from './geo-audit-job-context';
 import { AuditPagePicker, selectedPageUrls } from './audit-page-picker';
 
-export function AuditEntry() {
-  const { targetUrl, setTargetUrl } = useWorkspaceTarget();
+export function AuditEntry({ initialUrl }: { initialUrl?: string }) {
+  const { targetUrl, setTargetUrl, hydrated } = useWorkspaceTarget();
+  const appliedUrl = useRef<string | null>(null);
+  useEffect(() => {
+    if (hydrated && initialUrl && appliedUrl.current !== initialUrl) {
+      appliedUrl.current = initialUrl;
+      setTargetUrl(initialUrl);
+    }
+  }, [hydrated, initialUrl, setTargetUrl]);
   const {
     isRunning,
     isInterrupted,
@@ -58,7 +66,8 @@ export function AuditEntry() {
 
   const startHomepageOnly = () => {
     if (!targetUrl.trim()) return;
-    startAudit({ url: targetUrl.trim() }, targetUrl.trim());
+    const url = normalizeAuditSiteUrl(targetUrl);
+    startAudit({ url, maxPages: 1, pageUrls: [url] }, url);
   };
 
   return (
@@ -129,6 +138,7 @@ export function AuditEntry() {
             Skip page picker — audit homepage only
           </Button>
         )}
+        {discovering && <div className="space-y-2" role="status"><p className="text-sm text-fg-muted">Reading sitemaps and ranking page candidates. Large sites can take several minutes. You can stop discovery and audit the homepage.</p><Button variant="outline" size="sm" onClick={clearPageDiscovery}>Stop page discovery</Button></div>}
       </div>
 
       {discoverError && (

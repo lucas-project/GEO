@@ -10,7 +10,10 @@ import {
   type ReactNode,
 } from 'react';
 import { brandMatchesUrl } from '@/lib/brand-url-match';
-import { normalizeWebsiteUrl } from '@/lib/website-url';
+import { normalizeWebsiteUrl, sameTargetSite } from '@/lib/website-url';
+import { useQuery } from '@tanstack/react-query';
+import { usePathname } from 'next/navigation';
+import { api } from '@/lib/api-client';
 import { siteKeywordsMatchUrl, useSiteKeywords } from './use-site-keywords';
 
 const STORAGE_KEY = 'geo_workspace_target_v1';
@@ -68,6 +71,7 @@ function hostnameHint(url: string): string {
 type WorkspaceTargetContextValue = PersistedShape & {
   /** Hydration finished — safe to read persisted values in children. */
   hydrated: boolean;
+  reportResolved: boolean;
   /** All terms detected from the site (for chip UI). */
   siteKeywordSuggestions: string[];
   siteKeywordsLoading: boolean;
@@ -89,6 +93,7 @@ type WorkspaceTargetContextValue = PersistedShape & {
 const WorkspaceTargetContext = createContext<WorkspaceTargetContextValue | null>(null);
 
 export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [hydrated, setHydrated] = useState(false);
   const [targetUrl, setTargetUrlState] = useState('');
   const [lastAuditId, setLastAuditId] = useState<string | null>(null);
@@ -98,6 +103,25 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
   const [siteKeywordsForUrl, setSiteKeywordsForUrlState] = useState<string | null>(null);
   const [siteKeywordSuggestions, setSiteKeywordSuggestions] = useState<string[]>([]);
   const [siteKeywordsError, setSiteKeywordsError] = useState<string | null>(null);
+
+  const resolvedReport = useQuery<{ auditId: string | null; requestedId: string | null }>({
+    queryKey: ['workspace-report', targetUrl, lastAuditId],
+    enabled: hydrated && Boolean(targetUrl.trim()),
+    queryFn: async () => {
+      const requestedId = lastAuditId;
+      const result = await api.get<{ auditId: string | null }>(`/api/geo-audit?url=${encodeURIComponent(targetUrl)}&auditId=${encodeURIComponent(requestedId ?? '')}`);
+      return { ...result, requestedId };
+    },
+  });
+  useEffect(() => {
+    if (!resolvedReport.data) return;
+    // An explicit report selection (including opening a historical report) wins
+    // over a concurrently resolving "latest report" lookup for the same site.
+    if (lastAuditId && lastAuditForUrl && sameTargetSite(targetUrl, lastAuditForUrl)) return;
+    if (resolvedReport.data.requestedId !== lastAuditId) return;
+    setLastAuditId(resolvedReport.data.auditId);
+    setLastAuditForUrl(resolvedReport.data.auditId ? normalizeWebsiteUrl(targetUrl) : null);
+  }, [resolvedReport.data, targetUrl, lastAuditId, lastAuditForUrl]);
 
   useEffect(() => {
     const p = readPersisted();
@@ -109,6 +133,15 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
     setSiteKeywordsForUrlState(p.siteKeywordsForUrl);
     setSiteKeywordSuggestions(p.siteKeywords);
     setHydrated(true);
+    const reportId = window.location.pathname.match(/^\/audit\/([^/]+)$/)?.[1];
+    if (reportId) {
+      void api.get<{ audit: { id: string; url: string; status?: string } }>(`/api/geo-audit/${reportId}`).then(({ audit }) => {
+        if (audit.status !== 'completed' && audit.status !== 'partial') return;
+        setTargetUrlState(audit.url);
+        setLastAuditId(audit.id);
+        setLastAuditForUrl(normalizeWebsiteUrl(audit.url));
+      }).catch(() => {});
+    }
   }, []);
 
   const onKeywordsDetected = useCallback(
@@ -131,7 +164,12 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
   );
 
   const { loading: siteKeywordsLoading, refreshKeywords: refreshSiteKeywords } =
-    useSiteKeywords(targetUrl, hydrated, onKeywordsDetected);
+    useSiteKeywords(
+      targetUrl,
+      hydrated,
+      onKeywordsDetected,
+      pathname === '/presence' || pathname === '/simulate',
+    );
 
   useEffect(() => {
     if (!hydrated) return;
@@ -152,7 +190,11 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
 
   const setTargetUrl = useCallback((v: string) => {
     setTargetUrlState(v);
-  }, []);
+    if (!lastAuditForUrl || !sameTargetSite(v, lastAuditForUrl)) {
+      setLastAuditId(null);
+      setLastAuditForUrl(null);
+    }
+  }, [lastAuditForUrl]);
 
   /** When the user finishes editing the URL bar, drop the audit shortcut if the site no longer matches. */
   const commitTargetUrl = useCallback(() => {
@@ -160,7 +202,7 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
     if (raw) {
       try {
         const u = normalizeWebsiteUrl(raw);
-        if (lastAuditId && lastAuditForUrl && u !== lastAuditForUrl) {
+        if (lastAuditId && lastAuditForUrl && !sameTargetSite(u, lastAuditForUrl)) {
           setLastAuditId(null);
           setLastAuditForUrl(null);
         }
@@ -220,6 +262,7 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
   const value = useMemo<WorkspaceTargetContextValue>(
     () => ({
       hydrated,
+      reportResolved: Boolean(resolvedReport.data && resolvedReport.data.auditId === lastAuditId),
       targetUrl,
       lastAuditId,
       lastAuditForUrl,
@@ -242,6 +285,7 @@ export function WorkspaceTargetProvider({ children }: { children: ReactNode }) {
     }),
     [
       hydrated,
+      resolvedReport.data,
       targetUrl,
       lastAuditId,
       lastAuditForUrl,

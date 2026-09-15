@@ -1,0 +1,523 @@
+Navigation
+TARGET WEBSITE
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Latest audit report →
+Brand name
+Clear site
+Back to audits
+Partial audit result
+The crawl stopped before the requested sample was complete. Treat this report as directional and rerun it for full coverage.
+Page sample coverage is 40% (10/25 requested pages audited). Some findings may be incomplete.
+GEO REPORT
+https://www.mdhome.com.au
+Sep 13, 11:10 PM
+·
+Open page
+·
+Export report
+Detected entity: Midea Australia(draft)
+95
+CONTENT & TECHNICAL READINESS
+Preliminary result · 40% coverage
+CITATION-RELATED SIGNALS
+Not measured
+
+On-page signals only. Run a compatible, evidence-backed experiment before drawing citation conclusions.
+
+NO CITATION EXPERIMENT
+Overview
+Pages
+Improvements
+Experiments
+Pages
+
+Review successful reads, retry failures, or add representative unread pages.
+
+Pages on this site
+
+55 pages found: 10 read successfully, 15 could not connect, 30 not audited yet. The score uses only the 10 pages read successfully.
+
+GEO priority recommends which unaudited pages to add next — not your audit score.
+
+All
+Read successfully (10)
+Could not connect (15)
+Not audited yet (30)
+https://www.mdhome.com.au
+View details
+Read successfully
+GEO priority 100
+Included in score
+Homepage
+https://www.mdhome.com.au/faqs
+View details
+Read successfully
+GEO priority 94
+Included in score
+Internal link
+https://www.mdhome.com.au/support
+View details
+Read successfully
+GEO priority 92
+Included in score
+Internal link
+https://www.mdhome.com.au/product/athena-series
+View details
+Read successfully
+GEO priority 74
+Included in score
+Internal link
+https://www.mdhome.com.au/product/gaia-series
+View details
+Read successfully
+GEO priority 74
+Included in score
+Internal link
+https://www.mdhome.com.au/product/atom-t-series
+View details
+Read successfully
+GEO priority 72
+Included in score
+Sitemap
+https://www.mdhome.com.au/product/breezeless-series
+View details
+Read successfully
+GEO priority 72
+Included in score
+Sitemap
+https://www.mdhome.com.au/product/midea-cube-dehumidifier
+View details
+Read successfully
+GEO priority 72
+Included in score
+Sitemap
+https://www.mdhome.com.au/product/venus-series
+View details
+Read successfully
+GEO priority 72
+Included in score
+Sitemap
+https://www.mdhome.com.au/room-sizing-guide
+View details
+Read successfully
+GEO priority 64
+Included in score
+Internal link
+https://www.mdhome.com.au/product/apollo-series
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/aqua-eco-mini
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/aqua-thermal
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/cassette-series
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/e-boost-hot-water-heat-pump-all-in-one-system
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/eos-series
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/floor-console-2
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/hot-water-heat-pump-all-in-one-system
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/multi-series
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/pd-double-wall-phe-mars-large
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/r290-m-thermal-nature-heat-pump
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/two-way-cassette
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/vesta-ducted
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/wall-mounted
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/product/xtreme-series
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score.
+
+View details
+Could not connect
+GEO priority 72
+Attempted
+Sitemap
+https://www.mdhome.com.au/about
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/articles-news
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/careers
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/case-studies
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/chiller
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/compliance
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/conditions-of-sales
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/contact-us
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/controls
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/cooling-solution
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/download-brochures
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/download-warranty-cards
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/ducted-air-conditioner
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/heat-pump
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/installation-manuals
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/installation-videos
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/multi-split-system-air-conditioner
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/other-air-treatments
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/partner-portal
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/product-notice
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/product-registration
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/promotion
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/request-a-quote
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/spare-parts-and-accessories
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/split-system
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/user-manuals
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/victorian-energy-upgrades-program
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/vrf-air-conditioning
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/warranty
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+https://www.mdhome.com.au/warranty-claim-form
+
+GEO found this page in a sitemap or link, but has not audited it yet.
+
+View details
+Not audited yet
+GEO priority 58
+Not attempted
+Internal link
+
+Add unread pages or retry failed pages. Only successfully read content contributes to the score.
+
+Select all (45)
+Clear
+Add selected pages (0)
+Audit more pages
+
+Find more URLs on this site, select the ones you want, then run Playwright on them. Scores and issues update when the job finishes.
+
+Find pages on this site

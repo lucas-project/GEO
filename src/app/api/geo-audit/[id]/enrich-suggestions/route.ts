@@ -4,6 +4,8 @@
 
 import { z } from 'zod';
 import { enqueueJob, parseJsonBody, parseZod } from '@/lib/api-route';
+import { getAudit } from '@modules/geo-audit/server';
+import { authenticationRequired, getRequestOwnerId } from '@/lib/owner-scope';
 
 const RequestSchema = z.object({
   questionTypes: z
@@ -18,7 +20,12 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const ownerId = await getRequestOwnerId();
+  if (!ownerId) return authenticationRequired();
   const { id } = await params;
+  if (!(await getAudit(id, ownerId))) {
+    return Response.json({ error: 'not found' }, { status: 404 });
+  }
   const bodyResult = await parseJsonBody(req);
   if (!bodyResult.ok) return bodyResult.response;
 

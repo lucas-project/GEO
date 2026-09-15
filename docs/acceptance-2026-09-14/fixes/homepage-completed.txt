@@ -1,0 +1,57 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+TARGET WEBSITE
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Latest audit report →
+Brand name
+Clear site
+Back to audits
+GEO REPORT
+https://example.com
+Sep 15, 7:11 PM
+·
+Open page
+·
+Export report
+Detected entity: Example Domain(needs review)
+94
+CONTENT & TECHNICAL READINESS
+Evidence-backed result · 100% coverage
+CITATION-RELATED SIGNALS
+Not measured
+
+On-page signals only. Run a compatible, evidence-backed experiment before drawing citation conclusions.
+
+NO CITATION EXPERIMENT
+Overview
+Pages
+Improvements
+Experiments
+Overview
+
+1 pages read. Requested sample: 1. Score version: content-readiness-v3.
+
+Executive summary
+Content and technical readiness: 94/100. Evidence coverage is 100%; review the cited evidence before making changes.
+What limits this assessment
+
+The primary bottleneck is in the Outcome layer: Commercial Readiness (14/100). No pricing page or Product offers schema — AI struggles to answer cost questions

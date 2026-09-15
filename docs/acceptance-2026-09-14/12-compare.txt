@@ -1,0 +1,53 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+36%
+Cancel
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+YOUR WEBSITE (USED IN EVERY PHASE)
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Brand name
+Clear site
+Competitor Comparison
+
+Audit your site and up to 5 competitors in parallel. We diff entity coverage, schema usage, and per-dimension GEO scores to surface gaps you can close.
+
+Detecting competitors from your latest audit…
+YOUR SITE
+COMPETITORS (UP TO 5)
+Add competitor
+Run comparison
+Recent comparisons
+https://www.daikin.com.au
+vs mdhome.com.au
+13/09/2026, 01:32:13View results
+https://mdhome.com.au
+vs www.daikin.com.au
+vs www.panasonic.com
+vs www.lg.com
+14/06/2026, 13:41:00View results
+https://mdhome.com.au
+vs www.daikin.com.au
+vs www.panasonic.com
+vs www.lg.com
+14/06/2026, 13:40:56View results
+https://mdhome.com.au
+vs daikin.com.au
+15/05/2026, 01:01:56View results

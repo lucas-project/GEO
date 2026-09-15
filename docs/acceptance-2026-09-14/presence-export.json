@@ -1,0 +1,432 @@
+{
+  "meta": {
+    "domain": "mdhome.com.au",
+    "siteUrl": "https://www.mdhome.com.au",
+    "scannedAt": "2026-09-14T12:32:52.401Z",
+    "durationMs": 63214,
+    "sources": [
+      "playwright",
+      "search"
+    ],
+    "playwrightEnabled": true,
+    "searchPlan": {
+      "category": "local_service",
+      "rationale": "Heuristic plan for local_service based on page signals and brand flags",
+      "probePlatforms": [
+        "whirlpool",
+        "productreview",
+        "ozbargain",
+        "quora",
+        "site_search",
+        "reddit"
+      ],
+      "searchTargets": [
+        "reddit",
+        "general",
+        "news",
+        "social",
+        "whirlpool",
+        "productreview",
+        "ozbargain"
+      ],
+      "skipPlatforms": [
+        {
+          "id": "g2",
+          "reason": "B2B software reviews do not apply to local installers and dealers"
+        },
+        {
+          "id": "capterra",
+          "reason": "B2B software reviews do not apply to local installers and dealers"
+        },
+        {
+          "id": "trustpilot",
+          "reason": "National product review sites are low-signal for local HVAC/installer dealers"
+        }
+      ],
+      "customQueries": [],
+      "additionalSources": [],
+      "brandKeywords": [
+        "Breezeless Series - Midea",
+        "GAIA Series - Midea",
+        "Venus Series - Midea"
+      ],
+      "source": "heuristic"
+    },
+    "marketCountry": {
+      "code": "AU",
+      "name": "Australia",
+      "queryHint": "Australia",
+      "source": "domain"
+    }
+  },
+  "entity": {
+    "primaryBrand": "Midea Australia",
+    "aliases": [
+      "Midea Australia",
+      "MideaAustralia",
+      "mideaaustralia"
+    ],
+    "confidence": 1,
+    "needsReview": false,
+    "sources": [
+      "override"
+    ],
+    "flags": {
+      "marketplaceMode": false,
+      "ambiguousGeneric": false,
+      "subBrands": []
+    },
+    "sameAsUrls": []
+  },
+  "platforms": {
+    "g2": {
+      "platform": "g2",
+      "status": "skipped",
+      "message": "B2B software reviews do not apply to local installers and dealers",
+      "signals": {},
+      "raw": {
+        "searchPlanCategory": "local_service"
+      }
+    },
+    "capterra": {
+      "platform": "capterra",
+      "status": "skipped",
+      "message": "B2B software reviews do not apply to local installers and dealers",
+      "signals": {},
+      "raw": {
+        "searchPlanCategory": "local_service"
+      }
+    },
+    "trustpilot": {
+      "platform": "trustpilot",
+      "status": "skipped",
+      "message": "National product review sites are low-signal for local HVAC/installer dealers",
+      "signals": {},
+      "raw": {
+        "searchPlanCategory": "local_service"
+      }
+    },
+    "whirlpool": {
+      "platform": "whirlpool",
+      "status": "limited_data",
+      "url": "https://forums.whirlpool.net.au/search/?q=Midea%20Australia",
+      "message": "Search supplement",
+      "signals": {
+        "profileExists": true,
+        "postCount": 0,
+        "searchHitEstimate": 1
+      },
+      "raw": {
+        "fetchMethod": "playwright-cloak",
+        "searchEvidence": [
+          {
+            "url": "https://forums.whirlpool.net.au/search/?q=Midea%20Australia",
+            "title": "Midea Australia on Whirlpool Forums",
+            "engine": "bing"
+          }
+        ]
+      },
+      "posts": []
+    },
+    "productreview": {
+      "platform": "productreview",
+      "status": "limited_data",
+      "url": "https://www.productreview.com.au/listings/search?q=Midea%20Australia",
+      "message": "Search supplement",
+      "signals": {
+        "profileExists": true,
+        "postCount": 0,
+        "searchHitEstimate": 1
+      },
+      "raw": {
+        "fetchMethod": "playwright-cloak",
+        "searchEvidence": [
+          {
+            "url": "https://www.productreview.com.au/listings/search?q=Midea%20Australia",
+            "title": "Midea Australia on ProductReview.com.au",
+            "engine": "bing"
+          }
+        ]
+      },
+      "posts": []
+    },
+    "ozbargain": {
+      "platform": "ozbargain",
+      "status": "limited_data",
+      "url": "https://www.ozbargain.com.au/search/node/Midea%20Australia",
+      "message": "Search supplement",
+      "signals": {
+        "profileExists": true,
+        "postCount": 0,
+        "searchHitEstimate": 1
+      },
+      "raw": {
+        "fetchMethod": "playwright-cloak",
+        "searchEvidence": [
+          {
+            "url": "https://www.ozbargain.com.au/search/node/Midea%20Australia",
+            "title": "Midea Australia on OzBargain",
+            "engine": "bing"
+          }
+        ]
+      },
+      "posts": []
+    },
+    "quora": {
+      "platform": "quora",
+      "status": "limited_data",
+      "url": "https://www.quora.com/topic/midea-australia",
+      "message": "Search supplement",
+      "signals": {
+        "profileExists": true,
+        "postCount": 1,
+        "answerCount": 0,
+        "searchHitEstimate": 1
+      },
+      "raw": {
+        "searchEvidence": [
+          {
+            "url": "https://www.quora.com/topic/midea-australia",
+            "title": "Midea Australia on Quora",
+            "engine": "bing"
+          }
+        ],
+        "fetchMethod": "http"
+      }
+    },
+    "site_search": {
+      "platform": "site_search",
+      "status": "ok",
+      "message": "Aggregated from platform-specific search supplement",
+      "signals": {
+        "searchHitEstimate": 4
+      },
+      "raw": {
+        "topDomains": [
+          "quora.com",
+          "forums.whirlpool.net.au",
+          "productreview.com.au",
+          "ozbargain.com.au"
+        ],
+        "searchHits": [
+          {
+            "url": "https://www.quora.com/topic/midea-australia",
+            "title": "Midea Australia on Quora"
+          },
+          {
+            "url": "https://forums.whirlpool.net.au/search/?q=Midea%20Australia",
+            "title": "Midea Australia on Whirlpool Forums"
+          },
+          {
+            "url": "https://www.productreview.com.au/listings/search?q=Midea%20Australia",
+            "title": "Midea Australia on ProductReview.com.au"
+          },
+          {
+            "url": "https://www.ozbargain.com.au/search/node/Midea%20Australia",
+            "title": "Midea Australia on OzBargain"
+          }
+        ],
+        "source": "targeted-search-supplement"
+      }
+    },
+    "reddit": {
+      "platform": "reddit",
+      "status": "limited_data",
+      "url": "https://www.reddit.com/r/mideaaustralia",
+      "message": "Reddit blocked or empty — Australian forums (Whirlpool, ProductReview, OzBargain) checked instead",
+      "signals": {
+        "profileExists": false,
+        "subscriberCount": 0,
+        "postCount": 0,
+        "highEngagementPostCount": 0
+      },
+      "posts": [],
+      "subreddits": []
+    }
+  },
+  "engagement": {
+    "redditTopPosts": [],
+    "redditDisplayPosts": [],
+    "redditDisplayTarget": 10,
+    "redditDisplayShortfall": 10,
+    "redditHighEngagementCount": 0,
+    "facebookDisplayPosts": [],
+    "crossPlatformDisplayPosts": [],
+    "crossPlatformDisplayTarget": 10,
+    "crossPlatformDisplayShortfall": 10,
+    "agentReach": {
+      "xhs": "missing",
+      "rdt": "missing",
+      "jina": "ok"
+    }
+  },
+  "scores": {
+    "total": 9,
+    "reviews": 2,
+    "community": 7,
+    "media": 0,
+    "band": "needs_work",
+    "raw": {
+      "d3": 2,
+      "d4": 5,
+      "d5": 0
+    }
+  },
+  "insights": {
+    "headline": "Midea Australia: off-site influence needs attention",
+    "verdict": "Midea Australia scores 9/100 on off-site influence (needs work). Scan tailored for local service brands — skipped g2, capterra, trustpilot as not relevant. Below 50, AI answers may rarely cite you as an off-site authority; follow the getting-started steps below.",
+    "strengths": [
+      {
+        "title": "Profiles found",
+        "detail": "Verified on Quora, Web search, Whirlpool, ProductReview.com.au, OzBargain."
+      }
+    ],
+    "gaps": [
+      {
+        "title": "Review-site dimension is low",
+        "detail": "Local service brands rarely appear on software review sites — focus on Google Business Profile, regional trade directories, and manufacturer dealer listings.",
+        "suggestedAction": "Complete Google Business Profile, list on trade/industry directories, and link manufacturer authorisation pages from your site footer."
+      },
+      {
+        "title": "Community presence needs work",
+        "detail": "Few high-engagement Reddit or Quora signals were detected.",
+        "suggestedAction": "Participate in relevant subreddits and answer category questions on Quora with expert, factual posts."
+      },
+      {
+        "title": "Media & references are thin",
+        "detail": "Limited news and authoritative off-site references for AI to cite.",
+        "suggestedAction": "Pursue earned media, ensure Wikipedia/notability where applicable, and get listed in industry publications."
+      }
+    ],
+    "gettingStarted": [
+      {
+        "priority": "high",
+        "title": "This week",
+        "why": "Your lowest dimension is media — start where AI visibility gains are largest.",
+        "steps": [
+          "Check if a Wikipedia or Wikidata entry exists; align your About page with notable facts.",
+          "Pitch one industry publication or news outlet relevant to your category."
+        ]
+      },
+      {
+        "priority": "medium",
+        "title": "Next",
+        "why": "Build consistent off-site signals across channels.",
+        "steps": [
+          "Audit footer and About page for links to Reddit, Quora, Trustpilot, and social profiles.",
+          "We ran 23 web searches — address gaps in unverified platforms above.",
+          "Encourage customers to leave reviews on platforms that matter for your industry."
+        ]
+      },
+      {
+        "priority": "low",
+        "title": "Optional",
+        "why": "Long-term GEO: stay visible where LLMs train and retrieve.",
+        "steps": [
+          "Set AI_PROVIDER=minimax (or ollama) for adaptive search and hit curation on the next scan.",
+          "Monitor top Reddit threads quarterly and keep answers accurate.",
+          "Export this report JSON and track score changes over time."
+        ]
+      }
+    ],
+    "dimensions": {
+      "reviews": {
+        "score": 2,
+        "max": 40,
+        "narrative": "Little review-site visibility detected — claim profiles where they apply to your industry.",
+        "bullets": []
+      },
+      "community": {
+        "score": 7,
+        "max": 35,
+        "narrative": "Limited community signals — Reddit and Q&A sites are where many AI answers source brand context.",
+        "bullets": [
+          "Only 0 of 10 target Reddit threads found after widened search — try more keywords or run again later."
+        ]
+      },
+      "media": {
+        "score": 0,
+        "max": 25,
+        "narrative": "Thin media footprint — pursue press, industry coverage, and encyclopedic references.",
+        "bullets": []
+      }
+    },
+    "discoveries": {
+      "redditSubreddits": [],
+      "socialProfiles": [],
+      "mediaDomains": [
+        "quora.com"
+      ],
+      "topSearchHits": [
+        {
+          "url": "https://forums.whirlpool.net.au/search/?q=Midea%20Australia",
+          "title": "Midea Australia on Whirlpool Forums",
+          "platform": "whirlpool"
+        },
+        {
+          "url": "https://www.productreview.com.au/listings/search?q=Midea%20Australia",
+          "title": "Midea Australia on ProductReview.com.au",
+          "platform": "productreview"
+        },
+        {
+          "url": "https://www.ozbargain.com.au/search/node/Midea%20Australia",
+          "title": "Midea Australia on OzBargain",
+          "platform": "ozbargain"
+        },
+        {
+          "url": "https://www.quora.com/topic/midea-australia",
+          "title": "Midea Australia on Quora",
+          "platform": "quora"
+        }
+      ],
+      "quoraQuestions": [
+        {
+          "url": "https://www.quora.com/topic/midea-australia",
+          "title": "Midea Australia on Quora"
+        }
+      ]
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "high",
+      "text": "Raise off-site influence above 50/100 — prioritize press coverage and reference sites so AI models treat you as a cited authority.",
+      "category": "general"
+    },
+    {
+      "priority": "medium",
+      "text": "Link an official subreddit or community page from your website — limited Reddit visibility reduces how often AI cites community discussion.",
+      "category": "community"
+    },
+    {
+      "priority": "medium",
+      "text": "Pursue earned media and industry press — news domains strongly influence whether LLMs cite you as an authority.",
+      "category": "media"
+    },
+    {
+      "priority": "medium",
+      "text": "Add sameAs schema.org links on your site footer pointing to Reddit, Trustpilot, LinkedIn, and other verified profiles.",
+      "category": "website"
+    },
+    {
+      "priority": "low",
+      "text": "Answer relevant Quora questions in your category — expert answers help AI associate your brand with the topic.",
+      "category": "community"
+    }
+  ],
+  "searchSupplement": {
+    "queryCount": 23,
+    "social": [],
+    "offSiteDomains": [
+      "quora.com",
+      "forums.whirlpool.net.au",
+      "productreview.com.au",
+      "ozbargain.com.au"
+    ],
+    "orchestration": {
+      "roundsRun": 0,
+      "queriesAdded": 0,
+      "stoppedReason": "LLM error"
+    }
+  }
+}

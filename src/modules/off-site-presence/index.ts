@@ -37,3 +37,4 @@ export {
   partitionRedditPostsByMarket,
 } from './market-country';
 export type { MarketCountry } from './market-country';
+export { enforcePresenceEvidence, hasVerifiedProfile, isSearchDestination } from './evidence-policy';

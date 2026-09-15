@@ -17,7 +17,7 @@ import {
 import { canonicalPageUrl } from '@/lib/website-url';
 import { MonitorSchedulePresetSchema } from '@modules/monitoring';
 import { normalizeWebsiteUrl } from '@/lib/website-url';
-import { getRequestOwnerId, assertSiteOwnedBy } from '@/lib/owner-scope';
+import { authenticationRequired, getRequestOwnerId, getRequestSession, workspaceWriteRequired, assertSiteOwnedBy } from '@/lib/owner-scope';
 import { parseJsonBody, parseZod } from '@/lib/api-route';
 
 const AddSchema = z.object({
@@ -53,7 +53,8 @@ function normalizeMonitorPageUrls(urls: string[] | undefined, siteRoot: string):
 }
 
 export async function GET() {
-  const ownerId = getRequestOwnerId();
+  const ownerId = await getRequestOwnerId();
+  if (!ownerId) return authenticationRequired();
   const [sites, alerts] = await Promise.all([
     listMonitoredSites(ownerId),
     listAlerts(40, ownerId),
@@ -62,6 +63,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const session = await getRequestSession();
+  if (!session) return authenticationRequired();
+  const denied = workspaceWriteRequired(session);
+  if (denied) return denied;
+  const ownerId = session.ownerId;
   const bodyResult = await parseJsonBody(req);
   if (!bodyResult.ok) return bodyResult.response;
 
@@ -75,19 +81,24 @@ export async function POST(req: Request) {
     monitorSchedulePreset: parsed.data.monitorSchedulePreset,
     monitorPageUrls: normalizeMonitorPageUrls(parsed.data.monitorPageUrls, siteRoot),
     simulationPrompts: parsed.data.simulationPrompts,
-    ownerId: getRequestOwnerId(),
+    ownerId,
   });
   return NextResponse.json(result, { status: 201 });
 }
 
 export async function PATCH(req: Request) {
+  const session = await getRequestSession();
+  if (!session) return authenticationRequired();
+  const denied = workspaceWriteRequired(session);
+  if (denied) return denied;
+  const ownerId = session.ownerId;
   const bodyResult = await parseJsonBody(req);
   if (!bodyResult.ok) return bodyResult.response;
 
   const parsed = parseZod(PatchSchema, bodyResult.body);
   if (!parsed.ok) return parsed.response;
 
-  const site = await assertSiteOwnedBy(parsed.data.siteId);
+  const site = await assertSiteOwnedBy(parsed.data.siteId, ownerId);
   if (!site) return NextResponse.json({ error: 'site not found' }, { status: 404 });
 
   const siteRoot = site.url;
@@ -101,11 +112,16 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  const session = await getRequestSession();
+  if (!session) return authenticationRequired();
+  const denied = workspaceWriteRequired(session);
+  if (denied) return denied;
+  const ownerId = session.ownerId;
   const url = new URL(req.url);
   const siteId = url.searchParams.get('siteId');
   if (!siteId) return NextResponse.json({ error: 'siteId required' }, { status: 400 });
 
-  const site = await assertSiteOwnedBy(siteId);
+  const site = await assertSiteOwnedBy(siteId, ownerId);
   if (!site) return NextResponse.json({ error: 'site not found' }, { status: 404 });
 
   await removeMonitoredSite(siteId);

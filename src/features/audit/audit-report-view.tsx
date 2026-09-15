@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useWorkspaceTarget } from '@/features/workspace/workspace-target-context';
 import { SiteProfileReview } from '@/features/workspace/site-profile-review';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
@@ -52,6 +53,25 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function AuditReportContent({ audit }: { audit: GeoAuditResult }) {
+  const [reportTab, setReportTab] = useState('summary');
+  const [updateNotice, setUpdateNotice] = useState<string | null>(null);
+  useEffect(() => {
+    const followHash = () => {
+      const hash = window.location.hash.slice(1);
+      setReportTab(hash === 'coverage' ? 'coverage' : hash === 'tools' ? 'tools' : hash === 'actions' || hash.startsWith('issue-') ? 'actions' : 'summary');
+    };
+    followHash();
+    window.addEventListener('hashchange', followHash);
+    return () => window.removeEventListener('hashchange', followHash);
+  }, []);
+  const { hydrated, setTargetUrl, registerCompletedAudit } = useWorkspaceTarget();
+  const selectedReportRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!hydrated || selectedReportRef.current === audit.id) return;
+    selectedReportRef.current = audit.id;
+    setTargetUrl(audit.url);
+    if (audit.status === 'completed' || audit.status === 'partial') registerCompletedAudit(audit.id, audit.url);
+  }, [hydrated, audit.id, audit.url, audit.status, setTargetUrl, registerCompletedAudit]);
   const dimensions = audit.dimensions;
   const readiness = audit.scoringMeta?.readiness;
   const displayedScore = readiness ? readiness.score : audit.overallScore;
@@ -82,8 +102,7 @@ function AuditReportContent({ audit }: { audit: GeoAuditResult }) {
   const isMonitored = Boolean(monitorStatus?.monitored && monitorStatus?.monitorEnabled);
 
   return (
-    <div className="max-w-6xl mx-auto px-8 py-10">
-      {audit.siteId && <div className="mb-6"><SiteProfileReview key={audit.siteId} siteId={audit.siteId} /></div>}
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10 min-w-0">
       <Link
         href="/audit"
         className="inline-flex items-center gap-1 text-xs text-fg-muted hover:text-fg mb-6 transition-colors"
@@ -92,15 +111,16 @@ function AuditReportContent({ audit }: { audit: GeoAuditResult }) {
         Back to audits
       </Link>
 
-      {audit.status === 'partial' || audit.scoringMeta?.completion === 'partial' ? (
-        <div className="mb-6 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100" role="status">
+      {(audit.status === 'partial' ||
+        (audit.status == null && audit.scoringMeta?.completion === 'partial')) && (
+        <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
           <div className="font-medium">Partial audit result</div>
-          <div className="mt-1 text-xs text-amber-100/75">
+          <div className="mt-1 text-xs text-amber-800">
             The crawl stopped before the requested sample was complete
             {audit.scoringMeta?.stopReason ? ` (${audit.scoringMeta.stopReason})` : ''}. Treat this report as directional and rerun it for full coverage.
           </div>
         </div>
-      ) : null}
+      )}
 
       {audit.scoringMeta?.sampleCoverageStatus && audit.scoringMeta.sampleCoverageStatus !== 'ready' ? (
         <div className="mb-6 rounded-lg border border-fg-subtle/20 bg-bg-subtle/30 px-4 py-3 text-sm text-fg-muted" role="note">
@@ -108,11 +128,11 @@ function AuditReportContent({ audit }: { audit: GeoAuditResult }) {
         </div>
       ) : null}
 
-      <div className="flex items-start justify-between gap-6 mb-8">
+      <div className="flex flex-col lg:flex-row items-start justify-between gap-6 mb-8">
         <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-wider text-fg-subtle mb-1">GEO Report</div>
           <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <h1 className="text-2xl font-semibold truncate">{audit.url}</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold break-all">{audit.url}</h1>
             {isMonitored && <MonitoredBadge />}
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs text-fg-muted">
@@ -162,59 +182,43 @@ function AuditReportContent({ audit }: { audit: GeoAuditResult }) {
               </div>
             )}
           </div>
-          {audit.scoringMeta && (
+          {audit.scoringMeta && !readiness && (
             <CitationProbabilityCard scoringMeta={audit.scoringMeta} className="min-w-[200px]" />
           )}
         </div>
       </div>
 
-      {audit.scoringMeta && <BottleneckCallout scoringMeta={audit.scoringMeta} />}
+      {updateNotice && <p role="status" className="mb-4 rounded border border-success/30 bg-success/10 p-3 text-sm">{updateNotice}</p>}
+      <nav className="sticky top-0 z-10 mb-6 rounded-lg border border-border bg-bg px-4 py-3" aria-label="Audit report sections">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
+          {[['summary', 'Overview'], ['coverage', 'Pages'], ['actions', 'Improvements'], ['tools', 'Experiments']].map(([id, label]) => <a key={id} className={`text-accent hover:underline ${reportTab === id ? 'font-bold underline' : ''}`} aria-current={reportTab === id ? 'page' : undefined} href={`#${id}`} onClick={() => setReportTab(id!)}>{label}</a>)}
+        </div>
+      </nav>
 
-      <ImprovementPlanPanel audit={audit} />
+      <section id="summary" hidden={reportTab !== 'summary'} className="scroll-mt-20">
+        <div className="mb-3"><h2 className="text-lg font-semibold">Overview</h2><p className="text-sm text-fg-muted">{audit.pageInventory?.auditedCount ?? 0} pages read. Requested sample: {audit.scoringMeta?.requestedPages ?? 'Not recorded'}. Score version: {readiness ? 'content-readiness-v3' : 'historical heuristic'}.</p></div>
+        {audit.narrative && (
+          <Card className="mb-6"><CardHeader><CardTitle>Executive summary</CardTitle></CardHeader><CardContent className="text-sm text-fg-muted leading-relaxed whitespace-pre-wrap">{audit.narrative}</CardContent></Card>
+        )}
+      </section>
 
-      <EnrichSuggestionsButton
-        auditId={audit.id}
-        missingPrompts={countSimulationPrompts(audit.scoringMeta?.suggestedSimulationPrompts) === 0}
-        missingCompetitors={!audit.scoringMeta?.suggestedCompetitors?.length}
-      />
+      {reportTab === 'summary' && audit.scoringMeta && !readiness && <BottleneckCallout scoringMeta={audit.scoringMeta} />}
 
-      {audit.scoringMeta?.simulationVisibilityCheck && (
-        <SimulationVisibilityCard scoringMeta={audit.scoringMeta} auditId={audit.id} />
-      )}
+      <section id="actions" hidden={reportTab !== 'actions'} className="scroll-mt-20">
+        <div className="mb-3"><h2 className="text-lg font-semibold">Improvements</h2><p className="text-sm text-fg-muted">Review the affected page and evidence before generating a draft.</p></div>
+        <ImprovementPlanPanel audit={audit} />
+      </section>
 
-      {audit.pageInventory && audit.pageInventory.pages.length > 0 && (
-        <AuditPagesPanel auditId={audit.id} inventory={audit.pageInventory} />
-      )}
+      <section id="coverage" hidden={reportTab !== 'coverage'} className="scroll-mt-20">
+        <div className="mb-3"><h2 className="text-lg font-semibold">Pages</h2><p className="text-sm text-fg-muted">Review successful reads, retry failures, or add representative unread pages.</p></div>
+        {audit.pageInventory && audit.pageInventory.pages.length > 0 && (
+          <AuditPagesPanel auditId={audit.id} inventory={audit.pageInventory} onUpdated={notice => { setUpdateNotice(notice); setReportTab('summary'); }} />
+        )}
+        <AuditMorePages auditId={audit.id} siteUrl={audit.url} auditedUrls={audit.pageInventory?.pages.filter((p) => p.audited).map((p) => p.url) ?? [audit.url]} />
+      </section>
 
-      <AuditMorePages
-        auditId={audit.id}
-        siteUrl={audit.url}
-        auditedUrls={
-          audit.pageInventory?.pages.filter((p) => p.audited).map((p) => p.url) ?? [audit.url]
-        }
-      />
-
-      {audit.siteId && (
-        <WatchSitePrompt
-          siteId={audit.siteId}
-          url={audit.url}
-          defaultPageUrls={
-            audit.pageInventory?.pages.filter((p) => p.audited).map((p) => p.url) ?? [audit.url]
-          }
-        />
-      )}
-      <BenchmarksPanel siteId={audit.siteId} />
-
-      {audit.narrative && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Executive summary</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-fg-muted leading-relaxed whitespace-pre-wrap">
-            {audit.narrative}
-          </CardContent>
-        </Card>
-      )}
+      {!readiness && <section id="details" hidden={reportTab !== 'actions'} className="scroll-mt-20">
+        <div className="mb-3"><h2 className="text-lg font-semibold">4. Explore technical detail</h2><p className="text-sm text-fg-muted">Use these diagnostics when you need to understand how the score was calculated.</p></div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <Card className="lg:col-span-2">
@@ -340,6 +344,18 @@ function AuditReportContent({ audit }: { audit: GeoAuditResult }) {
           </Card>
         </details>
       </div>
+      </section>}
+
+      <section id="tools" hidden={reportTab !== 'tools'} className="mt-8 scroll-mt-20">
+        <div className="mb-3"><h2 className="text-lg font-semibold">Experiments</h2><p className="text-sm text-fg-muted">Citation tests require a compatible provider. Off-site checks require successfully retrieved sources.</p></div>
+        <div className="space-y-4">
+          {audit.siteId && <SiteProfileReview key={audit.siteId} siteId={audit.siteId} />}
+          <EnrichSuggestionsButton auditId={audit.id} missingPrompts={countSimulationPrompts(audit.scoringMeta?.suggestedSimulationPrompts) === 0} missingCompetitors={!audit.scoringMeta?.suggestedCompetitors?.length} />
+          {audit.scoringMeta?.simulationVisibilityCheck && <SimulationVisibilityCard scoringMeta={audit.scoringMeta} auditId={audit.id} />}
+          {audit.siteId && <WatchSitePrompt siteId={audit.siteId} url={audit.url} defaultPageUrls={audit.pageInventory?.pages.filter((p) => p.audited).map((p) => p.url) ?? [audit.url]} />}
+          <BenchmarksPanel siteId={audit.siteId} />
+        </div>
+      </section>
     </div>
   );
 }

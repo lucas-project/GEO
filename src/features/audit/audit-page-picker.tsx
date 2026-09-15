@@ -378,6 +378,6 @@ export function AuditPagePicker({
   );
 }
 
-export async function discoverSitePages(siteUrl: string): Promise<DiscoverResult> {
-  return api.post<DiscoverResult>('/api/geo-audit/discover', { url: siteUrl.trim() });
+export async function discoverSitePages(siteUrl: string, signal?: AbortSignal): Promise<DiscoverResult> {
+  return api.post<DiscoverResult>('/api/geo-audit/discover', { url: siteUrl.trim() }, { signal });
 }

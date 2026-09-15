@@ -1,0 +1,42 @@
+Navigation
+TARGET WEBSITE
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Latest audit report →
+Brand name
+Clear site
+Back to audits
+Partial audit result
+The crawl stopped before the requested sample was complete. Treat this report as directional and rerun it for full coverage.
+Page sample coverage is 40% (10/25 requested pages audited). Some findings may be incomplete.
+GEO REPORT
+https://www.mdhome.com.au
+Sep 13, 11:10 PM
+·
+Open page
+·
+Export report
+Detected entity: Midea Australia(draft)
+95
+CONTENT & TECHNICAL READINESS
+Preliminary result · 40% coverage
+CITATION-RELATED SIGNALS
+Not measured
+
+On-page signals only. Run a compatible, evidence-backed experiment before drawing citation conclusions.
+
+NO CITATION EXPERIMENT
+Overview
+Pages
+Improvements
+Experiments
+Overview
+
+10 pages read. Requested sample: 25. Score version: content-readiness-v3.
+
+Executive summary
+Content and technical readiness: 95/100. Evidence coverage is 40%; review the cited evidence before making changes.
+What limits this assessment
+
+The primary bottleneck is in the Presence layer: Off-site Presence (45/100). 2 off-site platforms linked from your site

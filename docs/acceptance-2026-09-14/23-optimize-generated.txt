@@ -1,0 +1,69 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+YOUR WEBSITE (USED IN EVERY PHASE)
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Latest audit report →
+Brand name
+Clear site
+Deployable artifacts
+
+Turn a GEO audit into copy-ready snippets — FAQ JSON-LD, llms.txt, summary blocks, meta tags, and more. Nothing is pushed to your live site; you review and paste (or use CMS integration where configured).
+
+This does not edit your website automatically. It generates files and HTML you can copy into your CMS or theme. Optional WordPress draft apply exists only when CMS credentials are configured.
+
+A GEO audit is a site scan you run on the GEO Audit page. Each finished scan becomes a report (scores, page text, keywords). Tools like this one read that report — you normally only need your website URL in the workspace bar at the top.
+
+Target page
+https://example.com
+WHICH AUDIT REPORT?
+
+Filled automatically after you complete a GEO Audit for your workspace URL. To use a different report, open it from GEO Audit, then copy the code from your browser address bar — the part after /audit/ (example: clx1abc2def3).
+
+ARTIFACT TYPE
+FAQPage JSON-LD
+Schema.org FAQPage markup ready for <head>
+llms.txt
+AI crawler manifest (Anthropic spec)
+AI Summary Block
+Embeddable summary block for the page top
+Answer-First Rewrite
+Rewrite the lead paragraph in answer-first form
+Product / Organization
+JSON-LD for your brand or product
+Metadata Patches
+Missing meta description, og:title, canonical
+Last generated: FAQPage JSON-LD
+Generate FAQPage JSON-LD
+Generated artifacts (1)
+FAQPage JSON-LD
+Just generated
+14/09/2026, 22:46:01
+Copy
+Insufficient evidence: no visible FAQ answers were extracted. Add factual answers to the page first.
+
+Page: https://example.com · Status: insufficient_evidence
+
+Evidence: ev-ee9fb994f10cd723, ev-fc5ca00110103d1c, ev-9393b82ac9187498, ev-edb35b96147cc7b8, ev-06689ede7fc171f8
+
+Mark applied
+Do not apply
+Recheck same pages

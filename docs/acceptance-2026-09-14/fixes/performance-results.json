@@ -1,0 +1,589 @@
+{
+  "environment": "Next.js production server; local database; free-deterministic mode; mock AI; system Chrome; 1440x1000",
+  "runsPerRoute": 3,
+  "summary": [
+    {
+      "route": "/",
+      "medianWallMs": 1585,
+      "medianTtfbMs": 311,
+      "medianDomContentLoadedMs": 394,
+      "medianLoadMs": 487,
+      "medianLcpMs": 372,
+      "medianCls": 0.0845,
+      "medianTransferKb": 501,
+      "medianResourceCount": 33
+    },
+    {
+      "route": "/audit/cmtzu16ys0006acuk38s99e21",
+      "medianWallMs": 2958,
+      "medianTtfbMs": 324,
+      "medianDomContentLoadedMs": 408,
+      "medianLoadMs": 494,
+      "medianLcpMs": 1556,
+      "medianCls": 0.0308,
+      "medianTransferKb": 1504,
+      "medianResourceCount": 46
+    },
+    {
+      "route": "/optimize",
+      "medianWallMs": 1685,
+      "medianTtfbMs": 320,
+      "medianDomContentLoadedMs": 402,
+      "medianLoadMs": 475,
+      "medianLcpMs": 384,
+      "medianCls": 0.0299,
+      "medianTransferKb": 536,
+      "medianResourceCount": 36
+    },
+    {
+      "route": "/geo-content",
+      "medianWallMs": 1565,
+      "medianTtfbMs": 326,
+      "medianDomContentLoadedMs": 415,
+      "medianLoadMs": 498,
+      "medianLcpMs": 412,
+      "medianCls": 0.0299,
+      "medianTransferKb": 533,
+      "medianResourceCount": 36
+    },
+    {
+      "route": "/simulate",
+      "medianWallMs": 1561,
+      "medianTtfbMs": 314,
+      "medianDomContentLoadedMs": 409,
+      "medianLoadMs": 481,
+      "medianLcpMs": 536,
+      "medianCls": 0.0299,
+      "medianTransferKb": 502,
+      "medianResourceCount": 34
+    }
+  ],
+  "reportToOptimizeMs": 889,
+  "samples": [
+    {
+      "route": "/",
+      "run": 1,
+      "status": 200,
+      "wallMs": 1756,
+      "ttfbMs": 461,
+      "domContentLoadedMs": 546,
+      "loadMs": 638,
+      "lcpMs": 604,
+      "cls": 0.0845,
+      "transferKb": 503,
+      "resourceCount": 34,
+      "slowestResources": [
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/page-cdb850b0c8d5feb9.js",
+          "durationMs": 86
+        },
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/layout-a24b806325af32fb.js",
+          "durationMs": 84
+        },
+        {
+          "name": "/_next/static/chunks/9458-2da91bc5540f347d.js",
+          "durationMs": 82
+        },
+        {
+          "name": "/_next/static/chunks/7306-2e99447446ab6c0f.js",
+          "durationMs": 80
+        },
+        {
+          "name": "/_next/static/chunks/5913-b66675f453e76214.js",
+          "durationMs": 78
+        }
+      ]
+    },
+    {
+      "route": "/",
+      "run": 2,
+      "status": 200,
+      "wallMs": 1560,
+      "ttfbMs": 306,
+      "domContentLoadedMs": 345,
+      "loadMs": 470,
+      "lcpMs": 372,
+      "cls": 0.0845,
+      "transferKb": 501,
+      "resourceCount": 33,
+      "slowestResources": [
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/page-cdb850b0c8d5feb9.js",
+          "durationMs": 73
+        },
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/layout-a24b806325af32fb.js",
+          "durationMs": 71
+        },
+        {
+          "name": "/_next/static/chunks/9458-2da91bc5540f347d.js",
+          "durationMs": 70
+        },
+        {
+          "name": "/_next/static/chunks/7306-2e99447446ab6c0f.js",
+          "durationMs": 68
+        },
+        {
+          "name": "/_next/static/chunks/5913-b66675f453e76214.js",
+          "durationMs": 67
+        }
+      ]
+    },
+    {
+      "route": "/",
+      "run": 3,
+      "status": 200,
+      "wallMs": 1585,
+      "ttfbMs": 311,
+      "domContentLoadedMs": 394,
+      "loadMs": 487,
+      "lcpMs": 364,
+      "cls": 0.0845,
+      "transferKb": 501,
+      "resourceCount": 33,
+      "slowestResources": [
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/page-cdb850b0c8d5feb9.js",
+          "durationMs": 76
+        },
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/layout-a24b806325af32fb.js",
+          "durationMs": 74
+        },
+        {
+          "name": "/_next/static/chunks/9458-2da91bc5540f347d.js",
+          "durationMs": 72
+        },
+        {
+          "name": "/_next/static/chunks/7306-2e99447446ab6c0f.js",
+          "durationMs": 70
+        },
+        {
+          "name": "/_next/static/chunks/5913-b66675f453e76214.js",
+          "durationMs": 69
+        }
+      ]
+    },
+    {
+      "route": "/audit/cmtzu16ys0006acuk38s99e21",
+      "run": 1,
+      "status": 200,
+      "wallMs": 3190,
+      "ttfbMs": 367,
+      "domContentLoadedMs": 445,
+      "loadMs": 538,
+      "lcpMs": 1772,
+      "cls": 0.0308,
+      "transferKb": 1504,
+      "resourceCount": 46,
+      "slowestResources": [
+        {
+          "name": "/api/geo-audit/cmtzu16ys0006acuk38s99e21",
+          "durationMs": 1081
+        },
+        {
+          "name": "/api/geo-audit/cmtzu16ys0006acuk38s99e21",
+          "durationMs": 618
+        },
+        {
+          "name": "/api/geo-audit",
+          "durationMs": 485
+        },
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/agent/page-7d8117e76db5b6e9.js",
+          "durationMs": 471
+        },
+        {
+          "name": "/api/geo-audit/cmtzu16ys0006acuk38s99e21",
+          "durationMs": 471
+        }
+      ]
+    },
+    {
+      "route": "/audit/cmtzu16ys0006acuk38s99e21",
+      "run": 2,
+      "status": 200,
+      "wallMs": 2958,
+      "ttfbMs": 324,
+      "domContentLoadedMs": 408,
+      "loadMs": 494,
+      "lcpMs": 1556,
+      "cls": 0.0308,
+      "transferKb": 1504,
+      "resourceCount": 46,
+      "slowestResources": [
+        {
+          "name": "/api/geo-audit/cmtzu16ys0006acuk38s99e21",
+          "durationMs": 896
+        },
+        {
+          "name": "/api/geo-audit",
+          "durationMs": 467
+        },
+        {
+          "name": "/simulate",
+          "durationMs": 457
+        },
+        {
+          "name": "/competitors",
+          "durationMs": 457
+        },
+        {
+          "name": "/audit",
+          "durationMs": 456
+        }
+      ]
+    },
+    {
+      "route": "/audit/cmtzu16ys0006acuk38s99e21",
+      "run": 3,
+      "status": 200,
+      "wallMs": 2923,
+      "ttfbMs": 320,
+      "domContentLoadedMs": 358,
+      "loadMs": 483,
+      "lcpMs": 1520,
+      "cls": 0.0308,
+      "transferKb": 1504,
+      "resourceCount": 46,
+      "slowestResources": [
+        {
+          "name": "/api/geo-audit/cmtzu16ys0006acuk38s99e21",
+          "durationMs": 897
+        },
+        {
+          "name": "/api/geo-audit",
+          "durationMs": 463
+        },
+        {
+          "name": "/",
+          "durationMs": 459
+        },
+        {
+          "name": "/audit",
+          "durationMs": 459
+        },
+        {
+          "name": "/presence",
+          "durationMs": 459
+        }
+      ]
+    },
+    {
+      "route": "/optimize",
+      "run": 1,
+      "status": 200,
+      "wallMs": 1691,
+      "ttfbMs": 323,
+      "domContentLoadedMs": 402,
+      "loadMs": 475,
+      "lcpMs": 380,
+      "cls": 0.0299,
+      "transferKb": 536,
+      "resourceCount": 36,
+      "slowestResources": [
+        {
+          "name": "/api/geo-audit",
+          "durationMs": 154
+        },
+        {
+          "name": "/competitors",
+          "durationMs": 71
+        },
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/optimize/page-a97a3894e7011971.js",
+          "durationMs": 70
+        },
+        {
+          "name": "/_next/static/chunks/4892-9343551fd556a818.js",
+          "durationMs": 68
+        },
+        {
+          "name": "/simulate",
+          "durationMs": 68
+        }
+      ]
+    },
+    {
+      "route": "/optimize",
+      "run": 2,
+      "status": 200,
+      "wallMs": 1685,
+      "ttfbMs": 320,
+      "domContentLoadedMs": 407,
+      "loadMs": 485,
+      "lcpMs": 384,
+      "cls": 0.0299,
+      "transferKb": 536,
+      "resourceCount": 36,
+      "slowestResources": [
+        {
+          "name": "/api/geo-audit",
+          "durationMs": 144
+        },
+        {
+          "name": "/competitors",
+          "durationMs": 77
+        },
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/optimize/page-a97a3894e7011971.js",
+          "durationMs": 76
+        },
+        {
+          "name": "/simulate",
+          "durationMs": 75
+        },
+        {
+          "name": "/_next/static/chunks/4892-9343551fd556a818.js",
+          "durationMs": 74
+        }
+      ]
+    },
+    {
+      "route": "/optimize",
+      "run": 3,
+      "status": 200,
+      "wallMs": 1660,
+      "ttfbMs": 320,
+      "domContentLoadedMs": 360,
+      "loadMs": 471,
+      "lcpMs": 384,
+      "cls": 0.0299,
+      "transferKb": 536,
+      "resourceCount": 36,
+      "slowestResources": [
+        {
+          "name": "/api/geo-audit",
+          "durationMs": 137
+        },
+        {
+          "name": "/competitors",
+          "durationMs": 76
+        },
+        {
+          "name": "/simulate",
+          "durationMs": 74
+        },
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/optimize/page-a97a3894e7011971.js",
+          "durationMs": 72
+        },
+        {
+          "name": "/presence",
+          "durationMs": 72
+        }
+      ]
+    },
+    {
+      "route": "/geo-content",
+      "run": 1,
+      "status": 200,
+      "wallMs": 1565,
+      "ttfbMs": 315,
+      "domContentLoadedMs": 415,
+      "loadMs": 490,
+      "lcpMs": 392,
+      "cls": 0.0299,
+      "transferKb": 533,
+      "resourceCount": 36,
+      "slowestResources": [
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/geo-content/page-c913162e16b1bdc9.js",
+          "durationMs": 77
+        },
+        {
+          "name": "/_next/static/chunks/9718-5ea1283bfdaa5ffc.js",
+          "durationMs": 76
+        },
+        {
+          "name": "/_next/static/chunks/8568-f694e48ef86aed8b.js",
+          "durationMs": 74
+        },
+        {
+          "name": "/_next/static/chunks/9606-6af3b5cfd072a616.js",
+          "durationMs": 73
+        },
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/layout-a24b806325af32fb.js",
+          "durationMs": 71
+        }
+      ]
+    },
+    {
+      "route": "/geo-content",
+      "run": 2,
+      "status": 200,
+      "wallMs": 1564,
+      "ttfbMs": 328,
+      "domContentLoadedMs": 426,
+      "loadMs": 500,
+      "lcpMs": 412,
+      "cls": 0.0299,
+      "transferKb": 533,
+      "resourceCount": 36,
+      "slowestResources": [
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/geo-content/page-c913162e16b1bdc9.js",
+          "durationMs": 77
+        },
+        {
+          "name": "/_next/static/chunks/9718-5ea1283bfdaa5ffc.js",
+          "durationMs": 75
+        },
+        {
+          "name": "/_next/static/chunks/8568-f694e48ef86aed8b.js",
+          "durationMs": 73
+        },
+        {
+          "name": "/_next/static/chunks/9606-6af3b5cfd072a616.js",
+          "durationMs": 72
+        },
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/layout-a24b806325af32fb.js",
+          "durationMs": 69
+        }
+      ]
+    },
+    {
+      "route": "/geo-content",
+      "run": 3,
+      "status": 200,
+      "wallMs": 1579,
+      "ttfbMs": 326,
+      "domContentLoadedMs": 341,
+      "loadMs": 498,
+      "lcpMs": 440,
+      "cls": 0.0299,
+      "transferKb": 533,
+      "resourceCount": 36,
+      "slowestResources": [
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/geo-content/page-c913162e16b1bdc9.js",
+          "durationMs": 72
+        },
+        {
+          "name": "/_next/static/chunks/9718-5ea1283bfdaa5ffc.js",
+          "durationMs": 70
+        },
+        {
+          "name": "/_next/static/chunks/8568-f694e48ef86aed8b.js",
+          "durationMs": 69
+        },
+        {
+          "name": "/_next/static/chunks/9606-6af3b5cfd072a616.js",
+          "durationMs": 68
+        },
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/layout-a24b806325af32fb.js",
+          "durationMs": 65
+        }
+      ]
+    },
+    {
+      "route": "/simulate",
+      "run": 1,
+      "status": 200,
+      "wallMs": 1550,
+      "ttfbMs": 311,
+      "domContentLoadedMs": 386,
+      "loadMs": 458,
+      "lcpMs": 520,
+      "cls": 0.0299,
+      "transferKb": 502,
+      "resourceCount": 34,
+      "slowestResources": [
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/simulate/page-73923b7482c1cb00.js",
+          "durationMs": 71
+        },
+        {
+          "name": "/_next/static/chunks/8888-2449db7d4030b9f5.js",
+          "durationMs": 70
+        },
+        {
+          "name": "/_next/static/chunks/8568-f694e48ef86aed8b.js",
+          "durationMs": 68
+        },
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/layout-a24b806325af32fb.js",
+          "durationMs": 67
+        },
+        {
+          "name": "/_next/static/chunks/9458-2da91bc5540f347d.js",
+          "durationMs": 65
+        }
+      ]
+    },
+    {
+      "route": "/simulate",
+      "run": 2,
+      "status": 200,
+      "wallMs": 1562,
+      "ttfbMs": 317,
+      "domContentLoadedMs": 411,
+      "loadMs": 483,
+      "lcpMs": 536,
+      "cls": 0.0299,
+      "transferKb": 502,
+      "resourceCount": 34,
+      "slowestResources": [
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/simulate/page-73923b7482c1cb00.js",
+          "durationMs": 88
+        },
+        {
+          "name": "/_next/static/chunks/8888-2449db7d4030b9f5.js",
+          "durationMs": 83
+        },
+        {
+          "name": "/_next/static/chunks/8568-f694e48ef86aed8b.js",
+          "durationMs": 79
+        },
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/layout-a24b806325af32fb.js",
+          "durationMs": 78
+        },
+        {
+          "name": "/_next/static/chunks/9458-2da91bc5540f347d.js",
+          "durationMs": 76
+        }
+      ]
+    },
+    {
+      "route": "/simulate",
+      "run": 3,
+      "status": 200,
+      "wallMs": 1561,
+      "ttfbMs": 314,
+      "domContentLoadedMs": 409,
+      "loadMs": 481,
+      "lcpMs": 552,
+      "cls": 0.0299,
+      "transferKb": 502,
+      "resourceCount": 34,
+      "slowestResources": [
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/simulate/page-73923b7482c1cb00.js",
+          "durationMs": 83
+        },
+        {
+          "name": "/_next/static/chunks/8888-2449db7d4030b9f5.js",
+          "durationMs": 81
+        },
+        {
+          "name": "/_next/static/chunks/8568-f694e48ef86aed8b.js",
+          "durationMs": 79
+        },
+        {
+          "name": "/_next/static/chunks/app/(dashboard)/layout-a24b806325af32fb.js",
+          "durationMs": 78
+        },
+        {
+          "name": "/_next/static/chunks/9458-2da91bc5540f347d.js",
+          "durationMs": 76
+        }
+      ]
+    }
+  ]
+}

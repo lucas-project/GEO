@@ -1,15 +1,18 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 vi.mock('@modules/geo-audit/server', () => ({
+  getAudit: vi.fn(),
   getAuditPageSource: vi.fn(),
 }));
 
-import { getAuditPageSource } from '@modules/geo-audit/server';
+import { getAudit, getAuditPageSource } from '@modules/geo-audit/server';
 import { GET } from './route';
 
 describe('GET /api/geo-audit/[id]/page-source', () => {
   beforeEach(() => {
+    vi.mocked(getAudit).mockReset();
     vi.mocked(getAuditPageSource).mockReset();
+    vi.mocked(getAudit).mockResolvedValue({ id: 'a1' } as never);
   });
 
   it('returns 400 when url is missing', async () => {

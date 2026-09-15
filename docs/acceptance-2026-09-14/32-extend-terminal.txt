@@ -1,0 +1,496 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+YOUR WEBSITE (USED IN EVERY PHASE)
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Brand name
+Clear site
+Back to audits
+Partial audit result
+The crawl stopped before the requested sample was complete. Treat this report as directional and rerun it for full coverage.
+Page sample coverage is 13% (7/55 requested pages audited). Some findings may be incomplete.
+GEO REPORT
+https://www.mdhome.com.au
+Sep 13, 11:10 PM
+·
+Open page
+·
+Export report
+Detected entity: Midea Australia(draft)
+94
+CONTENT & TECHNICAL READINESS
+Preliminary result · 29% coverage
+CITATION-RELATED SIGNALS
+2%
+
+On-page signals only. Run a compatible, evidence-backed experiment before drawing citation conclusions.
+
+NO CITATION EXPERIMENT
+
+Use this report in order
+
+1. Understand the result
+2. Prioritise improvements
+3. Review page coverage
+4. Explore technical detail
+5. Optional follow-up tools
+1. Understand the result
+
+Start with the summary and the main factor limiting this target website.
+
+Executive summary
+Content and technical readiness: 94/100. Evidence coverage is 29%; review the cited evidence before making changes.
+Why AI can't reliably cite this site
+
+The primary bottleneck is in the Outcome layer: Commercial Readiness (34/100). Product/pricing schema with offers detected
+
+2. Prioritise improvements
+
+Work through the highest-impact recommendations before opening the full technical detail.
+
+YOUR IMPROVEMENT PLAN
+
+Do these in order to improve how AI search engines understand and cite your site.
+
+1
+
+Generate FAQ schema
+
+low effort
+
+Fixes Citation Friendliness — your low-effort highest-impact on-site change.
+
+2
+
+Generate llms.txt
+
+low effort
+
+Improves AI Crawler Friendliness.
+
+3
+
+Generate AI summary
+
+medium effort
+
+Improves Summarization Quality.
+
+4
+
+Generate Answer-first rewrite
+
+medium effort
+
+Improves Answer Extraction.
+
+5
+
+Weak conversion and pricing signals
+
+high effort
+
+We flagged this under “Ready to convert visitors” (score 30/100). Missing signals make it harder for AI to connect your brand to trusted profiles or guide users toward a next step.
+
+6
+
+Missing author or byline
+
+medium effort
+
+We flagged this under “Trust and credibility” (score 37/100). Readers and AI systems cannot see who wrote or stands behind this content. Named authors and bylines increase trust when your site is cited.
+
+7
+
+Test AI visibility
+
+low effort
+
+See how AI search engines answer queries in your space and whether your brand is cited.
+
+3. Review page coverage
+
+See which pages contributed evidence. Add only representative unread pages when you need broader coverage.
+
+Pages on this site
+
+55 pages found: 7 read successfully, 17 could not connect, 31 not audited yet. The score uses only the 7 pages read successfully.
+
+GEO priority recommends which unaudited pages to add next — not your audit score.
+
+All
+Read successfully (7)
+Could not connect (17)
+Not audited yet (31)
+https://www.mdhome.com.au/support
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 92
+Not audited
+Internal link
+https://www.mdhome.com.au/product/athena-series
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 74
+Not audited
+Internal link
+https://www.mdhome.com.au/product/apollo-series
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/aqua-eco-mini
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/aqua-thermal
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/cassette-series
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/e-boost-hot-water-heat-pump-all-in-one-system
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/eos-series
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/floor-console-2
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/hot-water-heat-pump-all-in-one-system
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/multi-series
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/pd-double-wall-phe-mars-large
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/r290-m-thermal-nature-heat-pump
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/two-way-cassette
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/vesta-ducted
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/wall-mounted
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+https://www.mdhome.com.au/product/xtreme-series
+
+GEO could not connect to this page. No verified content was collected, so it was not included in the score. (not included in the score)
+
+View details
+Could not connect
+GEO priority 72
+Not audited
+Sitemap
+
+Select discovered pages to crawl with Playwright and include in scoring.
+
+Select all (48)
+Clear
+Audit selected pages (1)
+Extend failed
+Dismiss
+
+All selected pages were already audited
+
+Audit more pages
+
+Find more URLs on this site, select the ones you want, then run Playwright on them. Scores and issues update when the job finishes.
+
+Find pages on this site
+4. Explore technical detail
+
+Use these diagnostics when you need to understand how the score was calculated.
+
+AI visibility pipeline
+
+AI visibility flows through five causal layers. Weak upstream layers cap downstream scores. Click  on a layer to see full criteria and scoring breakdown.
+Presence scores linked profiles on your site — run a deep presence scan for live platform data.
+
+FOUNDATION
+
+Can AI crawl, parse structure, and read markup?
+
+67
+AI Crawler Friendliness
+52
+Structured Content
+83
+Semantic Clarity
+66
+More details
+UNDERSTANDING
+
+Can AI understand entities, chunks, and trust signals?
+
+67
+Entity Clarity
+64
+Chunk Optimization
+44
+AI Readability
+69
+Trust Signals
+100
+More details
+PRESENCE
+
+Does AI see your brand beyond this website?
+
+45
+Off-site Presence
+45
+More details
+GENERATION
+
+Can AI extract answers and summarize content?
+
+46
+Answer Extraction
+30
+Summarization Quality
+66
+More details
+OUTCOME
+bottleneck
+
+Will AI cite this page as a source?
+
+34
+Citation Friendliness
+37
+Commercial Readiness
+30
+
+Product/pricing schema with offers detected
+
+More details
+Beyond your website
+Crawl-only
+
+Links on your site (footer/nav) plus optional external search when configured.
+
+45
+○ Reddit
+○ Quora
+○ G2
+○ Capterra
+○ Trustpilot
+✓ LinkedIn
+Link
+○ X (Twitter)
+✓ YouTube
+Link
+○ Facebook
+○ Instagram
+○ GitHub
+○ Xiaohongshu (小红书)
+○ Zhihu
+○ TikTok
+○ Amazon
+○ Whirlpool
+○ ProductReview.com.au
+○ OzBargain
+
+Run a deep Playwright probe across review and community sites (Whirlpool, ProductReview, OzBargain for .au domains; Quora and others globally). Updates this audit when complete (~2–4 min). Your audit score is not blocked while this runs.
+
+Run deep presence scan
+Open presence workspace →
+Pipeline snapshot
+
+Same five layers as AI visibility pipeline
+
+INDUSTRY REF
+637
+GEO chaser
+Foundation
+Understanding
+Presence
+Generation
+Outcome
+Foundation
+67
+Understanding
+67
+Presence
+45
+Generation
+46
+Outcome
+34
+Quick stats
+PAGES AUDITED
+7 / 55
+ISSUES FOUND
+15
+FIXES GENERATED
+4
+STRONGEST DIMENSION
+Trust Signals
+WEAKEST DIMENSION
+Answer Extraction
+SCREENSHOT
+All issues (15)
+Expand technical detail
+5. Optional follow-up tools
+
+Use these only when they support your next decision. They are not required to understand the audit.
+
+Review this target website (optional)
+
+GEO automatically identified the organisation or brand represented by this target website. Check the name if you want more accurate brand-related recommendations, simulations, or off-site analysis.
+
+This is not ownership verification. Leaving it unchanged will not affect the basic crawl or audit score.
+
+Detected target: Midea Australia· Ready to use
+Review or edit target information
+Add supporting evidence (optional)
+
+This audit was created before personalized AI questions and competitor suggestions were available. Choose question types below, then generate them to unlock Simulate, Compare, and your improvement plan.
+
+The list below shows only selected types. Each generate/regenerate adds up to 10 questions per selected type.
+
+Brand-specific
+Includes your brand name — tests whether AI correctly surfaces facts from your site (specs, policies, product lines).
+Customer discovery
+No brand named — simulates a shopper query with no site context or keyword hints. Scoring checks whether AI mentions you anyway.
+Generate questions
+
+Keep watching this site?
+
+Enable daily monitoring to catch GEO score drops, schema loss, and new issues automatically.
+
+PAGES TO MONITOR
+
+Homepage
+/faqs
+/product/gaia-series
+/product/atom-t-series
+/product/breezeless-series
+/product/midea-cube-dehumidifier
+/product/venus-series
+
+Defaults to the pages you audited. At least one page is required.
+
+Not now
+Choose pages
+Enable daily monitoring · 7 pages
+How you compare to similar sites
+Strong (80+)
+Fair (60–79)
+Needs work (below 60)
+
+Each card compares other websites in our database: average GEO score for sites that have a feature vs. sites that do not. Your site is marked separately — the bar numbers are group averages, not your personal score.
+
+Not enough comparison data yet. Benchmarks appear after several sites have been audited.

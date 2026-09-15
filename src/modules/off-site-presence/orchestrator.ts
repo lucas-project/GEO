@@ -8,6 +8,9 @@ import type { PresenceSearchPlan } from './search-plan-types';
 import type { FetchPageFn, ProbeContext } from './platforms/types';
 import { PLATFORM_LABELS } from '@modules/brand-presence';
 import { withProbeTimeout } from './probe-timeout';
+import * as cheerio from 'cheerio';
+import { isSearchDestination } from './evidence-policy';
+import type { FetchedPage } from './platforms/types';
 
 function jitterMs(): number {
   const { platformIntervalMinMs, platformIntervalMaxMs } = config.presenceProbe;
@@ -62,15 +65,43 @@ async function probeWithRetries(
     try {
       await limiter.wait();
       if (attempt > 0) await new Promise((r) => setTimeout(r, jitterMs()));
-      return await withProbeTimeout(
+      const captures: Array<{ page: FetchedPage; capturedAt: string }> = [];
+      const result = await withProbeTimeout(
         (signal) =>
           adapter.probe({
             ...ctx,
-            fetchPage: (url, options) => ctx.fetchPage(url, { ...options, signal }),
+            fetchPage: async (url, options) => {
+              const page = await ctx.fetchPage(url, { ...options, signal });
+              captures.push({ page, capturedAt: new Date().toISOString() });
+              return page;
+            },
           }),
         maxMs,
         label,
       );
+      const capture = captures.findLast(c => c.page.finalUrl === result.url);
+      if (capture) {
+        const { page, capturedAt } = capture;
+        const $ = cheerio.load(page.html);
+        $('script, style, nav').remove();
+        const body = $('body').text().replace(/\s+/g, ' ').trim();
+        const brand = ctx.brand.primaryBrand.toLowerCase();
+        const matchAt = body.toLowerCase().indexOf(brand);
+        const observed = page.observationStatus === 'observed' && page.statusCode >= 200 && page.statusCode < 300 && body.length >= 100;
+        const identityMatch = observed && brand.length >= 3 && matchAt >= 0 &&
+          (ctx.sameAsUrls.includes(page.finalUrl) || $('a[href]').toArray().some(a => {
+            try { return new URL($(a).attr('href') ?? '').hostname.replace(/^www\./, '') === ctx.domain.replace(/^www\./, ''); } catch { return false; }
+          }));
+        const search = isSearchDestination(page.finalUrl);
+        result.evidence = {
+          kind: search ? 'search_entry' : identityMatch && result.signals.profileExists ? 'verified_profile' : identityMatch ? 'matched_brand' : 'retrieved_page',
+          sourceUrl: page.finalUrl, capturedAt, responseStatus: page.statusCode,
+          excerpt: observed ? body.slice(Math.max(0, matchAt - 80), Math.max(0, matchAt - 80) + 480) : undefined,
+          identityMatch,
+          observation: observed ? 'observed' : page.observationStatus === 'blocked' ? 'blocked' : 'unreachable',
+        };
+      }
+      return result;
     } catch (err) {
       lastError = err;
     }

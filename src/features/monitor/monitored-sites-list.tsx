@@ -109,7 +109,7 @@ export function MonitoredSitesList({
                 Latest update
               </th>
               <th className="px-4 py-3 text-[12px] uppercase tracking-wider text-fg-subtle font-medium">
-                GEO score
+                Historical heuristic
               </th>
               <th className="px-4 py-3 text-[12px] uppercase tracking-wider text-fg-subtle font-medium hidden md:table-cell">
                 Pages
@@ -261,7 +261,7 @@ function MonitoredSiteTableRow({
         {s.nextRunAt && s.monitorEnabled ? (
           <span className="inline-flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            {formatDate(s.nextRunAt)}
+            {new Date(s.nextRunAt).getTime() < Date.now() ? 'Overdue — check scheduler' : formatDate(s.nextRunAt)}
           </span>
         ) : (
           '—'

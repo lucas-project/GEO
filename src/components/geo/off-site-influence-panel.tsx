@@ -13,7 +13,7 @@ import type {
   PresenceInsights,
   RedditPost,
 } from '@modules/off-site-presence';
-import { PLATFORM_IDS } from '@modules/off-site-presence';
+import { PLATFORM_IDS, enforcePresenceEvidence, hasVerifiedProfile, isSearchDestination } from '@modules/off-site-presence';
 import {
   inferMarketFromDomain,
   partitionRedditPostsByMarket,
@@ -481,7 +481,29 @@ export function OffSiteInfluencePanel({
   scannedAt,
   className,
 }: OffSiteInfluencePanelProps) {
+  const safe = enforcePresenceEvidence(report);
+  return safe.scores.total == null ? <PresenceEvidencePanel report={safe} className={className} /> : <LegacyOffSiteInfluencePanel report={safe} scannedAt={scannedAt} className={className} />;
+}
+
+function PresenceEvidencePanel({ report: raw, className }: OffSiteInfluencePanelProps) {
+  const report = enforcePresenceEvidence(raw);
+  return <div className={cn('rounded-xl border border-border bg-bg-elevated p-4 space-y-4', className)}>
+    <h3 className="font-semibold">Off-site evidence for {report.entity.primaryBrand}</h3>
+    <p role="status" className="text-sm text-fg-muted">Insufficient evidence to rate visibility. Citation frequency: Not measured.</p>
+    <p className="text-xs text-fg-muted">Inferred category: {report.meta.searchPlan?.category?.replace(/_/g, ' ') ?? 'Not classified'}. Confirm the target profile before using industry-specific recommendations.</p>
+    <ul className="space-y-3">{Object.values(report.platforms).map(p => <li key={p.platform} className="border-t border-border pt-3 text-sm break-words">
+      <strong>{p.platform.replace(/_/g, ' ')}</strong> · {hasVerifiedProfile(p) ? 'Verified profile' : p.evidence?.observation === 'observed' ? p.evidence.identityMatch ? 'Brand matched on retrieved page' : 'Retrieved page: no identity match' : p.evidence?.observation === 'unknown' ? 'Unverified source' : p.evidence?.observation?.replace(/_/g, ' ')}
+      {p.evidence?.excerpt && <blockquote className="mt-1 text-fg-muted">{p.evidence.excerpt}</blockquote>}
+      {p.evidence?.capturedAt && <p className="text-xs text-fg-muted">Captured {new Date(p.evidence.capturedAt).toLocaleString()}</p>}
+      {p.url && <a className="block text-accent hover:underline" href={p.url} target="_blank" rel="noopener noreferrer">{isSearchDestination(p.url) ? 'Search this platform' : 'Open source'}</a>}
+    </li>)}</ul>
+  </div>;
+}
+
+function LegacyOffSiteInfluencePanel({ report, scannedAt, className }: OffSiteInfluencePanelProps) {
+  if (report.scores.total == null) return null;
   const { entity, scores, engagement, recommendations, insights } = report;
+  if (scores.total == null || scores.reviews == null || scores.community == null || scores.media == null) return null;
   const groups = groupPlatforms(report);
   const displayThreads = engagement.redditDisplayPosts ?? [];
   const facebookPosts = engagement.facebookDisplayPosts ?? [];
@@ -521,9 +543,9 @@ export function OffSiteInfluencePanel({
             )}
           </p>
           <p className="text-xs text-fg-subtle mt-1">
-            {scores.total < 50
+            {scores.total != null && scores.total < 50
               ? 'Below 50/100 — AI may rarely cite you as an off-site authority.'
-              : scores.total >= 75
+              : scores.total != null && scores.total >= 75
                 ? '75+ — strong off-site signals for AI answers.'
                 : '50–74 — credible footprint; improve weakest dimension below.'}
           </p>

@@ -395,7 +395,46 @@ export const AuditPageEntrySchema = z.object({
   sources: z.array(z.enum(DISCOVERY_SOURCES)).optional(),
   audited: z.boolean(),
   error: z.string().nullable().optional(),
-  observationStatus: z.enum(['observed', 'blocked', 'timeout', 'rate_limited', 'parse_error', 'not_run', 'legacy_unknown']).optional(),
+  observationStatus: z
+    .enum([
+      'observed',
+      'blocked',
+      'timeout',
+      'rate_limited',
+      'parse_error',
+      'unreachable',
+      'not_run',
+      'legacy_unknown',
+    ])
+    .optional(),
+  acquisitionDetail: z
+    .object({
+      stage: z.enum(['robots', 'sitemap', 'navigation', 'render', 'parse', 'http_probe']),
+      reasonCode: z.string(),
+      userMessage: z.string(),
+      nextAction: z.string(),
+      technicalMessage: z.string().optional(),
+      elapsedMs: z.number().optional(),
+      httpStatus: z.number().int().optional(),
+      finalUrl: z.string().optional(),
+      fetchChannel: z.enum(['stealth', 'headed', 'http']).optional(),
+      retryCount: z.number().int().optional(),
+      attemptedAt: z.string().optional(),
+      waitCondition: z.string().optional(),
+      browserRenderComplete: z.boolean().optional(),
+      attempts: z
+        .array(
+          z.object({
+            channel: z.enum(['stealth', 'headed', 'http']),
+            outcome: z.enum(['success', 'failed', 'skipped']),
+            elapsedMs: z.number(),
+            reasonCode: z.string().optional(),
+            technicalMessage: z.string().optional(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
   geoScore: z.number().int().min(0).max(100).optional(),
   archetype: z.enum(PAGE_ARCHETYPES).optional(),
   signals: z.array(z.string()).optional(),

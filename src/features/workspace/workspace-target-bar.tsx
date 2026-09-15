@@ -29,7 +29,7 @@ export function WorkspaceTargetBar() {
         <div className="flex-1 min-w-0">
           <label className="text-[10px] uppercase tracking-wider text-fg-subtle font-medium flex items-center gap-1.5 mb-1">
             <Globe className="w-3 h-3" />
-            Your website (used in every phase)
+            Target website
           </label>
           <Input
             value={targetUrl}

@@ -1,0 +1,43 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+TARGET WEBSITE
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Latest audit report →
+Brand name
+Clear site
+GEO content ideas
+
+Uses your workspace URL and latest GEO audit. Detects short keywords from the site, then one prompt list per content type (Q&A, definitions, comparisons, and more). Prompts only — no pre-written answers. History is saved automatically.
+
+A GEO audit is a site scan you run on the GEO Audit page. Each finished scan becomes a report (scores, page text, keywords). Tools like this one read that report — you normally only need your website URL in the workspace bar at the top.
+
+SITE FOR THIS RUN
+https://www.mdhome.com.au
+
+Latest report for this workspace: View audit report
+
+Uses the latest completed audit for that site. Finds short keywords, then one prompt list per content type. Prompts only — no answers. You can leave this page while generation runs in the background.
+
+Detect site & generate ideas
+HISTORY
+
+Past runs appear here after you detect a site and generate ideas.

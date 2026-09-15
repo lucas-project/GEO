@@ -1,0 +1,502 @@
+{
+  "environment": "production server, live crawl, free-deterministic mode, mock AI",
+  "scope": {
+    "url": "https://www.mdhome.com.au",
+    "maxPages": 3,
+    "pageUrls": [
+      "https://www.mdhome.com.au",
+      "https://www.mdhome.com.au/faqs",
+      "https://www.mdhome.com.au/product/athena-series"
+    ]
+  },
+  "audits": [
+    "cmu2gpq3s0005acy08to4hf98",
+    "cmu2gq9of000kacy00c5ai9mu"
+  ],
+  "exactSignatureMatch": false,
+  "firstSignature": {
+    "status": "partial",
+    "overallScore": 49,
+    "dimensions": {
+      "aiReadability": 65,
+      "citationFriendliness": 39,
+      "semanticClarity": 78,
+      "entityClarity": 53,
+      "answerExtraction": 30,
+      "chunkOptimization": 40,
+      "summarizationQuality": 65,
+      "trustSignals": 100,
+      "structuredContent": 82,
+      "crawlerFriendliness": 64,
+      "offSitePresence": 45,
+      "commercialReadiness": 30
+    },
+    "readiness": 97,
+    "readinessCriteria": [
+      [
+        "readiness.page_accessible",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.semantic_content:https://www.mdhome.com.au/",
+        "pass",
+        30,
+        30
+      ],
+      [
+        "readiness.document_title:https://www.mdhome.com.au/",
+        "pass",
+        15,
+        15
+      ],
+      [
+        "readiness.heading_structure:https://www.mdhome.com.au/",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.structured_data:https://www.mdhome.com.au/",
+        "pass",
+        15,
+        15
+      ],
+      [
+        "readiness.locatable_content:https://www.mdhome.com.au/",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.page_accessible",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.semantic_content:https://www.mdhome.com.au/faqs/",
+        "pass",
+        30,
+        30
+      ],
+      [
+        "readiness.document_title:https://www.mdhome.com.au/faqs/",
+        "pass",
+        15,
+        15
+      ],
+      [
+        "readiness.heading_structure:https://www.mdhome.com.au/faqs/",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.structured_data:https://www.mdhome.com.au/faqs/",
+        "pass",
+        15,
+        15
+      ],
+      [
+        "readiness.locatable_content:https://www.mdhome.com.au/faqs/",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.page_accessible",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.semantic_content:https://www.mdhome.com.au/product/athena-series/",
+        "pass",
+        30,
+        30
+      ],
+      [
+        "readiness.document_title:https://www.mdhome.com.au/product/athena-series/",
+        "pass",
+        15,
+        15
+      ],
+      [
+        "readiness.heading_structure:https://www.mdhome.com.au/product/athena-series/",
+        "partial",
+        10,
+        20
+      ],
+      [
+        "readiness.structured_data:https://www.mdhome.com.au/product/athena-series/",
+        "pass",
+        15,
+        15
+      ],
+      [
+        "readiness.locatable_content:https://www.mdhome.com.au/product/athena-series/",
+        "pass",
+        20,
+        20
+      ]
+    ],
+    "contentHashes": [
+      "2e413e406427dec36010a43260cd340724a6adb4fdcee4c1e6b69448b3bc18f9",
+      "520c5a182ff48177fc8b466fbc44d9a8c5bd3f6ca7090ab6cbfb414810e2320b",
+      "d9a9dae279899f451dfcff1afb5cf7ec6d5288bfe47ec7b7f36fb3bfeff72c5e"
+    ],
+    "issues": [
+      [
+        "commercialReadiness",
+        null,
+        null
+      ],
+      [
+        "citationFriendliness",
+        null,
+        null
+      ],
+      [
+        "answerExtraction",
+        null,
+        null
+      ],
+      [
+        "trustSignals",
+        null,
+        null
+      ],
+      [
+        "semanticClarity",
+        null,
+        null
+      ],
+      [
+        "chunkOptimization",
+        null,
+        null
+      ],
+      [
+        "offSitePresence",
+        null,
+        null
+      ],
+      [
+        "offSitePresence",
+        null,
+        null
+      ],
+      [
+        "entityClarity",
+        null,
+        null
+      ],
+      [
+        "entityClarity",
+        null,
+        null
+      ],
+      [
+        "crawlerFriendliness",
+        null,
+        null
+      ],
+      [
+        "aiReadability",
+        null,
+        null
+      ],
+      [
+        "summarizationQuality",
+        null,
+        null
+      ]
+    ],
+    "fixes": [
+      [
+        "Generate FAQPage JSON-LD",
+        "citationFriendliness",
+        "faq-schema"
+      ],
+      [
+        "Publish an llms.txt manifest",
+        "crawlerFriendliness",
+        "llms-txt"
+      ],
+      [
+        "Add an \"AI Summary\" block to each key page",
+        "summarizationQuality",
+        "ai-summary"
+      ],
+      [
+        "Rewrite lead paragraphs in answer-first form",
+        "answerExtraction",
+        "answer-first"
+      ]
+    ],
+    "requestedPages": 3,
+    "auditedPages": 3,
+    "coverage": 1
+  },
+  "secondSignature": {
+    "status": "partial",
+    "overallScore": 48,
+    "dimensions": {
+      "aiReadability": 59,
+      "citationFriendliness": 39,
+      "semanticClarity": 76,
+      "entityClarity": 53,
+      "answerExtraction": 30,
+      "chunkOptimization": 38,
+      "summarizationQuality": 65,
+      "trustSignals": 100,
+      "structuredContent": 82,
+      "crawlerFriendliness": 64,
+      "offSitePresence": 45,
+      "commercialReadiness": 30
+    },
+    "readiness": 97,
+    "readinessCriteria": [
+      [
+        "readiness.page_accessible",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.semantic_content:https://www.mdhome.com.au/",
+        "pass",
+        30,
+        30
+      ],
+      [
+        "readiness.document_title:https://www.mdhome.com.au/",
+        "pass",
+        15,
+        15
+      ],
+      [
+        "readiness.heading_structure:https://www.mdhome.com.au/",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.structured_data:https://www.mdhome.com.au/",
+        "pass",
+        15,
+        15
+      ],
+      [
+        "readiness.locatable_content:https://www.mdhome.com.au/",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.page_accessible",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.semantic_content:https://www.mdhome.com.au/faqs/",
+        "pass",
+        30,
+        30
+      ],
+      [
+        "readiness.document_title:https://www.mdhome.com.au/faqs/",
+        "pass",
+        15,
+        15
+      ],
+      [
+        "readiness.heading_structure:https://www.mdhome.com.au/faqs/",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.structured_data:https://www.mdhome.com.au/faqs/",
+        "pass",
+        15,
+        15
+      ],
+      [
+        "readiness.locatable_content:https://www.mdhome.com.au/faqs/",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.page_accessible",
+        "pass",
+        20,
+        20
+      ],
+      [
+        "readiness.semantic_content:https://www.mdhome.com.au/product/athena-series/",
+        "pass",
+        30,
+        30
+      ],
+      [
+        "readiness.document_title:https://www.mdhome.com.au/product/athena-series/",
+        "pass",
+        15,
+        15
+      ],
+      [
+        "readiness.heading_structure:https://www.mdhome.com.au/product/athena-series/",
+        "partial",
+        10,
+        20
+      ],
+      [
+        "readiness.structured_data:https://www.mdhome.com.au/product/athena-series/",
+        "pass",
+        15,
+        15
+      ],
+      [
+        "readiness.locatable_content:https://www.mdhome.com.au/product/athena-series/",
+        "pass",
+        20,
+        20
+      ]
+    ],
+    "contentHashes": [
+      "2e413e406427dec36010a43260cd340724a6adb4fdcee4c1e6b69448b3bc18f9",
+      "442c74e4c0880e9eda6dcd29b341c7be98c0fadd0741470dbb80d480a45648c3",
+      "d3657698156418a29f0fbb590606237d978b9ec1a6a678ef9c75ae375074c5af"
+    ],
+    "issues": [
+      [
+        "commercialReadiness",
+        null,
+        null
+      ],
+      [
+        "citationFriendliness",
+        null,
+        null
+      ],
+      [
+        "answerExtraction",
+        null,
+        null
+      ],
+      [
+        "trustSignals",
+        null,
+        null
+      ],
+      [
+        "semanticClarity",
+        null,
+        null
+      ],
+      [
+        "chunkOptimization",
+        null,
+        null
+      ],
+      [
+        "offSitePresence",
+        null,
+        null
+      ],
+      [
+        "offSitePresence",
+        null,
+        null
+      ],
+      [
+        "entityClarity",
+        null,
+        null
+      ],
+      [
+        "entityClarity",
+        null,
+        null
+      ],
+      [
+        "aiReadability",
+        null,
+        null
+      ],
+      [
+        "crawlerFriendliness",
+        null,
+        null
+      ],
+      [
+        "summarizationQuality",
+        null,
+        null
+      ]
+    ],
+    "fixes": [
+      [
+        "Generate FAQPage JSON-LD",
+        "citationFriendliness",
+        "faq-schema"
+      ],
+      [
+        "Publish an llms.txt manifest",
+        "crawlerFriendliness",
+        "llms-txt"
+      ],
+      [
+        "Add an \"AI Summary\" block to each key page",
+        "summarizationQuality",
+        "ai-summary"
+      ],
+      [
+        "Rewrite lead paragraphs in answer-first form",
+        "answerExtraction",
+        "answer-first"
+      ]
+    ],
+    "requestedPages": 3,
+    "auditedPages": 3,
+    "coverage": 1
+  },
+  "evidenceIntegrity": [
+    {
+      "checkedCriteria": 30,
+      "brokenCriteria": []
+    },
+    {
+      "checkedCriteria": 30,
+      "brokenCriteria": []
+    }
+  ],
+  "artifactStable": true,
+  "artifactStates": [
+    {
+      "status": 200,
+      "contentLength": 0,
+      "rationale": "Insufficient evidence: no visible FAQ answers were extracted. Add factual answers to the page first."
+    },
+    {
+      "status": 200,
+      "contentLength": 0,
+      "rationale": "Insufficient evidence: no visible FAQ answers were extracted. Add factual answers to the page first."
+    }
+  ],
+  "semanticRisks": {
+    "citationNumericWithoutExperiment": [
+      true,
+      true
+    ],
+    "offSiteNumericWithoutExternalVerification": [
+      true,
+      true
+    ]
+  }
+}

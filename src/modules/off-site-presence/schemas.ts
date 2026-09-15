@@ -140,6 +140,15 @@ export const PlatformProbeResultSchema = z.object({
   message: z.string().optional(),
   signals: PlatformSignalsSchema,
   raw: z.record(z.unknown()).optional(),
+  evidence: z.object({
+    kind: z.enum(['search_entry', 'discovered_link', 'retrieved_page', 'matched_brand', 'verified_profile']),
+    sourceUrl: z.string(),
+    capturedAt: z.string().optional(),
+    responseStatus: z.number().optional(),
+    excerpt: z.string().optional(),
+    identityMatch: z.boolean().optional(),
+    observation: z.enum(['observed', 'blocked', 'unreachable', 'not_run', 'unknown']).optional(),
+  }).optional(),
   posts: z.array(RedditPostSchema).optional(),
   subreddits: z.array(z.string()).optional(),
 });
@@ -147,11 +156,11 @@ export const PlatformProbeResultSchema = z.object({
 export type PlatformProbeResult = z.infer<typeof PlatformProbeResultSchema>;
 
 export const InfluenceScoresSchema = z.object({
-  total: z.number(),
-  reviews: z.number(),
-  community: z.number(),
-  media: z.number(),
-  band: z.enum(['needs_work', 'qualified', 'excellent']),
+  total: z.number().nullable(),
+  reviews: z.number().nullable(),
+  community: z.number().nullable(),
+  media: z.number().nullable(),
+  band: z.enum(['needs_work', 'qualified', 'excellent', 'insufficient_evidence']),
   raw: z
     .object({
       d3: z.number(),

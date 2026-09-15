@@ -1,0 +1,40 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+TARGET WEBSITE
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Latest audit report →
+Brand name
+Clear site
+AI Search Simulation
+
+Batch-test audit questions or run a single prompt across four AI slots. Expand sections as needed.
+
+Simulation unavailable: AI simulation and model-assisted features are disabled in free deterministic mode. You can review captured page evidence in your audit report.
+
+How simulation works
+(click to expand)
+Quick single test
+One-off prompt
+Focus keywords & target brand
+Run one question
+
+Simulation unavailable: AI simulation and model-assisted features are disabled in free deterministic mode.

@@ -67,20 +67,25 @@ export function packFromFallback(input: {
       }
     })();
 
-  const terms =
-    keywordsForIdeas(input.keywords).map((k) => k.term).length > 0
-      ? keywordsForIdeas(input.keywords).map((k) => k.term)
-      : ['this topic'];
+  const ideaKeywords = keywordsForIdeas(input.keywords);
+  const terms = ideaKeywords.map((k) => k.term);
+  const promptTerms = terms.length > 0 ? terms : ['this website'];
 
   const sections: GeoContentSection[] = GEO_CONTENT_FORMATS.map((format) => ({
     format,
-    prompts: buildMergedPromptList(terms, format),
+    prompts: buildMergedPromptList(promptTerms, format),
   }));
 
   return {
-    inferredTopic: trimTopic(topic),
-    audience: 'People seeking clear, evidence-backed information about this topic',
-    positioning: 'Publish direct answers grounded in the site so readers and answer engines can understand the topic.',
+    inferredTopic: terms.length > 0 ? trimTopic(topic) : 'Insufficient topic evidence',
+    audience:
+      terms.length > 0
+        ? 'People seeking clear, evidence-backed information about this topic'
+        : 'Unknown — page lacks clear theme signals',
+    positioning:
+      terms.length > 0
+        ? 'Publish direct answers grounded in the site so readers and answer engines can understand the topic.'
+        : 'No reliable theme keywords were extracted; regenerate after auditing a content-rich page.',
     sections,
   };
 }

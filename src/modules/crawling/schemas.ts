@@ -59,17 +59,69 @@ export const CrawledPageSchema = z.object({
     })
     .nullable()
     .optional(),
-  /** Present when a headed WAF retry was used after headless block. */
-  fetchChannel: z.enum(['stealth', 'headed']).optional(),
-  fetchStatus: z.enum([
-    'observed', 'blocked', 'timeout', 'rate_limited', 'parse_error', 'not_run', 'legacy_unknown',
-  ]).optional(),
+  /** Present when a headed WAF retry or HTTP fallback was used. */
+  fetchChannel: z.enum(['stealth', 'headed', 'http']).optional(),
+  fetchStatus: z
+    .enum([
+      'observed',
+      'blocked',
+      'timeout',
+      'rate_limited',
+      'parse_error',
+      'unreachable',
+      'not_run',
+      'legacy_unknown',
+    ])
+    .optional(),
   blockReason: z.string().optional(),
   contentHash: z.string().optional(),
   htmlTruncated: z.boolean().optional(),
   rawHtmlAvailable: z.boolean().optional(),
   renderedHtmlAvailable: z.boolean().optional(),
   fetchProfile: z.string().optional(),
+  acquisitionDetail: z
+    .object({
+      stage: z.enum(['robots', 'sitemap', 'navigation', 'render', 'parse', 'http_probe']),
+      reasonCode: z.enum([
+        'nav_timeout',
+        'app_dependency',
+        'environment_network',
+        'waf_block',
+        'rate_limited',
+        'dns_or_tls',
+        'connection_reset',
+        'nav_aborted',
+        'parse_failed',
+        'err_failed_unclassified',
+        'legacy_missing',
+        'not_audited',
+        'http_partial_observed',
+        'observed_ok',
+      ]),
+      userMessage: z.string(),
+      nextAction: z.string(),
+      technicalMessage: z.string().optional(),
+      elapsedMs: z.number().optional(),
+      httpStatus: z.number().int().optional(),
+      finalUrl: z.string().optional(),
+      fetchChannel: z.enum(['stealth', 'headed', 'http']).optional(),
+      retryCount: z.number().int().optional(),
+      attemptedAt: z.string().optional(),
+      waitCondition: z.string().optional(),
+      browserRenderComplete: z.boolean().optional(),
+      attempts: z
+        .array(
+          z.object({
+            channel: z.enum(['stealth', 'headed', 'http']),
+            outcome: z.enum(['success', 'failed', 'skipped']),
+            elapsedMs: z.number(),
+            reasonCode: z.string().optional(),
+            technicalMessage: z.string().optional(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
 });
 export type CrawledPage = z.infer<typeof CrawledPageSchema>;
 

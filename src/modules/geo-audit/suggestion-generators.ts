@@ -53,7 +53,7 @@ export function deriveSiteKeywordsFromExtraction(extraction: PageExtraction): st
     limit: 10,
   });
 
-  return [...new Set(extracted.map((k) => k.term))].slice(0, 10);
+  return [...new Set(extracted.keywords.map((k) => k.term))].slice(0, 10);
 }
 
 function weakDimensionLines(dimensions: Record<Dimension, DimensionScore>): string[] {

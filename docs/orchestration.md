@@ -25,7 +25,7 @@ The current Prisma schema and raw SQL paths target SQLite. Moving to PostgreSQL 
 
 ## SQLite maintenance and recovery
 
-SQLite is suitable for the initial single-instance deployment, provided the web app and worker are stopped before backup or restore. Run `npm run db:backup` to copy the database into `GEO_DB_BACKUP_DIR` (default `./data/backups`); the command also copies matching WAL sidecars when present. Test a restore by copying the database and matching `-wal`/`-shm` files into a stopped local instance, then start it and load a known audit.
+SQLite is suitable for the initial single-instance deployment, provided the web app and worker are stopped before backup or restore. Run `npm run db:backup` to copy the database into `GEO_DB_BACKUP_DIR` (default `./data/backups`); the command also copies matching WAL sidecars when present. Immediately run `npm run db:verify-backup -- <backup.db>` to check SQLite integrity and required GEO tables without changing the backup. Verification uses Node's built-in SQLite API and requires Node 22.5 or later. At least weekly, test a restore by copying the database and matching `-wal`/`-shm` files into a stopped local instance, then start it and load a known audit.
 
 Run `npm run maintenance:prune` periodically to preview old screenshots and terminal jobs. It changes nothing until invoked as `npm run maintenance:prune -- --apply`. Retention defaults are 30 days for screenshots and 14 days for completed, failed, and cancelled jobs. Audit records, evidence, and embeddings are never deleted by this command.
 

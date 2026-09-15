@@ -19,7 +19,7 @@ export function BottleneckCallout({ scoringMeta }: BottleneckCalloutProps) {
         <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
         <div>
           <h3 className="text-sm font-semibold text-fg mb-1">
-            Why AI can&apos;t reliably cite this site
+            What limits this assessment
           </h3>
           <p className="text-sm text-fg-muted leading-relaxed">
             The primary bottleneck is in the{' '}

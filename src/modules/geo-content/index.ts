@@ -12,7 +12,7 @@ export {
   GeoContentFormatSchema,
   GeoContentKeywordSchema,
 } from './schemas';
-export { extractRelevantKeywords } from './keywords';
+export { extractRelevantKeywords, type KeywordExtractionResult } from './keywords';
 export {
   GEO_CONTENT_FORMATS,
   FORMAT_LABELS,

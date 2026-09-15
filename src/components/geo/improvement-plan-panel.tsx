@@ -5,6 +5,37 @@ import type { GeoAuditResult } from '@modules/geo-audit';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
+function EvidenceActions({ audit }: ImprovementPlanPanelProps) {
+  const criteria = audit.scoringMeta?.readiness?.criteria ?? [];
+  const actionable = criteria.filter((criterion) => criterion.outcome !== 'pass');
+  if (actionable.length === 0) {
+    return (
+      <div className="mb-6 rounded-xl border border-border bg-bg-elevated p-4 text-sm text-fg-muted">
+        All currently applicable evidence-backed checks passed. Review the captured pages before making further changes.
+      </div>
+    );
+  }
+  return (
+    <div className="mb-6">
+      <div className="mb-3">
+        <h2 className="text-sm font-medium uppercase tracking-wider text-fg-muted">Evidence-backed checks to review</h2>
+        <p className="mt-1 text-xs text-fg-subtle">Each item comes from the captured page. Unknown means the system could not make a reliable conclusion.</p>
+      </div>
+      <div className="space-y-2">
+        {actionable.map((criterion) => (
+          <div key={`${criterion.criterionId}:${criterion.ruleVersion}`} className="rounded-xl border border-border bg-bg-elevated p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-medium text-fg break-all">{criterion.criterionId}</p>
+              <Badge variant={criterion.outcome === 'unknown' ? 'warning' : 'danger'} className="shrink-0 text-[10px]">{criterion.outcome}</Badge>
+            </div>
+            <p className="mt-1 text-xs text-fg-muted leading-relaxed">{criterion.confidenceReason}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const KIND_ICONS: Record<ImprovementPlanItemKind, typeof Wrench> = {
   fix: Wrench,
   issue: AlertCircle,
@@ -67,6 +98,7 @@ interface ImprovementPlanPanelProps {
 }
 
 export function ImprovementPlanPanel({ audit }: ImprovementPlanPanelProps) {
+  if (audit.scoringMeta?.readiness) return <EvidenceActions audit={audit} />;
   const plan = buildImprovementPlan(audit);
   if (plan.length === 0) return null;
 

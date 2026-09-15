@@ -3,10 +3,16 @@
  */
 
 import { NextResponse } from 'next/server';
-import { resetSimulationMarketLandscape } from '@modules/geo-audit/server';
+import { getAudit, resetSimulationMarketLandscape } from '@modules/geo-audit/server';
+import { authenticationRequired, getRequestOwnerId } from '@/lib/owner-scope';
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const ownerId = await getRequestOwnerId();
+  if (!ownerId) return authenticationRequired();
   const { id } = await ctx.params;
+  if (!(await getAudit(id, ownerId))) {
+    return NextResponse.json({ error: 'not found' }, { status: 404 });
+  }
   try {
     await resetSimulationMarketLandscape(id);
     return NextResponse.json({ ok: true });

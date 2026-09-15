@@ -1,0 +1,169 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+YOUR WEBSITE (USED IN EVERY PHASE)
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Brand name
+Clear site
+Off-site presence
+
+Measure how your brand shows up beyond your website — Reddit discussions, review platforms, and community activity. Results feed into GEO audits when you run a scan from an audit report.
+
+Find where your brand is missing on Reddit, reviews, and forums — then we update your audit score with what we find.
+
+WEBSITE URL
+BRAND NAME (OPTIONAL)
+Keywords for presence search (0 selected)
+Refresh
+
+No keywords detected — try a page with more text.
+
+Run presence scan
+Export JSON
+Scan complete
+Your action plan
+
+Concrete steps to improve how AI search engines see your brand beyond your website.
+
+Profiles to claim or complete
+RedditIncomplete
+Open
+QuoraIncomplete
+Open
+WhirlpoolIncomplete
+Open
+ProductReview.com.auIncomplete
+Open
+OzBargainIncomplete
+Open
+Priority recommendations
+high
+
+Raise off-site influence above 50/100 — prioritize press coverage and reference sites so AI models treat you as a cited authority.
+
+medium
+
+Link an official subreddit or community page from your website — limited Reddit visibility reduces how often AI cites community discussion.
+
+medium
+
+Pursue earned media and industry press — news domains strongly influence whether LLMs cite you as an authority.
+
+medium
+
+Add sameAs schema.org links on your site footer pointing to Reddit, Trustpilot, LinkedIn, and other verified profiles.
+
+Detailed scan results
+Midea Australia: off-site influence needs attention
+
+Brand: Midea Australia · 14/09/2026, 22:32:52
+
+Below 50/100 — AI may rarely cite you as an off-site authority.
+
+9/100
+Needs Work
+
+Midea Australia scores 9/100 on off-site influence (needs work). Scan tailored for local service brands — skipped g2, capterra, trustpilot as not relevant. Below 50, AI answers may rarely cite you as an off-site authority; follow the getting-started steps below.
+
+Review sites
+2/40
+
+Little review-site visibility detected — claim profiles where they apply to your industry.
+
+Communities & social
+7/35
+
+Limited community signals — Reddit and Q&A sites are where many AI answers source brand context.
+
+· Only 0 of 10 target Reddit threads found after widened search — try more keywords or run again later.
+News & references
+0/25
+
+Thin media footprint — pursue press, industry coverage, and encyclopedic references.
+
+STRENGTHS
+Profiles found — Verified on Quora, Web search, Whirlpool, ProductReview.com.au, OzBargain.
+GAPS TO ADDRESS
+Review-site dimension is low — Local service brands rarely appear on software review sites — focus on Google Business Profile, regional trade directories, and manufacturer dealer listings.
+Complete Google Business Profile, list on trade/industry directories, and link manufacturer authorisation pages from your site footer.
+Community presence needs work — Few high-engagement Reddit or Quora signals were detected.
+Participate in relevant subreddits and answer category questions on Quora with expert, factual posts.
+Media & references are thin — Limited news and authoritative off-site references for AI to cite.
+Pursue earned media, ensure Wikipedia/notability where applicable, and get listed in industry publications.
+WHERE WE FOUND YOU
+Reddit
+Limited visibility
+Open
+Quora
+Partial listing data
+Question: Midea Australia on Quora
+Open
+Web search
+Profile found
+~4 off-site search hits
+Whirlpool
+Partial listing data
+Open
+ProductReview.com.au
+Partial listing data
+Open
+OzBargain
+Partial listing data
+Open
+WEB SEARCH RESULTS
+
+Links found via Bing/SERP and optional xhs-cli (4 total). On-topic threads above are ranked separately; this lists everything discovered.
+
+WHIRLPOOLMidea Australia on Whirlpool Forums
+PRODUCTREVIEW.COM.AUMidea Australia on ProductReview.com.au
+OZBARGAINMidea Australia on OzBargain
+QUORAMidea Australia on Quora
+DISCOVERIES
+
+Domains in search results: quora.com
+
+GETTING STARTED
+1. This week (high)
+
+Your lowest dimension is media — start where AI visibility gains are largest.
+
+Check if a Wikipedia or Wikidata entry exists; align your About page with notable facts.
+Pitch one industry publication or news outlet relevant to your category.
+2. Next (medium)
+
+Build consistent off-site signals across channels.
+
+Audit footer and About page for links to Reddit, Quora, Trustpilot, and social profiles.
+We ran 23 web searches — address gaps in unverified platforms above.
+Encourage customers to leave reviews on platforms that matter for your industry.
+3. Optional (low)
+
+Long-term GEO: stay visible where LLMs train and retrieve.
+
+Set AI_PROVIDER=minimax (or ollama) for adaptive search and hit curation on the next scan.
+Monitor top Reddit threads quarterly and keep answers accurate.
+Export this report JSON and track score changes over time.
+RECOMMENDATIONS
+HIGH[general]Raise off-site influence above 50/100 — prioritize press coverage and reference sites so AI models treat you as a cited authority.
+MEDIUM[community]Link an official subreddit or community page from your website — limited Reddit visibility reduces how often AI cites community discussion.
+MEDIUM[media]Pursue earned media and industry press — news domains strongly influence whether LLMs cite you as an authority.
+MEDIUM[website]Add sameAs schema.org links on your site footer pointing to Reddit, Trustpilot, LinkedIn, and other verified profiles.
+LOW[community]Answer relevant Quora questions in your category — expert answers help AI associate your brand with the topic.

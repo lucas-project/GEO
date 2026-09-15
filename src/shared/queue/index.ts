@@ -9,6 +9,7 @@
 import { config } from '@shared/config';
 import { queueLogger } from '@shared/logger';
 import { InMemoryQueue } from './adapters/in-memory';
+import { assertQueueConfiguration } from './configuration';
 import type { Queue } from './types';
 
 declare global {
@@ -16,6 +17,13 @@ declare global {
 }
 
 function createQueue(): Queue {
+  if (!config.isBuild) {
+    assertQueueConfiguration({
+      env: config.env,
+      driver: config.queue.driver,
+      redisUrl: config.queue.redisUrl,
+    });
+  }
   if (config.queue.driver === 'bullmq' && config.queue.redisUrl) {
     try {
       // Runtime-only load so webpack does not bundle bullmq/ioredis into instrumentation.
@@ -23,6 +31,7 @@ function createQueue(): Queue {
       const { BullmqQueue } = require('./adapters/bullmq') as typeof import('./adapters/bullmq');
       return new BullmqQueue(config.queue.redisUrl);
     } catch (err) {
+      if (config.env === 'production') throw err;
       queueLogger.warn({ err }, 'BullMQ init failed; falling back to in-memory queue');
     }
   }

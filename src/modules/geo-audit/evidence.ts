@@ -19,12 +19,34 @@ function digest(value: string): string {
 }
 
 function statusForPage(page: CrawledPage): Evidence['status'] {
+  if (page.fetchStatus === 'unreachable') return 'unreachable';
   if (page.fetchStatus) return page.fetchStatus;
   if (page.renderedHtml) return 'observed';
   if (page.statusCode === 429) return 'rate_limited';
   if (page.error && /timeout/i.test(page.error)) return 'timeout';
   if (page.error) return 'legacy_unknown';
   return 'legacy_unknown';
+}
+
+function acquisitionReason(page: CrawledPage, status: Evidence['status']): string {
+  const msg = page.acquisitionDetail?.userMessage;
+  if (msg) {
+    return status === 'observed' ? msg : `${msg} (Excluded from this page's evidence.)`;
+  }
+  if (status === 'observed') return 'GEO retrieved this page and can analyse its title, content, and structured data.';
+  if (status === 'timeout') {
+    return 'The page may work normally for visitors, but GEO could not finish loading it within the time limit. (Excluded from this page\'s evidence.)';
+  }
+  if (status === 'blocked') {
+    return 'The website or WAF rejected or challenged GEO\'s automated request. (Excluded from this page\'s evidence.)';
+  }
+  if (status === 'unreachable') {
+    return 'GEO could not connect to this page. (Excluded from this page\'s evidence.)';
+  }
+  if (status === 'legacy_unknown') {
+    return 'This older audit has no detailed crawl record, so GEO cannot determine what happened. (Excluded from this page\'s evidence.)';
+  }
+  return 'GEO could not retrieve verifiable page content. (Excluded from this page\'s evidence.)';
 }
 
 function excerpt(text: string | null | undefined, max = 240): string | undefined {
@@ -110,7 +132,9 @@ export function buildEvidenceBundle(input: {
       page.contentHash ? { contentHash: page.contentHash } : {},
     );
     if (status !== 'observed') {
-      criteria.push(criterion('page.rendered_html', 'unknown', [pageEvidence], `Page acquisition status: ${status}`));
+      criteria.push(
+        criterion('page.rendered_html', 'unknown', [pageEvidence], acquisitionReason(page, status)),
+      );
       continue;
     }
 

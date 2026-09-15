@@ -1,0 +1,159 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+YOUR WEBSITE (USED IN EVERY PHASE)
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Brand name
+Clear site
+Monitored Sites
+
+Websites on daily monitoring with their latest GEO check time, scores, and alerts. Sites are sorted by most recently updated.
+
+ADD SITE TO CONTINUOUS MONITORING
+Every 12 hours
+Daily
+Weekly
+Adaptive
+Use workspace URL
+Add
+Run due now
+
+Click a row to manage monitored pages and view run history. Scores and alerts link to full audit reports.
+
+WEBSITE	LATEST UPDATE	GEO SCORE	PAGES	NEXT RUN	SCHEDULE	
+
+mdhome.com.au
+Daily monitor
+2
+TRENDS
+Site score
+54
+AI citations
+	
+Jun 13, 11:08 AM
+Last monitor run
+	
+56
+	All	
+Jun 14, 11:08 AM	
+Every 12 hours
+Daily
+Weekly
+Adaptive
+	
+Enabled
+Recent alerts (12)
+Visibility
+commercialReadiness improved by 33 points
+From 45 to 78.
+https://mdhome.com.au
+·
+Jun 13, 11:08 AM
+·
+View details
+Entity
+Entity consistency declined (287 → 76)
+Fewer unique entities detected — NER/schema entity coverage may have regressed.
+https://mdhome.com.au
+·
+Jun 13, 11:08 AM
+·
+View details
+Readability
+aiReadability regressed by 14 points
+From 60 to 46.
+https://mdhome.com.au
+·
+May 17, 12:16 AM
+·
+View details
+Visibility
+semanticClarity improved by 12 points
+From 70 to 82.
+https://mdhome.com.au
+·
+May 17, 12:16 AM
+·
+View details
+Schema
+Schema drift: removed CollectionPage
+JSON-LD types present in the previous audit are missing now.
+https://mdhome.com.au
+·
+May 17, 12:16 AM
+·
+View details
+Entity
+Entity consistency declined (14 → 8)
+Fewer unique entities detected — NER/schema entity coverage may have regressed.
+https://mdhome.com.au
+·
+May 17, 12:16 AM
+·
+View details
+Entity
+Organization entity no longer detected
+Brand/organization signals dropped from extraction baseline.
+https://mdhome.com.au
+·
+May 17, 12:16 AM
+·
+View details
+Readability
+AI readability degraded by 14 points
+Content may be harder for models to parse and cite.
+https://mdhome.com.au
+·
+May 17, 12:16 AM
+·
+View details
+Issue
+New high issue: /ducted-air-conditioner/: Sentences too long; LLM extraction suffers
+/spare-parts-and-accessories/: Body content is very short, limiting LLM parsing · /spare-parts-and-accessories/: HTML lang attribute is set · /multi-split-system-air-conditioner/: Body content is very
+https://mdhome.com.au
+·
+May 17, 12:16 AM
+·
+View details
+Issue
+New high issue: /ducted-air-conditioner/: No FAQ blocks — LLMs cite Q/A content disproportionate
+/ducted-air-conditioner/: No FAQ blocks — LLMs cite Q/A content disproportionately · /ducted-air-conditioner/: Author signals present (1) · /spare-parts-and-accessories/: No FAQ blocks — LLMs cite Q/A
+https://mdhome.com.au
+·
+May 17, 12:16 AM
+·
+View details
+Issue
+New critical issue: /spare-parts-and-accessories/: No semantic chunks extracted
+/spare-parts-and-accessories/: No semantic chunks extracted · homepage: Few chunks lead with direct answers — LLMs prefer answer-first writing · homepage: Most chunks have explicit headings
+https://mdhome.com.au
+·
+May 17, 12:16 AM
+·
+View details
+Issue
+New high issue: /spare-parts-and-accessories/: No content chunks found
+/spare-parts-and-accessories/: No content chunks found · homepage: Chunks too short — fragments AI summarization · /multi-split-system-air-conditioner/: Chunks too short — fragments AI summarization
+https://mdhome.com.au
+·
+May 17, 12:16 AM
+·
+View details

@@ -126,6 +126,7 @@ export function buildPresenceInsights(
   fullSupplement?: SearchSupplementResult | null,
 ): PresenceInsights {
   const { scores, platforms, entity, engagement, searchSupplement } = report;
+  if (scores.total == null || scores.reviews == null || scores.community == null || scores.media == null) throw new Error('Presence insights require eligible scored evidence');
   const strengths: PresenceInsights['strengths'] = [];
   const gaps: PresenceInsights['gaps'] = [];
 
@@ -262,9 +263,9 @@ export function buildPresenceInsights(
 
   const category = report.meta.searchPlan?.category;
   const headline =
-    scores.total >= 75
+    scores.total != null && scores.total >= 75
       ? `${entity.primaryBrand}: excellent off-site influence for AI citation`
-      : scores.total >= 50
+      : scores.total != null && scores.total >= 50
         ? `${entity.primaryBrand}: solid presence with room to grow`
         : `${entity.primaryBrand}: off-site influence needs attention`;
 
@@ -277,11 +278,11 @@ export function buildPresenceInsights(
       `Scan tailored for ${category.replace(/_/g, ' ')} brands${report.meta.searchPlan?.skipPlatforms.length ? ` — skipped ${report.meta.searchPlan.skipPlatforms.map((s) => s.id).join(', ')} as not relevant` : ''}.`,
     );
   }
-  if (scores.total < 50) {
+  if (scores.total != null && scores.total < 50) {
     verdictParts.push(
       'Below 50, AI answers may rarely cite you as an off-site authority; follow the getting-started steps below.',
     );
-  } else if (scores.total >= 50 && scores.total < 75) {
+  } else if (scores.total != null && scores.total >= 50 && scores.total < 75) {
     verdictParts.push(
       'You have a credible footprint; doubling down on your weakest dimension (see breakdown) moves you toward excellent.',
     );

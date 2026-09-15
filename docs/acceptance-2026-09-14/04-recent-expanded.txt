@@ -1,0 +1,89 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+YOUR WEBSITE (USED IN EVERY PHASE)
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Brand name
+Clear site
+GEO Audit
+
+Crawls the page with Playwright, extracts entities and schema, scores 10 AI-visibility dimensions, and generates a fix plan. ~30–60 seconds.
+
+Page discovery and audits continue in the background if you switch tabs. When discovery finishes, return to Audit to pick pages and start the run.
+
+TARGET URL
+
+Find pages on your site, tick the ones you want, then start the audit.
+
+Find pages
+Skip page picker — audit homepage only
+
+Could not audit https://example.com: The page may work normally for visitors, but GEO's automated browser could not finish loading it because of a network-level error. No verifiable content was retrieved, so this page was excluded from the score. We already tried stealth mode (playwright-extra) and installed Chrome in a visible window; some CDNs still block datacenter IPs. Try a staging URL, a subdomain that allows crawlers, or ask the site team to allowlist your audit IP.
+
+The site may require more time or the crawler was blocked. Try again or check the URL.
+
+Recent audits
+32 sites · latest example.com
+0
+example.com
+
+4 audits·Sep 14, 10:29 PM·Failed
+
+50
+mdhome.com.au
+
+46 audits·Sep 13, 11:10 PM·Partial·2% cite
+
+41
+daikin.com.au
+
+27 audits·Sep 13, 9:02 PM·Partial·1% cite
+
+41
+lg.com
+
+3 audits·Jun 14, 1:39 PM·0% cite
+
+33
+panasonic.com
+
+4 audits·Jun 14, 1:38 PM·0% cite
+
+0
+mitsubishi-electric.com.au
+
+3 audits·Jun 14, 1:38 PM·Failed
+
+0
+mitsubishiheavyindustries.com.au
+
+11 audits·Jun 14, 12:17 AM·Failed
+
+43
+midea.com
+
+21 audits·Jun 14, 12:15 AM·1% cite
+
+1–8 of 32
+
+Prev
+1/4
+Next

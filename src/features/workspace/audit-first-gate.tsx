@@ -24,15 +24,16 @@ export function auditMatchesWorkspaceUrl(
 }
 
 export function useAuditReady() {
-  const { targetUrl, lastAuditId, lastAuditForUrl, hydrated } = useWorkspaceTarget();
+  const { targetUrl, lastAuditId, lastAuditForUrl, hydrated, reportResolved } = useWorkspaceTarget();
   const ready =
     hydrated &&
+    reportResolved &&
     Boolean(lastAuditId) &&
     auditMatchesWorkspaceUrl(targetUrl, lastAuditForUrl);
   const hasStaleAudit =
     hydrated && Boolean(lastAuditId) && !auditMatchesWorkspaceUrl(targetUrl, lastAuditForUrl);
 
-  return { ready, hasStaleAudit, targetUrl, lastAuditId, lastAuditForUrl, hydrated };
+  return { ready, hasStaleAudit, targetUrl, lastAuditId, lastAuditForUrl, hydrated, reportResolved };
 }
 
 type AuditFirstGateProps = {

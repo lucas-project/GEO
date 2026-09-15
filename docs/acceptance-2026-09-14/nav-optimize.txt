@@ -1,0 +1,34 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+YOUR WEBSITE (USED IN EVERY PHASE)
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Brand name
+Clear site
+Deployable artifacts
+
+Turn a GEO audit into copy-ready snippets — FAQ JSON-LD, llms.txt, summary blocks, meta tags, and more. Nothing is pushed to your live site; you review and paste (or use CMS integration where configured).
+
+Start with a site audit
+
+Before you can use fix generation, we need to scan https://example.com. The audit tells you what to fix and which AI questions to test.
+
+Run site audit

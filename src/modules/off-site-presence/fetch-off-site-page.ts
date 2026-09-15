@@ -7,8 +7,9 @@ import { classifyHttpObservation } from './fetch-observation';
 export type OffSiteFetchMethod = FetchedPage['fetchMethod'];
 
 function mapFetchChannel(
-  channel: 'stealth' | 'headed' | undefined,
+  channel: 'stealth' | 'headed' | 'http' | undefined,
 ): OffSiteFetchMethod {
+  if (channel === 'http') return 'http';
   if (channel === 'headed') return 'playwright-headed';
   if (config.presenceProbe.browser === 'cloak') return 'playwright-cloak';
   return 'playwright-stealth';

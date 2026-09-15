@@ -12,6 +12,7 @@ import { generateHighlightRewrite } from '@modules/optimization/generators/highl
 // eslint-disable-next-line no-restricted-imports
 import { resolveRewriteHeading } from '@modules/optimization/generators/rewrite-heading';
 import type { Dimension } from '@modules/geo-audit';
+import { authenticationRequired, getRequestOwnerId } from '@/lib/owner-scope';
 
 const BodySchema = z.object({
   pageUrl: z.string().max(2000).optional(),
@@ -42,8 +43,10 @@ function checkRate(auditId: string): boolean {
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const ownerId = await getRequestOwnerId();
+  if (!ownerId) return authenticationRequired();
   const { id } = await ctx.params;
-  const audit = await getAudit(id);
+  const audit = await getAudit(id, ownerId);
   if (!audit) {
     return NextResponse.json({ error: 'audit not found' }, { status: 404 });
   }

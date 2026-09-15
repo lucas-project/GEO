@@ -1,6 +1,7 @@
 import { parseJson } from '@shared/database/client';
 import { logger } from '@shared/logger';
 import { ScoringMetaSchema, type ScoringMeta } from './schemas';
+import { enforcePresenceEvidence } from '@modules/off-site-presence';
 
 const metaLogger = logger.child({ module: 'geo-audit-scoring-meta' });
 
@@ -11,7 +12,10 @@ export function parseScoringMeta(json: string | null | undefined): ScoringMeta |
   const parsed = parseJson<unknown>(json, null);
   if (!parsed) return null;
   const result = ScoringMetaSchema.safeParse(parsed);
-  if (result.success) return result.data;
+  if (result.success) {
+    if (result.data.offSitePresenceReport) result.data.offSitePresenceReport = enforcePresenceEvidence(result.data.offSitePresenceReport);
+    return result.data;
+  }
   metaLogger.warn(
     { issues: result.error.issues.slice(0, 5).map((i) => i.path.join('.')) },
     'scoringMeta strict parse failed',

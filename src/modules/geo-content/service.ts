@@ -95,7 +95,7 @@ export async function generateGeoContentPack(input: GenerateGeoContentInput): Pr
   const chunkTexts = parseChunkTexts(parseJson<unknown[]>(extraction.chunks, []));
   const tableTexts = parseTableTexts(parseJson<unknown[]>(extraction.tables, []));
 
-  const candidates = extractRelevantKeywords({
+  const keywordExtraction = extractRelevantKeywords({
     title,
     description,
     headings,
@@ -103,6 +103,15 @@ export async function generateGeoContentPack(input: GenerateGeoContentInput): Pr
     chunkTexts,
     tableTexts,
   });
+
+  if (keywordExtraction.status === 'insufficient_topic_evidence') {
+    throw new Error(
+      keywordExtraction.reason ??
+        'Insufficient topic evidence on this page. Re-run the GEO audit on a content-rich page, or add clearer titles and headings.',
+    );
+  }
+
+  const candidates = keywordExtraction.keywords;
 
   const keywords = await refineKeywordsWithModel({
     candidates,

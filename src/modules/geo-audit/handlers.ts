@@ -14,16 +14,18 @@ export function registerGeoAuditHandlers(): void {
   queue.process<
     {
       url: string;
+      ownerId?: string;
       pageUrls?: string[];
       maxPages?: number;
       recheckOptimizationId?: string;
       pageRankings?: import('./page-inventory').PagePriorityHint[];
     },
-    { auditId: string }
+    { auditId: string; completion?: 'complete' | 'partial'; stopReason?: string }
   >('geo-audit.run', async (ctx) => {
     const { runAudit } = await import('./service');
     const result = await runAudit({
       url: ctx.job.payload.url,
+      ownerId: ctx.job.payload.ownerId,
       pageUrls: ctx.job.payload.pageUrls,
       maxPages: ctx.job.payload.maxPages,
       pageRankings: ctx.job.payload.pageRankings,
@@ -40,7 +42,13 @@ export function registerGeoAuditHandlers(): void {
         where: { id: result.id },
         data: {
           status: 'partial',
-          scoringMeta: stringifyJson({ ...current, completion: 'partial', stopReason: ctx.budget.stopReason }),
+          scoringMeta: stringifyJson({
+            ...current,
+            completion: 'partial',
+            stopReason: ctx.budget.stopReason,
+            sampleCoverageStatus:
+              current.sampleCoverageStatus === 'ready' ? 'partial' : current.sampleCoverageStatus,
+          }),
         },
       });
     }
@@ -49,10 +57,15 @@ export function registerGeoAuditHandlers(): void {
       await prisma.optimizationSuggestion.update({ where: { id: ctx.job.payload.recheckOptimizationId },
         data: { recheckAuditId: result.id } });
     }
-    return { auditId: result.id };
+    return {
+      auditId: result.id,
+      ...(ctx.budget?.stopReason || result.status === 'partial'
+        ? { completion: 'partial' as const, stopReason: ctx.budget?.stopReason ?? result.scoringMeta?.stopReason }
+        : { completion: 'complete' as const }),
+    };
   });
 
-  queue.process<{ auditId: string; pageUrls: string[] }, { auditId: string }>(
+  queue.process<{ auditId: string; pageUrls: string[] }, { auditId: string; extension: { observed: number; failed: number; skipped: Array<{ url: string; reason: string }> } }>(
     'geo-audit.extend',
     async (ctx) => {
       const { extendAudit } = await import('./service');
@@ -60,7 +73,7 @@ export function registerGeoAuditHandlers(): void {
         ctx.log(msg, { progress: p });
         await ctx.reportProgress(p);
       });
-      return { auditId: result.id };
+      return { auditId: result.id, extension: result.extension };
     },
   );
 

@@ -3,13 +3,16 @@ import type { DimensionScore } from '@modules/geo-audit';
 import { PLATFORM_LABELS, PRESENCE_PLATFORMS, type PresencePlatform } from '@modules/brand-presence';
 import type { OffSitePresenceReport, InfluenceScores } from './schemas';
 import { PLATFORM_IDS } from './schemas';
+import { enforcePresenceEvidence, hasVerifiedProfile } from './evidence-policy';
 
 /** Off-site influence total is already 0–100. */
-export function mapInfluenceToOffSiteScore(scores: InfluenceScores): number {
+export function mapInfluenceToOffSiteScore(scores: InfluenceScores): number | null {
+  if (scores.total == null) return null;
   return Math.max(0, Math.min(100, scores.total));
 }
 
 export function buildOffSitePresenceReasons(report: OffSitePresenceReport): string[] {
+  if (report.scores.total == null) return ['Insufficient observed evidence to rate off-site visibility. Citation frequency has not been measured.'];
   const reasons: string[] = [];
   const { scores, entity, engagement, platforms } = report;
 
@@ -19,7 +22,7 @@ export function buildOffSitePresenceReasons(report: OffSitePresenceReport): stri
 
   const verified = PLATFORM_IDS.filter((id) => {
     const p = platforms[id];
-    return p && (p.status === 'ok' || p.signals.profileExists);
+    return p && hasVerifiedProfile(p);
   });
   if (verified.length > 0) {
     reasons.push(
@@ -44,13 +47,14 @@ export function buildOffSitePresenceReasons(report: OffSitePresenceReport): stri
 }
 
 export function mapReportToPresenceProbe(report: OffSitePresenceReport): PresenceProbeResult {
+  report = enforcePresenceEvidence(report);
   const hasSerper = report.meta.sources.includes('serper');
   const presenceSet = new Set<string>(PRESENCE_PLATFORMS);
   const verified: PresencePlatform[] = [];
   for (const id of PLATFORM_IDS) {
     if (!presenceSet.has(id)) continue;
     const p = report.platforms[id];
-    if (p?.status === 'ok' || p?.signals.profileExists) {
+    if (p && hasVerifiedProfile(p)) {
       verified.push(id as PresencePlatform);
     }
   }
@@ -58,7 +62,7 @@ export function mapReportToPresenceProbe(report: OffSitePresenceReport): Presenc
   const reviewUrls: string[] = [];
   for (const id of ['g2', 'capterra', 'trustpilot'] as const) {
     const p = report.platforms[id];
-    if (p?.url) reviewUrls.push(p.url);
+    if (p?.url && hasVerifiedProfile(p)) reviewUrls.push(p.url);
   }
 
   return {
@@ -79,8 +83,10 @@ export function mapReportToPresenceProbe(report: OffSitePresenceReport): Presenc
 }
 
 export function buildOffSiteDimensionScore(report: OffSitePresenceReport): DimensionScore {
+  const score = mapInfluenceToOffSiteScore(report.scores);
+  if (score == null) throw new Error('Insufficient evidence: no off-site score is available');
   return {
-    score: mapInfluenceToOffSiteScore(report.scores),
+    score,
     reasons: buildOffSitePresenceReasons(report),
   };
 }

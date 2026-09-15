@@ -6,11 +6,10 @@ import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Wand2, Copy, Check, FileCode, FileText, Globe, Edit3, Package, Settings } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api-client';
-import { AuditHelpBlurb, AuditReportIdFieldHelp } from '@/features/workspace/audit-help';
+import { AuditHelpBlurb } from '@/features/workspace/audit-help';
 import { AuditFirstGate } from '@/features/workspace/audit-first-gate';
 import { useWorkspaceTarget } from '@/features/workspace/workspace-target-context';
 import { CohortMotivationCard } from '@/components/geo/cohort-motivation-card';
@@ -52,7 +51,10 @@ export function OptimizeWorkspace() {
   const [auditId, setAuditId] = useState(search.get('auditId') ?? '');
   const [selectedType, setSelectedType] = useState<string>(search.get('type') ?? 'faq-schema');
   const [highlightId, setHighlightId] = useState<string | null>(null);
-  const [targetUrl, setTargetUrl] = useState('');
+  const [targetUrl, setTargetUrl] = useState(search.get('targetUrl') ?? search.get('pageUrl') ?? '');
+  const reports = useQuery<{ audits: Array<{ id: string; url: string; createdAt: string; status: string }> }>({
+    queryKey: ['optimize-reports'], queryFn: () => api.get('/api/geo-audit?limit=100'),
+  });
 
   useEffect(() => {
     const qAudit = search.get('auditId');
@@ -62,9 +64,8 @@ export function OptimizeWorkspace() {
       setAuditId(qAudit);
       return;
     }
-    if (lastAuditId) {
-      setAuditId((prev) => (prev.trim() ? prev : lastAuditId));
-    }
+    setAuditId(lastAuditId ?? '');
+    setTargetUrl('');
   }, [search, lastAuditId]);
 
   const generate = useMutation({
@@ -104,7 +105,7 @@ export function OptimizeWorkspace() {
 
   const bypassAuditId = search.get('auditId');
 
-  const { data: auditData } = useQuery<{ audit: GeoAuditResult }>({
+  const { data: auditData, error: auditError } = useQuery<{ audit: GeoAuditResult }>({
     queryKey: ['optimize-audit', auditId.trim()],
     enabled: Boolean(auditId.trim()),
     queryFn: () => api.get(`/api/geo-audit/${auditId.trim()}`),
@@ -181,13 +182,12 @@ export function OptimizeWorkspace() {
           <label className="text-xs font-medium text-fg-muted uppercase tracking-wider mb-1.5 block">
             Which audit report?
           </label>
-          <Input
-            value={auditId}
-            onChange={(e) => setAuditId(e.target.value)}
-            placeholder="Filled automatically after GEO Audit"
-            className="font-mono text-xs"
-          />
-          <AuditReportIdFieldHelp />
+          <select aria-label="Audit report" value={auditId} onChange={e => { setAuditId(e.target.value); setTargetUrl(''); }} className="w-full rounded border border-border bg-bg p-2 text-sm">
+            <option value="">Select a report</option>
+            {audit && !reports.data?.audits.some(r => r.id === audit.id) && <option value={audit.id}>{audit.url} · {new Date(audit.createdAt).toLocaleDateString()}</option>}
+            {reports.data?.audits.filter(r => ['completed', 'partial'].includes(r.status)).map(r => <option key={r.id} value={r.id}>{r.url} · {new Date(r.createdAt).toLocaleString()} · {r.status}</option>)}
+          </select>
+          {auditError && <p role="alert" className="text-danger text-sm">This report could not be loaded. Select another report or return to Audit.</p>}
         </div>
 
         <div>
@@ -227,11 +227,11 @@ export function OptimizeWorkspace() {
         <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
           {generate.isSuccess && !generate.isPending && (
             <span className="text-[13px] text-fg-subtle mr-auto">
-              Last generated: <span className="text-fg-muted">{typeLabel}</span>
+              {generate.data?.artifact.content.trim() ? 'Draft ready:' : 'More evidence needed:'} <span className="text-fg-muted">{typeLabel}</span>
             </span>
           )}
           <Button
-            disabled={!auditId.trim() || generate.isPending}
+            disabled={!audit || generate.isPending}
             onClick={() => generate.mutate()}
           >
             {generate.isPending ? (
@@ -329,14 +329,14 @@ function ArtifactCard({
           <Badge variant="accent">{typeLabel}</Badge>
           {highlighted && (
             <Badge variant="outline" className="text-[12px]">
-              Just generated
+              {artifact.content.trim() ? 'Draft ready' : 'More evidence needed'}
             </Badge>
           )}
           <span className="text-[13px] text-fg-subtle">
             {new Date(artifact.createdAt).toLocaleString()}
           </span>
         </div>
-        <Button size="sm" variant="ghost" onClick={copy}>
+        <Button size="sm" variant="ghost" onClick={copy} disabled={!artifact.content.trim()}>
           {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
           {copied ? 'Copied' : 'Copy'}
         </Button>
@@ -347,8 +347,8 @@ function ArtifactCard({
         </div>
       )}
       <div className="p-4 space-y-2 text-sm">
-        <p>Page: {artifact.targetUrl} · Status: {artifact.disposition ?? 'draft'}</p>
-        <p className="text-xs">Evidence: {artifact.evidenceIds?.join(', ') || 'Historical draft: evidence references unavailable'}</p>
+        <p className="break-all">Page: {artifact.targetUrl} · Status: {(artifact.disposition ?? 'draft').replace(/_/g, ' ')}</p>
+        <Link className="text-xs text-accent hover:underline" href={`/audit/${artifact.auditId}#actions`}>Review source evidence in the report</Link>
         <div className="flex gap-2 flex-wrap">
           <Button size="sm" disabled={!artifact.content || action.isPending} onClick={() => action.mutate('applied')}>Mark applied</Button>
           <Button size="sm" variant="ghost" disabled={action.isPending} onClick={() => action.mutate('dismissed')}>Do not apply</Button>

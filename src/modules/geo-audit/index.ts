@@ -42,6 +42,11 @@ export { ObservationStatusSchema, EvidenceMethodSchema, EvidenceSchema, Criterio
 export type { ObservationStatus, EvidenceMethod, Evidence, CriterionResult, EvidenceBundle } from './evidence-schema';
 export { buildEvidenceBundle } from './evidence';
 export { selectAuditRootPage } from './root-page';
+export {
+  resolveAuditExecutionState,
+  resolveDisplayedAuditStatus,
+} from './resolve-audit-execution-state';
+export type { AuditReportStatus, AuditExecutionState } from './resolve-audit-execution-state';
 export { evaluateReadinessCriteria, READINESS_RULE_VERSION } from './criteria';
 export { computeReadinessScore } from './scoring-v3';
 export type { ReadinessScore } from './scoring-v3';
@@ -84,3 +89,4 @@ export {
   expandReason,
   isNegativeReason,
 } from './plain-language';
+export { canReadPage } from './current-observations';

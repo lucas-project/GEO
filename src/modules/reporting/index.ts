@@ -44,12 +44,31 @@ export const reportingService = {
 
     if (bundle.audit) {
       parts.push(`<h2>Audit: ${escapeHtml(bundle.audit.url)}</h2>`);
+      const status = bundle.audit.status ?? bundle.audit.scoringMeta?.completion;
+      if (status === 'partial') {
+        parts.push(
+          '<p style="border:1px solid #f59e0b;background:#fffbeb;padding:0.75rem;border-radius:0.5rem"><strong>Partial audit</strong> — results are directional; evidence may be incomplete.',
+          bundle.audit.scoringMeta?.stopReason
+            ? ` Stop reason: ${escapeHtml(bundle.audit.scoringMeta.stopReason)}.`
+            : '',
+          '</p>',
+        );
+      }
       const readiness = bundle.audit.scoringMeta?.readiness;
       parts.push(
         readiness
           ? `<p><strong>Content and technical readiness:</strong> ${readiness.score == null ? 'Insufficient evidence' : readiness.score} (coverage ${Math.round(readiness.coverage * 100)}%)</p>`
           : `<p><strong>Overall score:</strong> ${bundle.audit.overallScore} (historical estimate)</p>`,
       );
+      if (bundle.audit.scoringMeta?.auditedPages != null) {
+        parts.push(
+          `<p><strong>Page sample:</strong> ${bundle.audit.scoringMeta.auditedPages}/${bundle.audit.scoringMeta.requestedPages ?? '?'} requested pages audited` +
+            (bundle.audit.scoringMeta.sampleCoverageStatus
+              ? ` (${escapeHtml(bundle.audit.scoringMeta.sampleCoverageStatus)})`
+              : '') +
+            '</p>',
+        );
+      }
       if (bundle.audit.revision != null) parts.push(`<p><strong>Report revision:</strong> ${bundle.audit.revision}</p>`);
       if (bundle.audit.narrative) {
         parts.push(`<h3>Narrative</h3><p>${escapeHtml(bundle.audit.narrative)}</p>`);

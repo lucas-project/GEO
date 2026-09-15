@@ -28,11 +28,20 @@ import { prioritizePresenceUrls } from '@modules/brand-presence/prioritize-prese
 import { renderPage, type RenderProfile } from './browser/pool';
 import { detectBlockedPage } from './blocked-page';
 import {
+  classifyNavigationError,
+  detailForBlocked,
+  detailForObserved,
+  buildAcquisitionDetail,
+  type AcquisitionAttempt,
+  type FetchChannel,
+} from './acquisition';
+import {
   type CrawlOptions,
   CrawlOptionsSchema,
   type CrawlResult,
   type CrawledPage,
 } from './schemas';
+import { safeFetch } from '@shared/network/safe-fetch';
 
 const SCREENSHOT_DIR = path.join(process.cwd(), 'public', 'screenshots');
 
@@ -108,6 +117,102 @@ async function renderCrawledPage(
   };
 }
 
+function waitConditionForProfile(profile: RenderProfile): string {
+  return profile === 'discovery' ? 'commit' : 'domcontentloaded';
+}
+
+async function httpFallbackProbe(
+  url: string,
+  opts: { timeoutMs: number; signal?: AbortSignal },
+): Promise<{
+  ok: boolean;
+  statusCode: number;
+  finalUrl: string;
+  html: string | null;
+  title: string | null;
+  contentType: string | null;
+  elapsedMs: number;
+  error?: string;
+}> {
+  const t0 = Date.now();
+  try {
+    const response = await safeFetch(
+      url,
+      {
+        method: 'GET',
+        headers: {
+          Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+          'User-Agent': 'GEO-AuditBot/1.0 (+https://geo.local)',
+        },
+        signal: opts.signal,
+      },
+      { timeoutMs: Math.min(opts.timeoutMs, 15_000), maxBytes: 2 * 1024 * 1024 },
+    );
+    const contentType = response.headers.get('content-type');
+    const html = await response.text();
+    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    return {
+      ok: response.ok && Boolean(html?.trim()),
+      statusCode: response.status,
+      finalUrl: response.url || url,
+      html: html || null,
+      title: titleMatch?.[1]?.trim() || null,
+      contentType,
+      elapsedMs: Date.now() - t0,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      statusCode: 0,
+      finalUrl: url,
+      html: null,
+      title: null,
+      contentType: null,
+      elapsedMs: Date.now() - t0,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+function withAcquisitionMeta(
+  page: CrawledPage,
+  meta: {
+    fetchChannel: FetchChannel;
+    retryCount: number;
+    attempts: AcquisitionAttempt[];
+    waitCondition: string;
+  },
+): CrawledPage {
+  if (page.fetchStatus === 'blocked') {
+    return {
+      ...page,
+      fetchChannel: meta.fetchChannel,
+      acquisitionDetail: detailForBlocked({
+        reason: page.blockReason ?? page.error,
+        elapsedMs: page.durationMs,
+        httpStatus: page.statusCode || undefined,
+        finalUrl: page.finalUrl,
+        fetchChannel: meta.fetchChannel,
+        retryCount: meta.retryCount,
+        attempts: meta.attempts,
+      }),
+    };
+  }
+  return {
+    ...page,
+    fetchChannel: meta.fetchChannel,
+    acquisitionDetail: detailForObserved({
+      elapsedMs: page.durationMs,
+      httpStatus: page.statusCode || undefined,
+      finalUrl: page.finalUrl,
+      fetchChannel: meta.fetchChannel,
+      browserRenderComplete: meta.fetchChannel !== 'http',
+      retryCount: meta.retryCount,
+      attempts: meta.attempts,
+    }),
+  };
+}
+
 export async function crawlSinglePage(
   url: string,
   opts: {
@@ -121,10 +226,32 @@ export async function crawlSinglePage(
   },
 ): Promise<CrawledPage> {
   const t0 = Date.now();
+  const profile = opts.profile ?? 'audit';
+  const waitCondition = waitConditionForProfile(profile);
+  const attempts: AcquisitionAttempt[] = [];
+  let retryCount = 0;
+  let fetchChannel: FetchChannel = 'stealth';
+  let lastError: unknown = null;
+  let headedTried = false;
+
+  const recordAttempt = (
+    channel: FetchChannel,
+    outcome: AcquisitionAttempt['outcome'],
+    started: number,
+    extra?: Partial<AcquisitionAttempt>,
+  ) => {
+    attempts.push({
+      channel,
+      outcome,
+      elapsedMs: Date.now() - started,
+      ...extra,
+    });
+  };
+
   try {
-    const profile = opts.profile ?? 'audit';
+    const stealthStarted = Date.now();
     let page = await renderCrawledPage(url, { ...opts, profile });
-    let fetchChannel: CrawledPage['fetchChannel'] = 'stealth';
+    fetchChannel = 'stealth';
 
     const blocked = detectBlockedPage({
       statusCode: page.statusCode,
@@ -132,53 +259,242 @@ export async function crawlSinglePage(
       title: page.title,
     });
 
-    if (
-      blocked.blocked &&
-      config.crawl.headless &&
-      config.crawl.retryHeadedOnBlock &&
-      profile !== 'discovery'
-    ) {
-      if (profile === 'off-site') {
-        const retryEngine =
-          config.presenceProbe.browser === 'cloak'
-            ? 'headed CloakBrowser'
-            : config.presenceProbe.browser === 'chromium'
-              ? 'headed Chromium'
-              : 'headed Firefox';
-        crawlLogger.info({ url }, `WAF block in headless mode — retrying with ${retryEngine}`);
-      } else {
-        crawlLogger.info(
-          { url, channel: config.crawl.wafRetryChromeChannel },
-          'WAF block in headless mode — retrying with system Chrome',
-        );
+    if (blocked.blocked) {
+      recordAttempt('stealth', 'failed', stealthStarted, {
+        reasonCode: 'waf_block',
+        technicalMessage: blocked.reason ?? undefined,
+      });
+
+      if (
+        config.crawl.headless &&
+        config.crawl.retryHeadedOnBlock &&
+        profile !== 'discovery'
+      ) {
+        if (profile === 'off-site') {
+          const retryEngine =
+            config.presenceProbe.browser === 'cloak'
+              ? 'headed CloakBrowser'
+              : config.presenceProbe.browser === 'chromium'
+                ? 'headed Chromium'
+                : 'headed Firefox';
+          crawlLogger.info({ url }, `WAF block in headless mode — retrying with ${retryEngine}`);
+        } else {
+          crawlLogger.info(
+            { url, channel: config.crawl.wafRetryChromeChannel },
+            'WAF block in headless mode — retrying with system Chrome',
+          );
+        }
+        const headedStarted = Date.now();
+        headedTried = true;
+        retryCount += 1;
+        try {
+          page = await renderCrawledPage(url, { ...opts, profile, headless: false });
+          fetchChannel = 'headed';
+          const stillBlocked = detectBlockedPage({
+            statusCode: page.statusCode,
+            html: page.renderedHtml ?? page.html,
+            title: page.title,
+          });
+          recordAttempt(
+            'headed',
+            stillBlocked.blocked ? 'failed' : 'success',
+            headedStarted,
+            {
+              reasonCode: stillBlocked.blocked ? 'waf_block' : 'observed_ok',
+              technicalMessage: stillBlocked.reason ?? undefined,
+            },
+          );
+        } catch (headedErr) {
+          lastError = headedErr;
+          const classified = classifyNavigationError(headedErr);
+          recordAttempt('headed', 'failed', headedStarted, {
+            reasonCode: classified.reasonCode,
+            technicalMessage: classified.technicalMessage,
+          });
+          throw headedErr;
+        }
       }
-      page = await renderCrawledPage(url, { ...opts, profile, headless: false });
-      fetchChannel = 'headed';
+    } else {
+      recordAttempt('stealth', 'success', stealthStarted, { reasonCode: 'observed_ok' });
     }
 
-    return { ...page, fetchChannel };
+    return withAcquisitionMeta(page, {
+      fetchChannel,
+      retryCount,
+      attempts,
+      waitCondition,
+    });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    crawlLogger.warn({ url, err: message }, 'page render failed');
+    lastError = err;
+    const classified = classifyNavigationError(err);
+    if (attempts.length === 0) {
+      recordAttempt('stealth', 'failed', t0, {
+        reasonCode: classified.reasonCode,
+        technicalMessage: classified.technicalMessage,
+      });
+    }
+
+    crawlLogger.warn(
+      { url, err: classified.technicalMessage, reasonCode: classified.reasonCode },
+      'page render failed',
+    );
+
+    // One headed retry for retryable navigation failures (not already tried via WAF path).
+    if (
+      !headedTried &&
+      config.crawl.headless &&
+      config.crawl.retryHeadedOnBlock &&
+      profile !== 'discovery' &&
+      (classified.fetchStatus === 'timeout' ||
+        classified.reasonCode === 'err_failed_unclassified' ||
+        classified.reasonCode === 'connection_reset')
+    ) {
+      const headedStarted = Date.now();
+      headedTried = true;
+      retryCount += 1;
+      try {
+        crawlLogger.info({ url }, 'Navigation failure — retrying once headed');
+        const page = await renderCrawledPage(url, { ...opts, profile, headless: false });
+        fetchChannel = 'headed';
+        const blocked = detectBlockedPage({
+          statusCode: page.statusCode,
+          html: page.renderedHtml ?? page.html,
+          title: page.title,
+        });
+        recordAttempt(
+          'headed',
+          blocked.blocked ? 'failed' : 'success',
+          headedStarted,
+          {
+            reasonCode: blocked.blocked ? 'waf_block' : 'observed_ok',
+            technicalMessage: blocked.reason ?? undefined,
+          },
+        );
+        if (!blocked.blocked) {
+          return withAcquisitionMeta(page, {
+            fetchChannel,
+            retryCount,
+            attempts,
+            waitCondition,
+          });
+        }
+      } catch (headedErr) {
+        lastError = headedErr;
+        const headedClassified = classifyNavigationError(headedErr);
+        recordAttempt('headed', 'failed', headedStarted, {
+          reasonCode: headedClassified.reasonCode,
+          technicalMessage: headedClassified.technicalMessage,
+        });
+      }
+    }
+
+    // One short HTTP GET fallback when browser navigation failed.
+    const httpStarted = Date.now();
+    retryCount += 1;
+    const http = await httpFallbackProbe(url, {
+      timeoutMs: opts.timeoutMs,
+      signal: opts.signal,
+    });
+
+    if (http.ok && http.html) {
+      const httpBlocked = detectBlockedPage({
+        statusCode: http.statusCode,
+        html: http.html,
+        title: http.title,
+      });
+      if (!httpBlocked.blocked) {
+        recordAttempt('http', 'success', httpStarted, { reasonCode: 'http_partial_observed' });
+        const durationMs = Date.now() - t0;
+        return {
+          url,
+          finalUrl: http.finalUrl,
+          statusCode: http.statusCode,
+          contentType: http.contentType,
+          html: http.html,
+          renderedHtml: http.html,
+          title: http.title,
+          fetchedAt: new Date().toISOString(),
+          durationMs,
+          screenshotPath: null,
+          error: null,
+          hydrationDelta: null,
+          performance: null,
+          fetchChannel: 'http',
+          fetchStatus: 'observed',
+          contentHash: createHash('sha256').update(http.html).digest('hex'),
+          htmlTruncated: false,
+          rawHtmlAvailable: true,
+          renderedHtmlAvailable: true,
+          fetchProfile: profile,
+          acquisitionDetail: detailForObserved({
+            elapsedMs: durationMs,
+            httpStatus: http.statusCode,
+            finalUrl: http.finalUrl,
+            fetchChannel: 'http',
+            browserRenderComplete: false,
+            retryCount,
+            attempts,
+            technicalMessage:
+              'Browser render incomplete; content captured via HTTP GET fallback only.',
+          }),
+        };
+      }
+      recordAttempt('http', 'failed', httpStarted, {
+        reasonCode: 'waf_block',
+        technicalMessage: httpBlocked.reason ?? undefined,
+      });
+    } else {
+      const httpClassified = classifyNavigationError(
+        http.error ?? `HTTP ${http.statusCode}`,
+        { httpStatus: http.statusCode || undefined },
+      );
+      recordAttempt('http', 'failed', httpStarted, {
+        reasonCode: httpClassified.reasonCode,
+        technicalMessage: httpClassified.technicalMessage,
+      });
+    }
+
+    const finalClassified = classifyNavigationError(lastError ?? err, {
+      httpStatus: http.statusCode || undefined,
+    });
+    const durationMs = Date.now() - t0;
     return {
       url,
       finalUrl: url,
-      statusCode: 0,
+      statusCode: http.statusCode || 0,
       contentType: null,
       html: null,
       renderedHtml: null,
       title: null,
       fetchedAt: new Date().toISOString(),
-      durationMs: Date.now() - t0,
+      durationMs,
       screenshotPath: null,
-      error: message,
+      error: finalClassified.userMessage,
       hydrationDelta: null,
       performance: null,
-      fetchStatus: /timeout/i.test(message) ? 'timeout' : 'legacy_unknown',
-      blockReason: message,
+      fetchChannel,
+      fetchStatus: finalClassified.fetchStatus,
+      blockReason: finalClassified.technicalMessage,
       rawHtmlAvailable: false,
       renderedHtmlAvailable: false,
-      fetchProfile: opts.profile ?? 'audit',
+      fetchProfile: profile,
+      acquisitionDetail: {
+        ...buildAcquisitionDetail({
+          stage: 'navigation',
+          reasonCode: finalClassified.reasonCode,
+          technicalMessage: finalClassified.technicalMessage,
+          elapsedMs: durationMs,
+          httpStatus: http.statusCode || undefined,
+          finalUrl: url,
+          fetchChannel,
+          retryCount,
+          waitCondition,
+          browserRenderComplete: false,
+          attempts,
+        }),
+        userMessage: finalClassified.userMessage,
+        nextAction: finalClassified.nextAction,
+      },
     };
   }
 }

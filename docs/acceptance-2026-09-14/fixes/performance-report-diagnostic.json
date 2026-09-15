@@ -1,0 +1,55 @@
+{
+  "environment": "Next.js production server; local database; free-deterministic mode; mock AI; system Chrome; 1440x1000",
+  "runsPerRoute": 1,
+  "summary": [
+    {
+      "route": "/audit/cmtzu16ys0006acuk38s99e21",
+      "medianWallMs": 16164,
+      "medianTtfbMs": 435,
+      "medianDomContentLoadedMs": 461,
+      "medianLoadMs": 547,
+      "medianLcpMs": 1172,
+      "medianCls": 0.0308,
+      "medianTransferKb": 1507,
+      "medianResourceCount": 48
+    }
+  ],
+  "reportToOptimizeMs": 879,
+  "samples": [
+    {
+      "route": "/audit/cmtzu16ys0006acuk38s99e21",
+      "run": 1,
+      "status": 200,
+      "wallMs": 16164,
+      "ttfbMs": 435,
+      "domContentLoadedMs": 461,
+      "loadMs": 547,
+      "lcpMs": 1172,
+      "cls": 0.0308,
+      "transferKb": 1507,
+      "resourceCount": 48,
+      "slowestResources": [
+        {
+          "name": "/api/site-keywords",
+          "durationMs": 13611
+        },
+        {
+          "name": "/api/geo-audit/cmtzu16ys0006acuk38s99e21",
+          "durationMs": 538
+        },
+        {
+          "name": "/competitors",
+          "durationMs": 298
+        },
+        {
+          "name": "/",
+          "durationMs": 282
+        },
+        {
+          "name": "/audit",
+          "durationMs": 282
+        }
+      ]
+    }
+  ]
+}

@@ -63,6 +63,8 @@ const resolvedEmbeddingsProvider: InheritedAIProvider =
 
 export const config = {
   env: (process.env.NODE_ENV ?? 'development') as 'development' | 'production' | 'test',
+  /** Next.js imports route modules during build without starting the service. */
+  isBuild: process.env.NEXT_PHASE === 'phase-production-build',
   appUrl: process.env.APP_URL ?? 'http://localhost:3000',
   port: int(process.env.PORT, 3000),
 
@@ -93,6 +95,15 @@ export const config = {
 
   /** Optional: require `Authorization: Bearer …` or `x-geo-api-key` for /api/* */
   apiSecret: process.env.GEO_API_SECRET ?? '',
+
+  auth: {
+    cookieName: 'geo_session',
+    sessionDays: int(process.env.GEO_SESSION_DAYS, 30),
+    /** Required once, only to create the first workspace owner. */
+    bootstrapInviteCode: envSecret(process.env.GEO_BOOTSTRAP_INVITE_CODE),
+    /** Local compatibility only; production always requires a stored session. */
+    allowDevSession: bool(process.env.GEO_ALLOW_DEV_SESSION, process.env.NODE_ENV !== 'production'),
+  },
 
   runtime: {
     /** Free deterministic is the safe default; paid capabilities require an explicit opt-in. */

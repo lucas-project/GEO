@@ -68,7 +68,7 @@ export async function mergeOffSiteReportIntoAudit(
     const dimensions = normalizeDimensions(
       parseJson(row.dimensions, {} as Partial<Record<Dimension, DimensionScore>>),
     );
-    dimensions.offSitePresence = buildOffSiteDimensionScore(report);
+    if (report.scores.total != null) dimensions.offSitePresence = buildOffSiteDimensionScore(report);
     const storedMeta = parseScoringMeta(row.scoringMeta) ?? deriveScoringMetaFromDimensions(dimensions);
     const presenceProbe = mapReportToPresenceProbe(report);
     const mergedMeta: ScoringMeta = {

@@ -89,9 +89,7 @@ export function EnrichSuggestionsButton({
   return (
     <div className="mb-6 rounded-xl border border-border bg-bg-elevated p-4 space-y-3">
       <p className="text-sm text-fg-muted">
-        This audit was created before personalized AI questions and competitor suggestions were
-        available. Choose question types below, then generate them to unlock Simulate, Compare, and
-        your improvement plan.
+        Questions or competitor suggestions have not been generated for this report. Availability depends on the configured provider and captured page evidence.
       </p>
       <GenerateSimulationQuestions auditId={auditId} onCompleted={handleCompleted} />
     </div>

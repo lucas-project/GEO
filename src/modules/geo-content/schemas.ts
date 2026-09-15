@@ -14,7 +14,9 @@ export type GeoContentFormat = z.infer<typeof GeoContentFormatSchema>;
 export const GeoContentKeywordSchema = z.object({
   term: z.string(),
   relevance: z.number().min(0).max(1),
-  source: z.enum(['heading', 'title', 'description', 'faq', 'body']),
+  source: z.enum(['heading', 'title', 'description', 'faq', 'body', 'json_ld']),
+  confidence: z.number().min(0).max(1).optional(),
+  evidence: z.string().optional(),
 });
 export type GeoContentKeyword = z.infer<typeof GeoContentKeywordSchema>;
 

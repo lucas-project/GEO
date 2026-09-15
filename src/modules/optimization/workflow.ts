@@ -1,7 +1,8 @@
 import { prisma, parseJson } from '@shared/database/client';
 import { queue } from '@shared/queue';
 import { compareAuditSampleScopes } from '@modules/monitoring';
-import type { CriterionResult } from '@modules/geo-audit';
+import type { EvidenceBundle } from '@modules/geo-audit';
+import { compareTargetCriteria } from './verification';
 
 export async function disposeArtifact(id: string, disposition: 'applied' | 'dismissed') {
   const row = await prisma.optimizationSuggestion.findUnique({ where: { id } });
@@ -25,14 +26,12 @@ export async function readArtifactVerification(id: string) {
   if (!after) return { state: 'unavailable', items: [] };
   const scope = compareAuditSampleScopes(row.audit, after);
   if (!scope.comparable) return { state: 'not_comparable', reason: scope.reason, auditId: after.id, items: [] };
-  const criteria = (meta: string) => parseJson<{ readiness?: { criteria?: CriterionResult[] }; evidenceBundle?: { criteria: CriterionResult[] } }>(meta, {});
-  const beforeMeta = criteria(row.audit.scoringMeta), afterMeta = criteria(after.scoringMeta);
-  const beforeRules = beforeMeta.readiness?.criteria ?? beforeMeta.evidenceBundle?.criteria ?? [];
-  const afterRules = afterMeta.readiness?.criteria ?? afterMeta.evidenceBundle?.criteria ?? [];
-  const items = beforeRules.filter(c => c.outcome !== 'pass').map(c => {
-    const next = afterRules.find(n => n.criterionId === c.criterionId && n.ruleVersion === c.ruleVersion);
-    return { criterionId: c.criterionId, before: c.outcome, after: next?.outcome ?? 'unknown',
-      state: !next || next.outcome === 'unknown' ? 'cannot_determine' : next.outcome === 'pass' ? 'resolved' : 'still_present' };
-  });
+  const criteria = (meta: string) => parseJson<{ evidenceBundle?: EvidenceBundle }>(meta, {});
+  const beforeMeta = criteria(row.audit.scoringMeta).evidenceBundle;
+  const afterMeta = criteria(after.scoringMeta).evidenceBundle;
+  if (!beforeMeta || !afterMeta || !row.targetUrl) {
+    return { state: 'cannot_determine', reason: 'Target-page evidence is unavailable for this artifact.', auditId: after.id, items: [] };
+  }
+  const items = compareTargetCriteria({ before: beforeMeta, after: afterMeta, targetUrl: row.targetUrl, rootUrl: row.audit.url });
   return { state: items.length ? 'checked' : 'no_comparable_issues', auditId: after.id, items };
 }

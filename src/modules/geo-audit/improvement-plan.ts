@@ -47,6 +47,16 @@ function pushItem(
   items.push(item);
 }
 
+function artifactAppliesToAudit(artifactType: string, audit: GeoAuditResult): boolean {
+  const archetypes = new Set((audit.pageInventory?.pages ?? [])
+    .filter(page => page.audited)
+    .map(page => page.archetype)
+    .filter(Boolean));
+  if (artifactType === 'faq-schema') return archetypes.has('faq') || archetypes.has('qa');
+  if (artifactType === 'product-schema') return archetypes.has('product') || archetypes.has('homepage');
+  return true;
+}
+
 /** Build a ranked improvement plan from audit data — no LLM, pure heuristics. */
 export function buildImprovementPlan(audit: GeoAuditResult): ImprovementPlanItem[] {
   const { scoringMeta, topFixes, topIssues } = audit;
@@ -63,8 +73,8 @@ export function buildImprovementPlan(audit: GeoAuditResult): ImprovementPlanItem
   // 1. Top artifact fix for weakest dimension (or first artifact fix)
   const primaryFix =
     topFixes.find(
-      (f) => f.artifactType && f.artifactType !== 'generic' && f.dimension === weakest,
-    ) ?? topFixes.find((f) => f.artifactType && f.artifactType !== 'generic');
+      (f) => f.artifactType && f.artifactType !== 'generic' && artifactAppliesToAudit(f.artifactType, audit) && f.dimension === weakest,
+    ) ?? topFixes.find((f) => f.artifactType && f.artifactType !== 'generic' && artifactAppliesToAudit(f.artifactType, audit));
 
   if (primaryFix?.artifactType) {
     const label = ARTIFACT_LABELS[primaryFix.artifactType] ?? primaryFix.artifactType;
@@ -82,7 +92,7 @@ export function buildImprovementPlan(audit: GeoAuditResult): ImprovementPlanItem
   // Additional artifact fixes (excluding primary)
   for (const fix of topFixes) {
     if (items.length >= 7) break;
-    if (!fix.artifactType || fix.artifactType === 'generic') continue;
+    if (!fix.artifactType || fix.artifactType === 'generic' || !artifactAppliesToAudit(fix.artifactType, audit)) continue;
     if (primaryFix && fix.id === primaryFix.id) continue;
     const label = ARTIFACT_LABELS[fix.artifactType] ?? fix.artifactType;
     pushItem(items, {
@@ -150,7 +160,7 @@ export function buildImprovementPlan(audit: GeoAuditResult): ImprovementPlanItem
       id: 'presence-scan',
       kind: 'presence-scan',
       title: 'Scan off-site presence',
-      description: 'Find where your brand is missing on Reddit, reviews, and forums — then update your audit score.',
+      description: 'Collect off-site sources and distinguish verified profiles, observed mentions, blocked sources, and unknown coverage.',
       effort: 'medium',
       href: `/presence?url=${encodeURIComponent(audit.url)}`,
       status: 'pending',
@@ -160,7 +170,7 @@ export function buildImprovementPlan(audit: GeoAuditResult): ImprovementPlanItem
       id: 'presence-review',
       kind: 'presence-review',
       title: 'Review off-site action plan',
-      description: 'Profiles to claim, threads to join, and community gaps from your latest scan.',
+      description: 'Review captured sources, identity matches, and any gaps supported by observed evidence.',
       effort: 'low',
       href: '/presence',
       status: 'done',

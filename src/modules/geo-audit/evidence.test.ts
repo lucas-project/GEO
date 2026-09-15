@@ -83,6 +83,41 @@ describe('buildEvidenceBundle', () => {
     expect(bundle.coverage).toBe(0);
   });
 
+  it('treats unreachable acquisition as unknown, not content fail', () => {
+    const unreachable: CrawledPage = {
+      ...page('https://acme.com/docs', 'unreachable'),
+      statusCode: 0,
+      error: 'Could not connect',
+      acquisitionDetail: {
+        stage: 'navigation',
+        reasonCode: 'err_failed_unclassified',
+        userMessage: 'The page may work normally, but GEO could not finish loading it.',
+        nextAction: 'Retry once.',
+        technicalMessage: 'net::ERR_FAILED',
+      },
+    };
+    const bundle = buildEvidenceBundle({
+      crawl: crawl([unreachable]),
+      pageExtractions: [{ page: unreachable, extraction: extraction(unreachable.url, false) }],
+      capturedAt: '2026-09-12T00:00:02.000Z',
+    });
+    expect(bundle.criteria[0]?.outcome).toBe('unknown');
+    expect(bundle.criteria[0]?.confidenceReason).toContain("Excluded from this page's evidence");
+    expect(bundle.criteria[0]?.confidenceReason).not.toMatch(/ERR_FAILED|legacy_unknown/);
+  });
+
+  it('marks observed thin content as content fail, not acquisition unknown', () => {
+    const thin = page('https://acme.com/empty', 'observed');
+    const bundle = buildEvidenceBundle({
+      crawl: crawl([thin]),
+      pageExtractions: [{ page: thin, extraction: extraction(thin.url, false) }],
+      capturedAt: '2026-09-12T00:00:02.000Z',
+    });
+    const semantic = bundle.criteria.find((c) => c.criterionId === 'page.semantic_content');
+    expect(semantic?.outcome).toBe('fail');
+    expect(bundle.criteria.every((c) => c.outcome !== 'unknown')).toBe(true);
+  });
+
   it('emits page criteria and evidence locators for observed content', () => {
     const observed = page('https://acme.com', 'observed');
     const bundle = buildEvidenceBundle({

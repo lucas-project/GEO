@@ -381,6 +381,7 @@ export function SimulationRunner() {
   return (
     <AuditFirstGate featureName="the AI visibility test">
     <div className="space-y-3">
+      {!simulationAvailable && <p role="status" className="rounded border border-border p-4 text-sm text-fg-muted">Simulation unavailable: {simulationUnavailableMessage ?? 'Checking provider capability…'} You can review captured page evidence in your audit report.</p>}
       <SimulationHowItWorks />
 
       {hasBatch && (
@@ -397,7 +398,7 @@ export function SimulationRunner() {
             }
             summary={`${batchItems.length} questions · saved locally · rerun anytime`}
           >
-            {auditIdForGenerate && (
+            {simulationAvailable && auditIdForGenerate && (
               <SimulateCollapsibleSection
                 title="Generate questions"
                 defaultOpen={promptCount === 0}
@@ -453,7 +454,7 @@ export function SimulationRunner() {
         </div>
       )}
 
-      {!hasBatch && auditIdForGenerate && (
+      {simulationAvailable && !hasBatch && auditIdForGenerate && (
         <SimulateCollapsibleSection
           title="Generate questions"
           defaultOpen

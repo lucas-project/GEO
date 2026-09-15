@@ -4,6 +4,7 @@ import type { EntityPageInput } from './resolve-entity';
 
 const MIN_KEYWORDS = 5;
 const MAX_KEYWORDS = 10;
+const MIN_CONFIDENCE = 0.5;
 
 function parsePageSignals(html: string): {
   title: string;
@@ -35,7 +36,8 @@ function parsePageSignals(html: string): {
 }
 
 /**
- * Extract 5–10 short on-page keywords from crawled HTML (homepage / about).
+ * Extract short on-page keywords from crawled HTML (homepage / about).
+ * Low-confidence / insufficient-evidence pages return [].
  */
 export function detectSiteKeywordsFromPages(pages: EntityPageInput[]): string[] {
   if (!pages.length) return [];
@@ -54,7 +56,7 @@ export function detectSiteKeywordsFromPages(pages: EntityPageInput[]): string[] 
     if (plain.length > 80) chunkTexts.push(plain.slice(0, 800));
   }
 
-  const extracted = extractRelevantKeywords({
+  const extraction = extractRelevantKeywords({
     title,
     description,
     headings: headings.slice(0, 20),
@@ -62,9 +64,18 @@ export function detectSiteKeywordsFromPages(pages: EntityPageInput[]): string[] 
     chunkTexts: chunkTexts.slice(0, 6),
     tableTexts: [],
     limit: MAX_KEYWORDS,
+    minConfidence: MIN_CONFIDENCE,
   });
 
-  const terms = [...new Set(extracted.map((k) => k.term))];
+  if (extraction.status === 'insufficient_topic_evidence') return [];
+
+  const terms = [
+    ...new Set(
+      extraction.keywords
+        .filter((k) => (k.confidence ?? 0) >= MIN_CONFIDENCE)
+        .map((k) => k.term),
+    ),
+  ];
   return terms.slice(0, MAX_KEYWORDS);
 }
 

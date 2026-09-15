@@ -27,7 +27,7 @@ import { SiteKeywordChips } from '@/features/workspace/site-keyword-chips';
 import { brandMismatchMessage } from '@/lib/brand-url-match';
 import { api } from '@/lib/api-client';
 import { formatDate } from '@/lib/utils';
-import { toJson } from '@modules/off-site-presence';
+import { toJson, enforcePresenceEvidence, hasVerifiedProfile } from '@modules/off-site-presence';
 import type { OffSitePresenceReport, PlatformId } from '@modules/off-site-presence';
 import { PLATFORM_IDS } from '@modules/off-site-presence';
 import { PLATFORM_LABELS } from '@modules/brand-presence';
@@ -39,14 +39,7 @@ function platformLabel(id: PlatformId): string {
   return PLATFORM_LABELS[id as keyof typeof PLATFORM_LABELS] ?? id;
 }
 
-function bandLabel(band: OffSitePresenceReport['scores']['band']): string {
-  if (band === 'excellent') return 'Strong';
-  if (band === 'qualified') return 'Moderate';
-  return 'Needs work';
-}
-
 function PresenceCompactSummary({
-  report,
   auditId,
   scannedAt,
 }: {
@@ -60,10 +53,9 @@ function PresenceCompactSummary({
         <div>
           <p className="text-sm text-fg">
             Off-site influence:{' '}
-            <span className="font-semibold tabular-nums">{Math.round(report.scores.total)}</span>
-            <span className="text-fg-muted">/100</span>
+            <span className="font-semibold">Insufficient evidence</span>
             <Badge variant="outline" className="ml-2">
-              {bandLabel(report.scores.band)}
+              Not rated
             </Badge>
           </p>
           {scannedAt && (
@@ -88,7 +80,7 @@ function PresenceCompactSummary({
 function PresenceActionPlan({ report, auditId }: { report: OffSitePresenceReport; auditId: string | null }) {
   const missingPlatforms = (PLATFORM_IDS as readonly PlatformId[])
     .map((id) => ({ id, result: report.platforms[id] }))
-    .filter(({ result }) => result && (result.status === 'unclaimed' || result.status === 'limited_data'))
+    .filter(({ result }) => result && hasVerifiedProfile(result) && result.status === 'unclaimed')
     .slice(0, 6);
 
   const topRedditPosts = (report.engagement?.redditDisplayPosts ?? report.engagement?.redditTopPosts ?? []).slice(0, 4);
@@ -270,9 +262,10 @@ export function PresenceProbeRunner() {
   /** When audit already has a scan and user hasn't run a newer probe, show actions only. */
   const showAuditOnlyView = hasAuditScan && !showRefreshForm && !isRunning && !fromFreshProbe;
 
-  const displayReport: OffSitePresenceReport | null = fromFreshProbe
+  const selectedReport: OffSitePresenceReport | null = fromFreshProbe
     ? report
     : auditScan ?? report ?? null;
+  const displayReport = selectedReport ? enforcePresenceEvidence(selectedReport) : null;
 
   const showFullPanel = Boolean(displayReport && !showAuditOnlyView);
   const showProbeForm = !hasAuditScan || showRefreshForm || isRunning;
@@ -404,11 +397,6 @@ export function PresenceProbeRunner() {
               )}
               {hasAuditScan ? 'Run fresh scan' : 'Run presence scan'}
             </Button>
-            {isRunning && (
-              <Button type="button" variant="outline" onClick={() => void cancelProbe()}>
-                Cancel
-              </Button>
-            )}
             {displayReport && showFullPanel && (
               <Button variant="secondary" size="sm" onClick={downloadJson}>
                 <Download className="h-3.5 w-3.5 mr-1.5" />

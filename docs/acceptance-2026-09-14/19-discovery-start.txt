@@ -1,0 +1,64 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+YOUR WEBSITE (USED IN EVERY PHASE)
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Brand name
+Clear site
+GEO Audit
+
+Crawls the page with Playwright, extracts entities and schema, scores 10 AI-visibility dimensions, and generates a fix plan. ~30–60 seconds.
+
+Page discovery and audits continue in the background if you switch tabs. When discovery finishes, return to Audit to pick pages and start the run.
+
+TARGET URL
+
+Find pages on your site, tick the ones you want, then start the audit.
+
+Find pages
+
+1 page found
+
+1 selected
+
+Grouped by page type. GEO priority recommends which pages to audit — not your final audit score.
+
+Top priority
+Homepage only
+Home
+1/1
+
+https://www.mdhome.com.au
+
+homepage page archetype · Prominent navigation link
+
+Required · homepage
+
+GEO priority 100
+Homepage
+Start audit · 1 page
+
+Could not audit https://example.com: The page may work normally for visitors, but GEO's automated browser could not finish loading it because of a network-level error. No verifiable content was retrieved, so this page was excluded from the score. We already tried stealth mode (playwright-extra) and installed Chrome in a visible window; some CDNs still block datacenter IPs. Try a staging URL, a subdomain that allows crawlers, or ask the site team to allowlist your audit IP.
+
+The site may require more time or the crawler was blocked. Try again or check the URL.
+
+Recent audits
+32 sites · latest mdhome.com.au

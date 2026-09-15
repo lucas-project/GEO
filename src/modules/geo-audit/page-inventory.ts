@@ -43,6 +43,7 @@ export function buildPageInventory(input: {
       audited,
       error: patch?.error ?? existing?.error ?? null,
       observationStatus: patch?.observationStatus ?? existing?.observationStatus,
+      acquisitionDetail: patch?.acquisitionDetail ?? existing?.acquisitionDetail,
     });
   };
 
@@ -53,6 +54,7 @@ export function buildPageInventory(input: {
     statusCode: root?.statusCode,
     error: root?.error,
     observationStatus: root?.fetchStatus,
+    acquisitionDetail: root?.acquisitionDetail,
   });
 
   for (const entry of crawl.sitemap) {
@@ -71,6 +73,7 @@ export function buildPageInventory(input: {
       statusCode: page.statusCode,
       error: page.error,
       observationStatus: page.fetchStatus,
+      acquisitionDetail: page.acquisitionDetail,
     });
   }
 

@@ -1,0 +1,51 @@
+{
+  "results": [
+    {
+      "test": "responsive-390",
+      "passed": true,
+      "dimensions": {
+        "viewport": 390,
+        "document": 390
+      }
+    },
+    {
+      "test": "responsive-768",
+      "passed": true,
+      "dimensions": {
+        "viewport": 768,
+        "document": 768
+      }
+    },
+    {
+      "test": "responsive-1440",
+      "passed": true,
+      "dimensions": {
+        "viewport": 1440,
+        "document": 1440
+      }
+    },
+    {
+      "test": "historical-report-handoff-and-reload",
+      "passed": true,
+      "auditId": "cmtzu16ys0006acuk38s99e21"
+    },
+    {
+      "test": "historical-geo-content",
+      "passed": true
+    },
+    {
+      "test": "historical-simulate",
+      "passed": true
+    },
+    {
+      "test": "homepage-one-of-one",
+      "passed": true,
+      "auditId": "cmu2gd0060002acpoircmifoe"
+    },
+    {
+      "test": "empty-faq-guard",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

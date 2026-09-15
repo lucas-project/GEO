@@ -1,0 +1,567 @@
+GEO AI OS
+GEO OS
+WORKSPACE
+Home
+AUDIT
+Audit
+Presence
+INTEL
+Simulate
+Compare
+OPTIMIZE
+Optimize
+Content
+MONITOR
+Monitor
+AGENT
+Agent
+BETA
+API-first GEO
+YOUR WEBSITE (USED IN EVERY PHASE)
+
+Enter once here — Audit, Presence, Content ideas, Optimize, and others reuse this URL.
+
+Latest audit report →
+Brand name
+Clear site
+Back to audits
+Partial audit result
+The crawl stopped before the requested sample was complete. Treat this report as directional and rerun it for full coverage.
+Page sample coverage is 20% (1/5 requested pages audited). Some findings may be incomplete.
+GEO REPORT
+https://example.com
+Sep 14, 10:43 PM
+·
+Open page
+·
+Export report
+Detected entity: Example Domain(needs review)
+94
+CONTENT & TECHNICAL READINESS
+Evidence-backed result · 100% coverage
+CITATION-RELATED SIGNALS
+0%
+
+On-page signals only. Run a compatible, evidence-backed experiment before drawing citation conclusions.
+
+NO CITATION EXPERIMENT
+
+Use this report in order
+
+1. Understand the result
+2. Prioritise improvements
+3. Review page coverage
+4. Explore technical detail
+5. Optional follow-up tools
+1. Understand the result
+
+Start with the summary and the main factor limiting this target website.
+
+Executive summary
+Content and technical readiness: 94/100. Evidence coverage is 100%; review the cited evidence before making changes.
+Why AI can't reliably cite this site
+
+The primary bottleneck is in the Outcome layer: Commercial Readiness (14/100). No pricing page or Product offers schema — AI struggles to answer cost questions
+
+2. Prioritise improvements
+
+Work through the highest-impact recommendations before opening the full technical detail.
+
+YOUR IMPROVEMENT PLAN
+
+Do these in order to improve how AI search engines understand and cite your site.
+
+1
+
+Generate FAQ schema
+
+low effort
+
+Fixes Citation Friendliness — your low-effort highest-impact on-site change.
+
+2
+
+Generate llms.txt
+
+low effort
+
+Improves AI Crawler Friendliness.
+
+3
+
+Generate AI summary
+
+medium effort
+
+Improves Summarization Quality.
+
+4
+
+Generate Product schema
+
+low effort
+
+Improves Structured Content.
+
+5
+
+Weak conversion and pricing signals
+
+high effort
+
+We flagged this under “Ready to convert visitors” (score 0/100). Missing signals make it harder for AI to connect your brand to trusted profiles or guide users toward a next step.
+
+6
+
+Missing organization or product schema
+
+high effort
+
+We flagged this under “Clear who and what the page is about” (score 0/100). The page lacks machine-readable labels (structured data) that tell AI systems what your business, products, or articles are.
+
+7
+
+Test AI visibility
+
+low effort
+
+See how AI search engines answer queries in your space and whether your brand is cited.
+
+3. Review page coverage
+
+See which pages contributed evidence. Add only representative unread pages when you need broader coverage.
+
+Pages on this site
+
+1 pages found: 1 read successfully. The score uses only the 1 pages read successfully.
+
+GEO priority recommends which unaudited pages to add next — not your audit score.
+
+All
+Read successfully (1)
+https://example.com
+
+Example Domain
+
+GEO successfully read this page and can analyse its title, content, and structured data.
+
+View details
+Read successfully
+GEO priority 100
+Included in score
+Homepage
+Audit more pages
+
+Find more URLs on this site, select the ones you want, then run Playwright on them. Scores and issues update when the job finishes.
+
+Find pages on this site
+4. Explore technical detail
+
+Use these diagnostics when you need to understand how the score was calculated.
+
+AI visibility pipeline
+
+AI visibility flows through five causal layers. Weak upstream layers cap downstream scores. Click  on a layer to see full criteria and scoring breakdown.
+Presence scores linked profiles on your site — run a deep presence scan for live platform data.
+
+FOUNDATION
+
+Can AI crawl, parse structure, and read markup?
+
+40
+AI Crawler Friendliness
+47
+Structured Content
+28
+Semantic Clarity
+46
+More details
+UNDERSTANDING
+
+Can AI understand entities, chunks, and trust signals?
+
+30
+Entity Clarity
+22
+Chunk Optimization
+36
+AI Readability
+43
+Trust Signals
+17
+More details
+PRESENCE
+
+Does AI see your brand beyond this website?
+
+18
+Off-site Presence
+18
+More details
+GENERATION
+
+Can AI extract answers and summarize content?
+
+25
+alone 56
+Answer Extraction
+78
+Summarization Quality
+28
+More details
+OUTCOME
+bottleneck
+
+Will AI cite this page as a source?
+
+14
+Citation Friendliness
+27
+Commercial Readiness
+0
+
+No pricing page or Product offers schema — AI struggles to answer cost questions
+
+More details
+Beyond your website
+Crawl-only
+
+Links on your site (footer/nav) plus optional external search when configured.
+
+18
+○ Reddit
+○ Quora
+○ G2
+○ Capterra
+○ Trustpilot
+○ LinkedIn
+○ X (Twitter)
+○ YouTube
+○ Facebook
+○ Instagram
+○ GitHub
+○ Xiaohongshu (小红书)
+○ Zhihu
+○ TikTok
+○ Amazon
+○ Whirlpool
+○ ProductReview.com.au
+○ OzBargain
+
+Run a deep Playwright probe across review and community sites (Whirlpool, ProductReview, OzBargain for .au domains; Quora and others globally). Updates this audit when complete (~2–4 min). Your audit score is not blocked while this runs.
+
+Run deep presence scan
+Open presence workspace →
+Pipeline snapshot
+
+Same five layers as AI visibility pipeline
+
+INDUSTRY REF
+323
+GEO blind spot
+Foundation
+Understanding
+Presence
+Generation
+Outcome
+Foundation
+40
+Understanding
+30
+Presence
+18
+Generation
+25(alone 56)
+Outcome
+14
+Quick stats
+PAGES AUDITED
+1 / 1
+ISSUES FOUND
+19
+FIXES GENERATED
+4
+STRONGEST DIMENSION
+Answer Extraction
+WEAKEST DIMENSION
+Commercial Readiness
+SCREENSHOT
+All issues (19)
+Expand technical detail
+5. Optional follow-up tools
+
+Use these only when they support your next decision. They are not required to understand the audit.
+
+Review this target website (optional)
+
+GEO automatically identified the organisation or brand represented by this target website. Check the name if you want more accurate brand-related recommendations, simulations, or off-site analysis.
+
+This is not ownership verification. Leaving it unchanged will not affect the basic crawl or audit score.
+
+Detected target: Example Domain· Needs review
+Review or edit target information
+What should we call this target?(optional)
+Use the public organisation or brand name, not the URL. If this is wrong, brand-specific results may be attributed to the wrong organisation.
+What kind of organisation is it?(optional)
+Manufacturer / brand
+Dealer / retailer
+Marketplace / platform
+Publisher / media
+Product / software company
+Service provider
+Not sure yet
+This only affects brand and market context; it does not change the technical audit score.
+Add more context (optional)
+
+Status: Needs review
+
+Save target information
+Add supporting evidence (optional)
+
+This audit was created before personalized AI questions and competitor suggestions were available. Choose question types below, then generate them to unlock Simulate, Compare, and your improvement plan.
+
+The list below shows only selected types. Each generate/regenerate adds up to 10 questions per selected type.
+
+Brand-specific
+Includes your brand name — tests whether AI correctly surfaces facts from your site (specs, policies, product lines).
+Customer discovery
+No brand named — simulates a shopper query with no site context or keyword hints. Scoring checks whether AI mentions you anyway.
+Generate questions
+
+Keep watching this site?
+
+Enable daily monitoring to catch GEO score drops, schema loss, and new issues automatically.
+
+Not now
+Enable daily monitoring · 1 page
+How you compare to similar sites
+Strong (80+)
+Fair (60–79)
+Needs work (below 60)
+
+Each card compares other websites in our database: average GEO score for sites that have a feature vs. sites that do not. Your site is marked separately — the bar numbers are group averages, not your personal score.
+
+Page structure
+
+How your pages are organized — headings, sections, and layout — compared with similar sites.
+
+Content split into clear sections
+Gap
+
+Not detected on your site — worth adding.
+
+Your overall GEO score
+23 / 100
+48
+Has this
+avg
++16
++50%
+32
+Missing
+avg
+YOU
+
+Bars = average of 93 other sites. Not your score.
+
+Your site lacks this (right).
+
+More
+Website structured data
+Gap
+
+Not detected on your site — worth adding.
+
+Your overall GEO score
+23 / 100
+49
+Has this
+avg
++12
++31%
+38
+Missing
+avg
+YOU
+
+Bars = average of 78 other sites. Not your score.
+
+Your site lacks this (right).
+
+More
+Person structured data on the page
+Gap
+
+Not detected on your site — worth adding.
+
+Your overall GEO score
+23 / 100
+54
+Has this
+avg
++11
++25%
+43
+Missing
+avg
+YOU
+
+Bars = average of 28 other sites. Not your score.
+
+Your site lacks this (right).
+
+More
+ImageObject structured data on the page
+Gap
+
+Not detected on your site — worth adding.
+
+Your overall GEO score
+23 / 100
+53
+Has this
+avg
++10
++23%
+43
+Missing
+avg
+YOU
+
+Bars = average of 35 other sites. Not your score.
+
+Your site lacks this (right).
+
+More
+Breadcrumb structured data
+Gap
+
+Not detected on your site — worth adding.
+
+Your overall GEO score
+23 / 100
+51
+Has this
+avg
++10
++26%
+40
+Missing
+avg
+YOU
+
+Bars = average of 60 other sites. Not your score.
+
+Your site lacks this (right).
+
+More
+Organization structured data
+Gap
+
+Not detected on your site — worth adding.
+
+Your overall GEO score
+23 / 100
+48
+Has this
+avg
++10
++26%
+38
+Missing
+avg
+YOU
+
+Bars = average of 82 other sites. Not your score.
+
+Your site lacks this (right).
+
+More
+Product structured data
+Gap
+
+Not detected on your site — worth adding.
+
+Your overall GEO score
+23 / 100
+53
+Has this
+avg
++9
++20%
+44
+Missing
+avg
+YOU
+
+Bars = average of 22 other sites. Not your score.
+
+Your site lacks this (right).
+
+More
+WebPage structured data on the page
+Gap
+
+Not detected on your site — worth adding.
+
+Your overall GEO score
+23 / 100
+50
+Has this
+avg
++8
++19%
+42
+Missing
+avg
+YOU
+
+Bars = average of 53 other sites. Not your score.
+
+Your site lacks this (right).
+
+More
+Article structured data
+Gap
+
+Not detected on your site — worth adding.
+
+Your overall GEO score
+23 / 100
+50
+Has this
+avg
++7
++16%
+43
+Missing
+avg
+YOU
+
+Bars = average of 49 other sites. Not your score.
+
+Your site lacks this (right).
+
+More
+Clean heading hierarchy (one main title, clear sections)
+On site
+
+Already on your site.
+
+Your overall GEO score
+23 / 100
+48
+Has this
+avg
+YOU
++4
++8%
+45
+Missing
+avg
+
+Bars = average of 42 other sites. Not your score.
+
+Your site has this (left).
+
+More

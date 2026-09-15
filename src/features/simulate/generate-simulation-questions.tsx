@@ -10,6 +10,7 @@ import { writeBackgroundJobMeta } from '@/features/workspace/background-jobs-con
 import { BACKGROUND_JOB_KEYS, BACKGROUND_JOB_META_KEYS } from '@/lib/background-job-keys';
 import { useBackgroundJobProgress } from '@/hooks/use-background-job-progress';
 import { usePersistedJobCompletion } from '@/hooks/use-persisted-job-completion';
+import { useSimulationPlatformConfig } from './use-simulation-platform-config';
 import {
   DEFAULT_QUESTION_TYPES,
   SimulationQuestionTypePicker,
@@ -39,6 +40,7 @@ export function GenerateSimulationQuestions({
   questionTypes: questionTypesProp,
   onQuestionTypesChange,
 }: GenerateSimulationQuestionsProps) {
+  const capability = useSimulationPlatformConfig();
   const [internalQuestionTypes, setInternalQuestionTypes] =
     useState<SimulationQuestionTypesState>(DEFAULT_QUESTION_TYPES);
   const questionTypes = questionTypesProp ?? internalQuestionTypes;
@@ -110,6 +112,8 @@ export function GenerateSimulationQuestions({
 
   const { progress: bgProgress, etaLabel } = useBackgroundJobProgress(persistKey);
   const progress = bgProgress ?? hookProgress;
+
+  if (!capability.data?.availability.available) return <p className="text-sm text-fg-muted" role="status">{capability.data?.availability.message ?? 'Checking provider capability…'} Review the audit evidence while question generation is unavailable.</p>;
 
   return (
     <div className={className}>
